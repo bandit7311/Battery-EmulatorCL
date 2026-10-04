@@ -240,8 +240,9 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
 
   /** /simulator page (02.10.): one bit per signal (bit i = sim_signals[i], see
    *  RENAULT-TWINGO-GEN1-BATTERY.h/.cpp). Default: the 10 "Installed" signals (bits 0-9) on, all 17
-   *  new ones off - matches the planning session. Persisted to NVM like evc_heartbeat_enabled. */
-  uint32_t simulator_enabled_mask;  // non-zero default set explicitly in the constructor below (memset(0))
+   *  new ones off - matches the planning session. Persisted to NVM like evc_heartbeat_enabled.
+   *  64 bit wide since 04.10. (35 rows): NVM key TWINGOSIMMASK holds bits 0-31 as before, TWINGOSIMHI bits 32+. */
+  uint64_t simulator_enabled_mask;  // non-zero default set explicitly in the constructor below (memset(0))
 
   /** EXPERIMENTAL (02.10.): when 0x55D is enabled on /simulator, send an unsourced static
    *  "drive/discharge active" byte pattern instead of the real-log steady-state content. Off by

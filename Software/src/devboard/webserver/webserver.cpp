@@ -208,8 +208,13 @@ void init_webserver() {
           prefs.getBool("TWINGOB009PR", datalayer_extended.twingoGen1.nvrol_b009_use_programming_session);
       datalayer_extended.twingoGen1.sleep_failsafe_minutes =
           (uint16_t)prefs.getUInt("TWINGOSLPMIN", datalayer_extended.twingoGen1.sleep_failsafe_minutes);
-      datalayer_extended.twingoGen1.simulator_enabled_mask =
-          prefs.getUInt("TWINGOSIMMASK", datalayer_extended.twingoGen1.simulator_enabled_mask);
+      {
+        // 64 bit mask since 04.10.: TWINGOSIMMASK = bits 0-31 (unchanged key), TWINGOSIMHI = bits 32 and up.
+        uint64_t current = datalayer_extended.twingoGen1.simulator_enabled_mask;
+        uint64_t lo = prefs.getUInt("TWINGOSIMMASK", (uint32_t)(current & 0xFFFFFFFFULL));
+        uint64_t hi = prefs.getUInt("TWINGOSIMHI", (uint32_t)(current >> 32));
+        datalayer_extended.twingoGen1.simulator_enabled_mask = (hi << 32) | lo;
+      }
       datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled =
           prefs.getBool("TWINGOSIM55DDRV", datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled);
       prefs.end();
@@ -811,7 +816,7 @@ void init_webserver() {
     request->send(200, "text/html", index_html, cellwatch_processor);
   });
 
-  // Route for going to the CAN Signal Simulator page (27 signals, see simulator_html.cpp)
+  // Route for going to the CAN Signal Simulator page (35 signals, see simulator_html.cpp)
   def_route_with_auth("/simulator", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/html", index_html, simulator_processor);
   });
@@ -824,22 +829,36 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
-  // One checkbox toggles one bit of simulator_enabled_mask, persisted to NVM as a single uint32.
+  // Switch A (04.10.): shutdown sequence, wake-up, 0x214 and end of the rows - 0 = as before (default), 1 = like the
+  // car. Runtime only, like the steady 0x350 frame above.
+  def_route_with_auth("/editTwingoCarMode", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      RenaultTwingoGen1Battery::shutdown_like_car = request->getParam("value")->value().toInt() != 0;
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  // Switch B (04.10.): vehicle age counter - 0 = clock (UTC, default), 1 = smooth minute counter. Runtime only.
+  def_route_with_auth("/editTwingoAgeMode", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      RenaultTwingoGen1Battery::age_counter_smooth = request->getParam("value")->value().toInt() != 0;
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  // One checkbox toggles one bit of simulator_enabled_mask (64 bit since 04.10.), persisted to NVM as two uint32
+  // (TWINGOSIMMASK = bits 0-31 as before, TWINGOSIMHI = bits 32 and up).
   def_route_with_auth("/editTwingoSimSignal", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (request->hasParam("index") && request->hasParam("value")) {
       int index = request->getParam("index")->value().toInt();
       bool enable = request->getParam("value")->value().toInt() != 0;
       if (index >= 0 && index < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT) {
-        uint32_t mask = datalayer_extended.twingoGen1.simulator_enabled_mask;
-        if (enable) {
-          mask |= (1UL << index);
-        } else {
-          mask &= ~(1UL << index);
-        }
-        datalayer_extended.twingoGen1.simulator_enabled_mask = mask;
+        RenaultTwingoGen1Battery::sim_row_set((uint8_t)index, enable);
+        uint64_t mask = datalayer_extended.twingoGen1.simulator_enabled_mask;
         Preferences prefs;
         prefs.begin("batterySettings", false);
-        prefs.putUInt("TWINGOSIMMASK", mask);
+        prefs.putUInt("TWINGOSIMMASK", (uint32_t)(mask & 0xFFFFFFFFULL));
+        prefs.putUInt("TWINGOSIMHI", (uint32_t)(mask >> 32));
         prefs.end();
       }
     }

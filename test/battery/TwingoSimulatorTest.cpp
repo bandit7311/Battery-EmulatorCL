@@ -85,7 +85,7 @@ int row_of(uint32_t id) {
   return -1;
 }
 
-void set_mask(uint32_t mask) {
+void set_mask(uint64_t mask) {
   datalayer_extended.twingoGen1.simulator_enabled_mask = mask;
 }
 
@@ -413,14 +413,14 @@ TEST(TwingoSimulatorSwitches, PlannedRowsStayOffByDefaultAndSwitchOnAndOff) {
   EXPECT_EQ(count_id(log, 0x186), n);
 }
 
-// Every one of the 18 P/A rows (index 10-27) is its own on/off switch: ticked -> frames of exactly that ID with the
+// Every one of the 25 P/A rows (index 10-34) is its own on/off switch: ticked -> frames of exactly that ID with the
 // interval of the table row, unticked -> nothing.
 TEST(TwingoSimulatorSwitches, EveryPlannedAndAssumedRowSwitchesOnAndOff) {
   datalayer.battery.status.voltage_dV = 3840;  // 0x42E only sends while the pack voltage is known
   for (int row = 10; row < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; row++) {
     const auto& sig = RenaultTwingoGen1Battery::sim_signals[row];
     for (int on = 0; on < 2; on++) {
-      set_mask(on ? (0x3FFu | (1u << row)) : 0x3FFu);
+      set_mask(on ? (0x3FFull | (1ull << row)) : 0x3FFull);
       TestTwingo b;
       b.setup();
       uint64_t t = 1000;
