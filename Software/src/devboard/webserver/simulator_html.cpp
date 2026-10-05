@@ -107,6 +107,25 @@ String simulator_processor(const String& var) {
         "<span class='note'>- runtime only. Smooth: +1 per minute, never a jump (the car's counter never jumps), "
         "pulled slowly towards the clock; not stored over a restart.</span></p>";
 
+    // Manual vehicle age (05.10.): own value in minutes, replaces clock and smooth counter while set.
+    content += "<p><b>Manual vehicle age:</b> <input type='number' id='ageManual' min='0' max='16777215' value='";
+    content += RenaultTwingoGen1Battery::age_manual_active ? String(RenaultTwingoGen1Battery::age_manual_start_min)
+                                                           : String("3");
+    content += "' style='width:9em'> minutes <button onclick=\"ageManualSet()\">Set</button> ";
+    content += "<button onclick=\"ageManualOff()\">Off</button> <span id='ageManualState'>";
+    content += RenaultTwingoGen1Battery::age_manual_active ? "ACTIVE - started at the value shown, +1 per minute"
+                                                           : "off - clock or smooth counter is used";
+    content +=
+        "</span> <span class='note'>- replaces the clock and the smooth counter in all 0x350 frames (steady, "
+        "shutdown, wake-up), runtime only. 24 bit: 0 to 16777215.</span></p>";
+    content += "<script>function ageManualSet(){var v=document.getElementById('ageManual').value;";
+    content += "fetch('/editTwingoAgeManual?value='+encodeURIComponent(v)).then(function(r){return r.text();})";
+    content += ".then(function(t){document.getElementById('ageManualState').textContent=";
+    content += "(t==='OK')?'ACTIVE - started at '+v+', +1 per minute':t;});}";
+    content += "function ageManualOff(){fetch('/editTwingoAgeManual?value=off').then(function(){";
+    content += "document.getElementById('ageManualState').textContent='off - clock or smooth counter is used';});}";
+    content += "</script>";
+
     content +=
         "<table><thead><tr><th>On</th><th>ID</th><th>Tag</th><th>Interval</th><th>In car log</th><th>Signal</th>"
         "<th>Sender</th><th>Meaning</th></tr></thead><tbody>";

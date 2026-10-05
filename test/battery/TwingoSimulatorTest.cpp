@@ -718,10 +718,11 @@ TEST(TwingoFreeQuery, RejectsInvalidInput) {
   EXPECT_STREQ(b.start_user_query("   "), "empty request");
   EXPECT_STREQ(b.start_user_query("22925G"), "invalid character (hex digits only)");
   EXPECT_STREQ(b.start_user_query("22925"), "odd number of hex digits");
-  EXPECT_STREQ(b.start_user_query("2E928100"), "only the read services 0x22 and 0x19 are allowed");
-  EXPECT_STREQ(b.start_user_query("14FFFFFF"), "only the read services 0x22 and 0x19 are allowed");
-  EXPECT_STREQ(b.start_user_query("10 03"), "only the read services 0x22 and 0x19 are allowed");
-  EXPECT_STREQ(b.start_user_query("31 01 B0 09"), "only the read services 0x22 and 0x19 are allowed");
+  const char* not_allowed = "only 0x22 and 0x19 (read) and 0x2E (write, 9261/91C1/91CF/925F/9281 only) are allowed";
+  EXPECT_STREQ(b.start_user_query("14FFFFFF"), not_allowed);
+  EXPECT_STREQ(b.start_user_query("10 03"), not_allowed);
+  EXPECT_STREQ(b.start_user_query("31 01 B0 09"), not_allowed);
+  EXPECT_STREQ(b.start_user_query("27 01"), not_allowed);
   EXPECT_STREQ(b.start_user_query("22"), "0x22 needs one or more 2-byte identifiers");
   EXPECT_STREQ(b.start_user_query("2292"), "0x22 needs one or more 2-byte identifiers");
   EXPECT_STREQ(b.start_user_query("22 92 5E 92"), "0x22 needs one or more 2-byte identifiers");
@@ -730,7 +731,8 @@ TEST(TwingoFreeQuery, RejectsInvalidInput) {
   EXPECT_STREQ(b.start_user_query(nullptr), "empty request");
   // None of the rejected inputs sent anything.
   clear_transmitted_frames();
-  b.start_user_query("2E928100");
+  b.start_user_query("2E902100");  // a write to an identifier that is not on the list
+  b.start_user_query("14FFFFFF");
   EXPECT_TRUE(get_transmitted_frames().empty());
 }
 
@@ -913,6 +915,328 @@ TEST(TwingoFreeQuery, ReadServiceTwentyTwoNeedsNoSession) {
   auto tx = diag_tx();
   ASSERT_EQ(tx.size(), 1u);
   EXPECT_EQ(tx[0].data.u8[1], 0x22);  // straight to the read request
+}
+
+// ---------------------------------------------------------------------------
+// Free request: write 0x2E (05.10.) - session, read before, write, answer
+// ---------------------------------------------------------------------------
+
+// Number of frames with the given service byte in the diagnostic frames of a log.
+static int count_diag_sid(const std::vector<Tx>& log, uint8_t sid) {
+  int n = 0;
+  for (const Tx& x : with_id(log, 0x18DADBF1, true)) {
+    if (x.f.data.u8[1] == sid) {
+      n++;
+    }
+  }
+  return n;
+}
+
+// Starts a write, lets the session gap pass so that the read before the write is on the bus.
+static void start_write_until_read(TestTwingo& b, const char* hex, uint64_t& t, std::vector<Tx>& log) {
+  set_millis64(1000);
+  t = 1000;
+  ASSERT_STREQ(b.start_user_query(hex), "OK");
+  run(b, t, 300, 50, log);
+}
+
+TEST(TwingoFreeWrite, OnlyTheListedIdentifiersCanBeWritten) {
+  for (const char* ok :
+       {"2E 92 61 00 00 03", "2E 91 C1 00 00 03", "2E 91 CF 00 00 00 00", "2E 92 5F 00 00 00 00", "2E 92 81 00"}) {
+    TestTwingo b;
+    b.setup();
+    EXPECT_STREQ(b.start_user_query(ok), "OK") << ok;
+  }
+  TestTwingo b;
+  b.setup();
+  const char* refused = "0x2E is only allowed for 9261, 91C1, 91CF, 925F and 9281";
+  EXPECT_STREQ(b.start_user_query("2E 90 21 00"), refused);        // a cell voltage
+  EXPECT_STREQ(b.start_user_query("2E 92 5E 13 88 6F"), refused);  // the vehicle ID
+  EXPECT_STREQ(b.start_user_query("2E 92 60 00"), refused);        // neighbour of 9261
+  EXPECT_STREQ(b.start_user_query("2E 92 61"), "0x2E needs a 2-byte identifier and 1 to 4 data bytes");
+  EXPECT_STREQ(b.start_user_query("2E 92"), "0x2E needs a 2-byte identifier and 1 to 4 data bytes");
+  EXPECT_STREQ(b.start_user_query("2E 92 61 00 00 00 00 00"), "too long (at most 7 bytes)");
+}
+
+TEST(TwingoFreeWrite, SessionThenReadBeforeThenWriteThenAnswerWithBeforeValue) {
+  TestTwingo b;
+  b.setup();
+  set_millis64(1000);
+  clear_transmitted_frames();
+  ASSERT_STREQ(b.start_user_query("2E 92 61 00 00 03"), "OK");
+  auto tx = diag_tx();
+  ASSERT_EQ(tx.size(), 1u);
+  EXPECT_EQ(tx[0].data.u8[1], 0x10);  // extended session first
+  EXPECT_EQ(tx[0].data.u8[2], 0x03);
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 300, 50, log);
+  EXPECT_EQ(count_diag_sid(log, 0x22), 1);  // the read of $9261 ...
+  EXPECT_EQ(count_diag_sid(log, 0x2E), 0);  // ... and no write yet
+  for (const Tx& x : with_id(log, 0x18DADBF1, true)) {
+    if (x.f.data.u8[1] == 0x22) {
+      EXPECT_EQ(x.f.data.u8[0], 0x03);
+      EXPECT_EQ(x.f.data.u8[2], 0x92);
+      EXPECT_EQ(x.f.data.u8[3], 0x61);
+    }
+  }
+  EXPECT_STREQ(b.user_query_result(), "requested");
+
+  clear_transmitted_frames();
+  b.handle_incoming_can_frame(did_reply(0x9261, {0x00, 0x00, 0x00}));  // value before: 0
+  tx = diag_tx();
+  ASSERT_EQ(tx.size(), 1u);  // the write follows the answer
+  EXPECT_EQ(tx[0].data.u8[0], 0x06);
+  EXPECT_EQ(tx[0].data.u8[1], 0x2E);
+  EXPECT_EQ(tx[0].data.u8[2], 0x92);
+  EXPECT_EQ(tx[0].data.u8[3], 0x61);
+  EXPECT_EQ(tx[0].data.u8[4], 0x00);
+  EXPECT_EQ(tx[0].data.u8[5], 0x00);
+  EXPECT_EQ(tx[0].data.u8[6], 0x03);
+  EXPECT_STREQ(b.user_query_result(), "requested");
+
+  b.handle_incoming_can_frame(reply_frame({0x03, 0x6E, 0x92, 0x61, 0, 0, 0, 0}));
+  EXPECT_STREQ(b.user_query_result(), "2E 92 61 00 00 03: before 00 00 00 -> OK 6E 92 61");
+  EXPECT_STREQ(b.start_user_query("22925E"), "OK");  // channel is free again
+}
+
+TEST(TwingoFreeWrite, NothingIsWrittenWhenTheReadBeforeIsRefused) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t;
+  std::vector<Tx> log;
+  start_write_until_read(b, "2E 92 61 00 00 03", t, log);
+  clear_transmitted_frames();
+  b.handle_incoming_can_frame(reply_frame({0x03, 0x7F, 0x22, 0x31, 0, 0, 0, 0}));
+  EXPECT_TRUE(diag_tx().empty());
+  EXPECT_STREQ(b.user_query_result(),
+               "2E 92 61 00 00 03: read before the write refused (NRC 0x31) - nothing was written");
+  EXPECT_STREQ(b.start_user_query("22925E"), "OK");
+}
+
+TEST(TwingoFreeWrite, NothingIsWrittenWhenTheReadBeforeIsNotAnswered) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t;
+  std::vector<Tx> log;
+  start_write_until_read(b, "2E 92 61 00 00 03", t, log);
+  run(b, t, 2500, 100, log);  // no answer: timeout
+  EXPECT_STREQ(b.user_query_result(), "no response to the read before the write - nothing was written");
+  EXPECT_EQ(count_diag_sid(log, 0x2E), 0);
+  EXPECT_STREQ(b.start_user_query("22925E"), "OK");
+}
+
+TEST(TwingoFreeWrite, NothingIsWrittenWhenTheLengthDiffers) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t;
+  std::vector<Tx> log;
+  start_write_until_read(b, "2E 92 61 00 03", t, log);  // 2 data bytes entered
+  clear_transmitted_frames();
+  b.handle_incoming_can_frame(did_reply(0x9261, {0x00, 0x00, 0x00}));  // the value has 3
+  EXPECT_TRUE(diag_tx().empty());
+  EXPECT_STREQ(b.user_query_result(), "2E 92 61 00 03: the value is 3 bytes long, 2 entered - nothing was written");
+}
+
+TEST(TwingoFreeWrite, ReadBeforeIgnoresAnAnswerForAnotherIdentifier) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t;
+  std::vector<Tx> log;
+  start_write_until_read(b, "2E 92 61 00 00 03", t, log);
+  clear_transmitted_frames();
+  b.handle_incoming_can_frame(did_reply(0x9072, {0x0C, 0xE4}));  // a late answer of the cell polling
+  EXPECT_TRUE(diag_tx().empty());                                // no write on that
+  EXPECT_STREQ(b.user_query_result(), "requested");
+}
+
+TEST(TwingoFreeWrite, NegativeAnswerToTheWriteShowsTheMeaningOfTheCode) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t;
+  std::vector<Tx> log;
+  start_write_until_read(b, "2E 92 61 00 00 03", t, log);
+  b.handle_incoming_can_frame(did_reply(0x9261, {0x00, 0x00, 0x00}));
+  b.handle_incoming_can_frame(reply_frame({0x03, 0x7F, 0x2E, 0x33, 0, 0, 0, 0}));
+  EXPECT_STREQ(b.user_query_result(),
+               "2E 92 61 00 00 03: before 00 00 00 -> NEGATIVE 7F 2E 33 (SID 0x2E, NRC 0x33) - security access denied");
+}
+
+TEST(TwingoFreeWrite, NegativeAnswerWithAnUnknownCodeStillShowsTheCode) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t;
+  std::vector<Tx> log;
+  start_write_until_read(b, "2E 92 81 01", t, log);
+  b.handle_incoming_can_frame(did_reply(0x9281, {0x00}));
+  b.handle_incoming_can_frame(reply_frame({0x03, 0x7F, 0x2E, 0x99, 0, 0, 0, 0}));
+  EXPECT_STREQ(b.user_query_result(), "2E 92 81 01: before 00 -> NEGATIVE 7F 2E 99 (SID 0x2E, NRC 0x99)");
+}
+
+TEST(TwingoFreeWrite, NoAnswerToTheWriteSaysThatItIsNotKnownWhetherItWasWritten) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t;
+  std::vector<Tx> log;
+  start_write_until_read(b, "2E 92 61 00 00 03", t, log);
+  clear_transmitted_frames();
+  b.handle_incoming_can_frame(did_reply(0x9261, {0x00, 0x00, 0x00}));
+  ASSERT_EQ(diag_tx().size(), 1u);  // the write goes out when the read has been answered
+  EXPECT_EQ(diag_tx()[0].data.u8[1], 0x2E);
+  log.clear();
+  run(b, t, 2500, 100, log);
+  EXPECT_EQ(count_diag_sid(log, 0x2E), 0);  // and is not repeated
+  EXPECT_STREQ(b.user_query_result(),
+               "no response to the write - not known whether it was written, read the value again");
+  EXPECT_STREQ(b.start_user_query("22925E"), "OK");
+}
+
+TEST(TwingoFreeWrite, ResponsePendingToTheWriteKeepsWaiting) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t;
+  std::vector<Tx> log;
+  start_write_until_read(b, "2E 92 61 00 00 03", t, log);
+  b.handle_incoming_can_frame(did_reply(0x9261, {0x00, 0x00, 0x00}));
+  run(b, t, 1500, 100, log);
+  b.handle_incoming_can_frame(reply_frame({0x03, 0x7F, 0x2E, 0x78, 0, 0, 0, 0}));  // pending restarts the timeout
+  run(b, t, 1500, 100, log);
+  EXPECT_STREQ(b.user_query_result(), "requested");
+  b.handle_incoming_can_frame(reply_frame({0x03, 0x6E, 0x92, 0x61, 0, 0, 0, 0}));
+  EXPECT_STREQ(b.user_query_result(), "2E 92 61 00 00 03: before 00 00 00 -> OK 6E 92 61");
+}
+
+TEST(TwingoFreeWrite, CellPollingIsPausedWhileTheWriteRuns) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 700, 100, log);
+  ASSERT_STREQ(b.start_user_query("2E 92 61 00 00 03"), "OK");
+  log.clear();
+  run(b, t, 1500, 100, log);
+  for (const Tx& x : with_id(log, 0x18DADBF1, true)) {  // only the session, the read before and nothing else
+    EXPECT_TRUE(x.f.data.u8[1] == 0x22 || x.f.data.u8[1] == 0x10) << "SID " << (int)x.f.data.u8[1];
+  }
+  EXPECT_EQ(count_diag_sid(log, 0x22), 1);
+}
+
+// ---------------------------------------------------------------------------
+// Manual vehicle age (05.10.)
+// ---------------------------------------------------------------------------
+
+// Resets the runtime-only age switches after each test (they are static).
+struct AgeGuard {
+  ~AgeGuard() {
+    RenaultTwingoGen1Battery::age_manual_clear();
+    RenaultTwingoGen1Battery::age_counter_smooth = false;
+  }
+};
+
+static uint32_t age_of(const Tx& x) {
+  return ((uint32_t)x.f.data.u8[1] << 16) | ((uint32_t)x.f.data.u8[2] << 8) | x.f.data.u8[3];
+}
+
+TEST(TwingoManualAge, SendsTheEnteredValueAndCountsOnePerMinute) {
+  AgeGuard guard;
+  TestTwingo b;
+  b.setup();
+  b.unix_set = true;
+  b.unix_now = AGE_EPOCH + 2959882LL * 60;
+  set_millis64(1000);
+  RenaultTwingoGen1Battery::age_manual_set(3);
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 200, 100, log);
+  auto f = with_id(log, 0x350);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(f.back().f.data.u8[1], 0x00);
+  EXPECT_EQ(f.back().f.data.u8[2], 0x00);
+  EXPECT_EQ(f.back().f.data.u8[3], 0x03);  // not the clock value 2959882
+  log.clear();
+  run(b, t, 60000, 100, log);  // one minute later
+  f = with_id(log, 0x350);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(age_of(f.back()), 4u);
+}
+
+TEST(TwingoManualAge, HasPriorityOverTheSmoothCounterAndOffReturnsToIt) {
+  AgeGuard guard;
+  TestTwingo b;
+  b.setup();
+  b.unix_set = true;
+  b.unix_now = AGE_EPOCH + 2959882LL * 60;
+  RenaultTwingoGen1Battery::age_counter_smooth = true;
+  set_millis64(1000);
+  RenaultTwingoGen1Battery::age_manual_set(77);
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 200, 100, log);
+  auto f = with_id(log, 0x350);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(age_of(f.back()), 77u);
+  RenaultTwingoGen1Battery::age_manual_clear();
+  log.clear();
+  run(b, t, 200, 100, log);
+  f = with_id(log, 0x350);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(age_of(f.back()), 2959882u);  // the smooth counter takes the clock value
+}
+
+TEST(TwingoManualAge, OffReturnsToTheClock) {
+  AgeGuard guard;
+  TestTwingo b;
+  b.setup();
+  b.unix_set = true;
+  b.unix_now = AGE_EPOCH + 2959882LL * 60;
+  set_millis64(1000);
+  RenaultTwingoGen1Battery::age_manual_set(5);
+  RenaultTwingoGen1Battery::age_manual_clear();
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 200, 100, log);
+  auto f = with_id(log, 0x350);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(age_of(f.back()), 2959882u);
+}
+
+TEST(TwingoManualAge, ValueIsLimitedTo24Bit) {
+  AgeGuard guard;
+  TestTwingo b;
+  b.setup();
+  set_millis64(1000);
+  RenaultTwingoGen1Battery::age_manual_set(0xFFFFFFFFu);
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 200, 100, log);
+  auto f = with_id(log, 0x350);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(age_of(f.back()), 0xFFFFFFu);
+}
+
+TEST(TwingoManualAge, TheShutdownAndTheWakeBurstUseItToo) {
+  AgeGuard guard;
+  TestTwingo b;
+  b.setup();
+  set_millis64(1000);
+  RenaultTwingoGen1Battery::age_manual_set(3);
+  b.request_sleep();
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 3000, 50, log);  // the first stages of the shutdown sequence
+  auto f = with_id(log, 0x350);
+  ASSERT_FALSE(f.empty());
+  for (const Tx& x : f) {
+    EXPECT_EQ(age_of(x), 3u) << "frame at " << x.t << " ms";
+  }
+  b.request_wake_up();
+  log.clear();
+  run(b, t, 3000, 50, log);  // wake burst
+  f = with_id(log, 0x350);
+  ASSERT_FALSE(f.empty());
+  for (const Tx& x : f) {
+    EXPECT_EQ(age_of(x), 3u) << "frame at " << x.t << " ms";
+  }
 }
 
 TEST(TwingoFreeQuery, CellPollingIsPausedWhileTheRequestRuns) {

@@ -986,12 +986,29 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
 // Vehicle age (0x350 bytes 1-3), minutes since 15.02.2021 11:13:08 UTC - see the comment at the declaration.
 bool RenaultTwingoGen1Battery::age_counter_smooth = false;
 bool RenaultTwingoGen1Battery::shutdown_like_car = false;
+bool RenaultTwingoGen1Battery::age_manual_active = false;
+uint32_t RenaultTwingoGen1Battery::age_manual_start_min = 0;
+unsigned long RenaultTwingoGen1Battery::age_manual_set_ms = 0;
 
-// Vehicle age as 0x350 bytes 1-3 carry it: the clock value (see vehicle_age_clock_minutes()) or, with switch B, the
+void RenaultTwingoGen1Battery::age_manual_set(uint32_t minutes) {
+  age_manual_start_min = (minutes > AGE_MANUAL_MAX) ? AGE_MANUAL_MAX : minutes;
+  age_manual_set_ms = millis();
+  age_manual_active = true;
+}
+
+void RenaultTwingoGen1Battery::age_manual_clear() {
+  age_manual_active = false;
+}
+
+// Vehicle age as 0x350 bytes 1-3 carry it: the manually entered value (age_manual_set(), +1 per full minute since
+// it was entered) or the clock value (see vehicle_age_clock_minutes()) or, with switch B, the
 // smooth minute counter. The smooth counter takes the clock value once, then adds exactly +1 per full minute of
 // run time. If the clock value is ahead, it adds one extra minute per minute (AGE_SLEW_MIN_PER_MIN) until it has
 // caught up; if the clock value is behind, it skips one step per minute instead (so it never goes backwards).
 uint32_t RenaultTwingoGen1Battery::vehicle_age_minutes(unsigned long nowMillis) {
+  if (age_manual_active) {
+    return age_manual_start_min + (uint32_t)((nowMillis - age_manual_set_ms) / 60000UL);
+  }
   uint32_t clock_min = vehicle_age_clock_minutes(nowMillis);
   if (!age_counter_smooth) {
     age_smooth_started = false;  // switching it on again later starts again at the clock value
@@ -2931,11 +2948,17 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
         "<h4><button onclick=\"window.open('/simulator','_blank')\">Open CAN Signal Simulator page</button>"
         " - 35 individually toggleable cyclic signals</h4>";
 
-    // Free read request (03.10.): input field, Query button and answer field. Only the read services 0x22 and
-    // 0x19 are accepted (see start_user_query()). The answer is polled from /twingoQueryResult.
+    // Free request (03.10., write added 05.10.): input field, Query button and answer field. The read services
+    // 0x22 and 0x19 and the write service 0x2E for a fixed list of identifiers are accepted (see
+    // start_user_query()). The answer is polled from /twingoQueryResult.
     content +=
-        "<h4>Free read request (0x22 / 0x19): <input type='text' id='twingoQueryHex' size='20' maxlength='24' "
-        "placeholder='22925E'> <button onclick='twingoQuery()'>Query</button></h4>";
+        "<h4>Free request (0x22 / 0x19 read, 0x2E write): <input type='text' id='twingoQueryHex' size='20' "
+        "maxlength='24' placeholder='22925E'> <button onclick='twingoQuery()'>Query</button></h4>";
+    content +=
+        "<p style='margin:0 0 6px 0;font-size:0.85em;'>Write: <code>2E 92 61 00 00 03</code> = $9261 to 3. Allowed "
+        "identifiers: 9261, 91C1, 91CF, 925F, 9281. The value is read first and shown as \"before\"; the write is only "
+        "sent when that read works and the entered value has the same length. Not undoable except by writing the old "
+        "value back.</p>";
     content += "<h4>Answer: <span id='twingoQueryResult'>";
     content += user_query_result();
     content += "</span></h4>";
@@ -3098,6 +3121,53 @@ void RenaultTwingoGen1Battery::uq_restore_poll_template() {
   ZOE_POLL_18DADBF1.data = {0x03, 0x22, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 }
 
+// Identifiers the free request may write (0x2E): the two time counters, the two mileages and the temporisation.
+const uint16_t RenaultTwingoGen1Battery::UQ_WRITE_DIDS[UQ_WRITE_DID_COUNT] = {0x9261, 0x91C1, 0x91CF, 0x925F, 0x9281};
+
+// Short meaning of the negative response codes (ISO 14229) that matter for a write; "" for any other code.
+const char* RenaultTwingoGen1Battery::uq_nrc_text(uint8_t nrc) {
+  switch (nrc) {
+    case 0x12:
+      return "sub-function not supported";
+    case 0x13:
+      return "incorrect message length or format";
+    case 0x22:
+      return "conditions not correct";
+    case 0x24:
+      return "request sequence error";
+    case 0x31:
+      return "request out of range";
+    case 0x33:
+      return "security access denied";
+    case 0x72:
+      return "general programming failure";
+    case 0x7E:
+      return "sub-function not supported in the active session";
+    case 0x7F:
+      return "service not supported in the active session";
+    default:
+      return "";
+  }
+}
+
+// Read of the identifier a write (0x2E) is about to change: 22 <DID hi> <DID lo>, answered by 62 <DID> <data>.
+void RenaultTwingoGen1Battery::uq_send_pre_read() {
+  for (uint8_t i = 0; i < 8; i++) {
+    ZOE_POLL_18DADBF1.data.u8[i] = 0xAA;
+  }
+  ZOE_POLL_18DADBF1.data.u8[0] = 0x03;
+  ZOE_POLL_18DADBF1.data.u8[1] = 0x22;
+  ZOE_POLL_18DADBF1.data.u8[2] = uq_req[1];
+  ZOE_POLL_18DADBF1.data.u8[3] = uq_req[2];
+  transmit_can_frame(&ZOE_POLL_18DADBF1);
+  uq_buf_len = 0;
+  uq_expected_len = 0;
+  uq_received_len = 0;
+  uq_in_progress = false;
+  uq_pre_read = true;
+  uq_before_len = 0;
+}
+
 // Sends uq_req (uq_req_len bytes) as a single frame on the shared poll frame object, padded with 0xAA like the
 // other sequences of this driver, and clears the collector.
 void RenaultTwingoGen1Battery::uq_send_request() {
@@ -3125,6 +3195,8 @@ bool RenaultTwingoGen1Battery::uq_begin(uint8_t mode, const uint8_t* req, uint8_
     uq_req[i] = req[i];
   }
   uq_needs_session = needs_session;
+  uq_pre_read = false;
+  uq_before_len = 0;
   snprintf(mode == UQ_FDC ? fdc_result : uq_result, sizeof(uq_result), "requested");
   if (needs_session) {
     ZOE_POLL_18DADBF1.data = {0x02, 0x10, 0x03, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};  // open extended session first
@@ -3180,10 +3252,26 @@ const char* RenaultTwingoGen1Battery::start_user_query(const char* hex) {
     if (n < 2) {
       return "0x19 needs a sub-function";
     }
+  } else if (req[0] == 0x2E) {
+    // WriteDataByIdentifier: 2E <DID hi> <DID lo> <1..4 data bytes> (a single frame carries 7 bytes at most),
+    // only for the identifiers of UQ_WRITE_DIDS.
+    if (n < 4) {
+      return "0x2E needs a 2-byte identifier and 1 to 4 data bytes";
+    }
+    uint16_t did = (uint16_t)((req[1] << 8) | req[2]);
+    bool allowed = false;
+    for (uint8_t i = 0; i < UQ_WRITE_DID_COUNT; i++) {
+      if (UQ_WRITE_DIDS[i] == did) {
+        allowed = true;
+      }
+    }
+    if (!allowed) {
+      return "0x2E is only allowed for 9261, 91C1, 91CF, 925F and 9281";
+    }
   } else {
-    return "only the read services 0x22 and 0x19 are allowed";
+    return "only 0x22 and 0x19 (read) and 0x2E (write, 9261/91C1/91CF/925F/9281 only) are allowed";
   }
-  if (!uq_begin(UQ_FREE, req, n, req[0] == 0x19)) {
+  if (!uq_begin(UQ_FREE, req, n, req[0] == 0x19 || req[0] == 0x2E)) {
     return "busy (another diagnostic exchange or a Sleep/NVROL run is active)";
   }
   return "OK";
@@ -3241,10 +3329,18 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
     // The request first, then the answer: "22 92 5E: OK 62 92 5E 13 88 6F"
     uq_append_hex(out, outsz, pos, uq_req, uq_req_len);
     uq_printf(out, outsz, pos, ": ");
+    if (uq_req[0] == 0x2E && uq_before_len > 0) {
+      uq_printf(out, outsz, pos, "before ");  // the value read in front of the write
+      uq_append_hex(out, outsz, pos, uq_before, uq_before_len);
+      uq_printf(out, outsz, pos, " -> ");
+    }
   }
   if (uq_buf_len >= 3 && uq_buf[0] == 0x7F) {
     uq_printf(out, outsz, pos, "NEGATIVE %02X %02X %02X (SID 0x%02X, NRC 0x%02X)", uq_buf[0], uq_buf[1], uq_buf[2],
               uq_buf[1], uq_buf[2]);
+    if (uq_mode == UQ_FREE && uq_req[0] == 0x2E && uq_nrc_text(uq_buf[2])[0] != '\0') {
+      uq_printf(out, outsz, pos, " - %s", uq_nrc_text(uq_buf[2]));
+    }
   } else if (uq_mode == UQ_FDC && uq_buf_len >= 2 && uq_buf[0] == 0x59 && uq_buf[1] == 0x14 &&
              ((uq_buf_len - 2) % 4) == 0 && uq_buf_len == uq_expected_len) {
     // Positive answer: 59 14, then per DTC 3 bytes code + 1 byte fault detection counter (signed).
@@ -3303,13 +3399,73 @@ bool RenaultTwingoGen1Battery::uq_reply_matches(const uint8_t* p, uint8_t n) con
   if (uq_req[0] == 0x19) {
     return uq_req_len >= 2 && p[1] == uq_req[1];
   }
+  if (uq_req[0] == 0x2E) {
+    return n >= 3 && uq_req_len >= 3 && p[1] == uq_req[1] && p[2] == uq_req[2];  // 6E <DID>
+  }
   return false;
+}
+
+// Reply to the read in front of a write (uq_pre_read): single frame 62 <DID> <1..4 data bytes>, or 7F 22 <NRC>.
+// Positive: the data bytes are kept as the "before" value; when their number is the number of the entered data
+// bytes the write is sent now, otherwise nothing is written. Anything else is left to the normal handling.
+bool RenaultTwingoGen1Battery::handle_pre_read_reply(const CAN_frame& f) {
+  uint8_t pci = f.data.u8[0];
+  if (pci < 3 || pci > 7) {
+    return false;  // only single frames are expected here
+  }
+  const uint8_t* p = &f.data.u8[1];
+  char head[48];
+  size_t hpos = 0;
+  head[0] = '\0';
+  uq_append_hex(head, sizeof(head), hpos, uq_req, uq_req_len);
+  if (p[0] == 0x7F) {
+    if (p[1] != 0x22) {
+      return false;
+    }
+    if (pci == 3 && p[2] == 0x78) {
+      dtc_ext_step_start_ms = millis();  // the final answer follows later
+      return true;
+    }
+    snprintf(uq_result, sizeof(uq_result), "%s: read before the write refused (NRC 0x%02X) - nothing was written", head,
+             p[2]);
+  } else if (p[0] == 0x62 && p[1] == uq_req[1] && p[2] == uq_req[2]) {
+    uint8_t n = (uint8_t)(pci - 3);
+    uint8_t entered = (uint8_t)(uq_req_len - 3);
+    if (n == 0 || n > sizeof(uq_before)) {
+      snprintf(uq_result, sizeof(uq_result), "%s: read before the write gave %u data bytes - nothing was written", head,
+               (unsigned)n);
+    } else {
+      for (uint8_t i = 0; i < n; i++) {
+        uq_before[i] = p[3 + i];
+      }
+      uq_before_len = n;
+      if (n != entered) {
+        snprintf(uq_result, sizeof(uq_result), "%s: the value is %u bytes long, %u entered - nothing was written", head,
+                 (unsigned)n, (unsigned)entered);
+      } else {
+        uq_pre_read = false;
+        uq_send_request();  // the write itself
+        dtc_ext_step_start_ms = millis();
+        return true;
+      }
+    }
+  } else {
+    return false;
+  }
+  uq_pre_read = false;
+  uq_in_progress = false;
+  uq_restore_poll_template();
+  dtc_ext_state = DTC_EXT_IDLE;
+  return true;
 }
 
 // Collects the reply to the request of uq_begin(): single frame, or First Frame (flow control sent here) plus
 // Consecutive Frames. "Response pending" (NRC 0x78) only restarts the timeout. Returns false for a frame that is
 // not the reply to this request; the caller then handles it like any other frame (cell polling etc.).
 bool RenaultTwingoGen1Battery::handle_user_query_reply(const CAN_frame& f) {
+  if (uq_pre_read) {
+    return handle_pre_read_reply(f);
+  }
   uint8_t pci = f.data.u8[0];
   if (pci < 0x10) {
     uint8_t len = pci;
@@ -3435,14 +3591,25 @@ void RenaultTwingoGen1Battery::handle_dtc_ext(unsigned long currentMillis) {
       break;
     case DTC_EXT_USER_SESSION_SENT:
       if (currentMillis - dtc_ext_step_start_ms >= DTC_EXT_SESSION_GAP_MS) {
-        uq_send_request();
+        if (uq_mode == UQ_FREE && uq_req[0] == 0x2E) {
+          uq_send_pre_read();  // write: read the identifier first, the write follows the answer
+        } else {
+          uq_send_request();
+        }
         dtc_ext_step_start_ms = currentMillis;
         dtc_ext_state = DTC_EXT_USER_CMD_SENT;
       }
       break;
     case DTC_EXT_USER_CMD_SENT:
       if (currentMillis - dtc_ext_step_start_ms >= DTC_EXT_REPLY_TIMEOUT_MS) {
-        snprintf(uq_mode == UQ_FDC ? fdc_result : uq_result, sizeof(uq_result), "no response");
+        if (uq_mode == UQ_FREE && uq_req[0] == 0x2E) {
+          snprintf(uq_result, sizeof(uq_result),
+                   uq_pre_read ? "no response to the read before the write - nothing was written"
+                               : "no response to the write - not known whether it was written, read the value again");
+        } else {
+          snprintf(uq_mode == UQ_FDC ? fdc_result : uq_result, sizeof(uq_result), "no response");
+        }
+        uq_pre_read = false;
         uq_in_progress = false;
         uq_restore_poll_template();
         dtc_ext_state = DTC_EXT_IDLE;

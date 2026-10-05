@@ -120,11 +120,24 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Switch B (04.10., runtime only): false = vehicle age (0x350 bytes 1-3) from the clock (UTC) as before; true =
   // smooth minute counter: +1 per minute of run time, never a jump, slowly pulled towards the clock.
   static bool age_counter_smooth;
+  // Manual vehicle age (05.10., /simulator page, runtime only): when set, bytes 1-3 of every 0x350 (steady, shutdown
+  // and wake burst) start at the given number of minutes (0 .. 0xFFFFFF) and count +1 per full minute from then on.
+  // It has priority over the clock and the smooth counter. age_manual_clear() returns to the normal behaviour.
+  static const uint32_t AGE_MANUAL_MAX = 0xFFFFFFUL;
+  static bool age_manual_active;
+  static uint32_t age_manual_start_min;
+  static unsigned long age_manual_set_ms;
+  static void age_manual_set(uint32_t minutes);  // millis() is the start of the counting
+  static void age_manual_clear();
 
-  // Free read request on the extended 29-bit protocol (03.10.), "More Battery Info" page: input field,
-  // Query button, answer field. Only read services are accepted (0x22 ReadDataByIdentifier, 0x19
-  // ReadDTCInformation). `hex` = request bytes as hex text (spaces allowed), e.g. "22925E". Returns "OK" when
-  // the request was started, otherwise a short reason. The answer is shown by user_query_result().
+  // Free request on the extended 29-bit protocol (03.10.), "More Battery Info" page: input field,
+  // Query button, answer field. Read services are accepted (0x22 ReadDataByIdentifier, 0x19
+  // ReadDTCInformation) and, since 05.10., the write service 0x2E only for the identifiers of
+  // UQ_WRITE_DIDS ($9261, $91C1, $91CF, $925F, $9281). A write first opens the extended session, then reads the
+  // identifier ("before"), refuses when that read fails or the length of the entered value differs from the
+  // length read, and only then writes. `hex` = request bytes as hex text (spaces allowed), e.g. "22925E" or
+  // "2E 92 61 00 00 03". Returns "OK" when the request was started, otherwise a short reason. The answer is shown
+  // by user_query_result().
   const char* start_user_query(const char* hex);
   const char* user_query_result() const { return uq_result; }
   const char* fdc_query_result() const { return fdc_result; }
@@ -790,9 +803,19 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   uint16_t uq_expected_len = 0;  // bytes the reply announces (may exceed the buffer)
   uint16_t uq_received_len = 0;  // bytes received so far (counts also the bytes that no longer fit)
   bool uq_in_progress = false;   // a multi-frame reply is being collected
+  // Write (0x2E) of UQ_FREE: the request is preceded by a read of the same identifier ("before" value).
+  // uq_pre_read = the read is on the bus and its answer is awaited; uq_before holds that answer's data bytes.
+  bool uq_pre_read = false;
+  uint8_t uq_before[4] = {0};
+  uint8_t uq_before_len = 0;
+  static const uint8_t UQ_WRITE_DID_COUNT = 5;
+  static const uint16_t UQ_WRITE_DIDS[UQ_WRITE_DID_COUNT];
+  static const char* uq_nrc_text(uint8_t nrc);  // short meaning of a negative response code, "" when not known
   char uq_result[336] = "not run yet";
   char fdc_result[336] = "not run yet";
   bool uq_begin(uint8_t mode, const uint8_t* req, uint8_t len, bool needs_session);
+  void uq_send_pre_read();
+  bool handle_pre_read_reply(const CAN_frame& f);
   void uq_send_request();
   bool handle_user_query_reply(const CAN_frame& f);  // false = not the reply to our request, handle it normally
   bool uq_reply_matches(const uint8_t* p, uint8_t n) const;

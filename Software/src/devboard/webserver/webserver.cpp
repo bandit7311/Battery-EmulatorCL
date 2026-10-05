@@ -846,6 +846,34 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
+  // Manual vehicle age (05.10.): value=<minutes, decimal, 0..16777215> starts the counter there (+1 per minute),
+  // value=off (or empty) returns to the clock / smooth counter. Runtime only.
+  def_route_with_auth("/editTwingoAgeManual", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!request->hasParam("value")) {
+      request->send(200, "text/plain", "missing value");
+      return;
+    }
+    String v = request->getParam("value")->value();
+    v.trim();
+    if (v.length() == 0 || v == "off") {
+      RenaultTwingoGen1Battery::age_manual_clear();
+      request->send(200, "text/plain", "OK off");
+      return;
+    }
+    for (unsigned int i = 0; i < v.length(); i++) {
+      if (v[i] < '0' || v[i] > '9') {
+        request->send(200, "text/plain", "digits only (minutes)");
+        return;
+      }
+    }
+    if (v.length() > 8 || (uint32_t)v.toInt() > RenaultTwingoGen1Battery::AGE_MANUAL_MAX) {
+      request->send(200, "text/plain", "too large (at most 16777215)");
+      return;
+    }
+    RenaultTwingoGen1Battery::age_manual_set((uint32_t)v.toInt());
+    request->send(200, "text/plain", "OK");
+  });
+
   // One checkbox toggles one bit of simulator_enabled_mask (64 bit since 04.10.), persisted to NVM as two uint32
   // (TWINGOSIMMASK = bits 0-31 as before, TWINGOSIMHI = bits 32 and up).
   def_route_with_auth("/editTwingoSimSignal", server, HTTP_GET, [](AsyncWebServerRequest* request) {
