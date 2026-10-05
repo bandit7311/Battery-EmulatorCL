@@ -114,7 +114,6 @@ CAN_frame reply_frame(std::initializer_list<uint8_t> bytes) {
   return f;
 }
 
-
 // Single-frame positive reply 62 <DID> <data...> as the LBC sends it.
 CAN_frame did_reply(uint16_t did, std::initializer_list<uint8_t> data_bytes) {
   CAN_frame f = {};
@@ -226,7 +225,7 @@ TEST(TwingoVehicleAge, EpochMatchesBothVehicleLogs) {
   EXPECT_EQ(f[0].f.data.u8[1], 0x2D);
   EXPECT_EQ(f[0].f.data.u8[2], 0x2A);
   EXPECT_EQ(f[0].f.data.u8[3], 0x0A);  // 2959882
-  b.unix_now = 1790952504;  // 2026-10-02 14:48:24 UTC
+  b.unix_now = 1790952504;             // 2026-10-02 14:48:24 UTC
   log.clear();
   run(b, t, 200, 100, log);
   f = with_id(log, 0x350);
@@ -343,8 +342,8 @@ TEST(TwingoSimulatorSwitches, EachRowSwitchesExactlyItsOwnFrame) {
     EXPECT_EQ(count_id(log, ids[k]), 0u) << "0x" << std::hex << ids[k] << " must be off";
     for (int j = 0; j < 9; j++) {
       if (j != k) {
-        EXPECT_GT(count_id(log, ids[j]), 0u) << "0x" << std::hex << ids[j] << " must still run while 0x" << ids[k]
-                                             << " is off";
+        EXPECT_GT(count_id(log, ids[j]), 0u)
+            << "0x" << std::hex << ids[j] << " must still run while 0x" << ids[k] << " is off";
       }
     }
   }
@@ -806,8 +805,7 @@ TEST(TwingoFreeQuery, SecondRequestWhileOneIsRunningIsRefused) {
   TestTwingo b;
   b.setup();
   ASSERT_STREQ(b.start_user_query("22925E"), "OK");
-  EXPECT_STREQ(b.start_user_query("229261"),
-               "busy (another diagnostic exchange or a Sleep/NVROL run is active)");
+  EXPECT_STREQ(b.start_user_query("229261"), "busy (another diagnostic exchange or a Sleep/NVROL run is active)");
   b.handle_incoming_can_frame(reply_frame({0x06, 0x62, 0x92, 0x5E, 0x13, 0x88, 0x6F, 0x00}));
   EXPECT_STREQ(b.start_user_query("229261"), "OK");
 }
@@ -816,8 +814,7 @@ TEST(TwingoFreeQuery, RefusedWhileASleepRunIsActive) {
   TestTwingo b;
   b.setup();
   b.request_sleep();
-  EXPECT_STREQ(b.start_user_query("22925E"),
-               "busy (another diagnostic exchange or a Sleep/NVROL run is active)");
+  EXPECT_STREQ(b.start_user_query("22925E"), "busy (another diagnostic exchange or a Sleep/NVROL run is active)");
 }
 
 TEST(TwingoFreeQuery, MultiFrameAnswerSendsFlowControlAndIsReassembled) {
@@ -844,7 +841,7 @@ TEST(TwingoFreeQuery, ResponsePendingKeepsWaiting) {
   std::vector<Tx> log;
   run(b, t, 1500, 100, log);
   b.handle_incoming_can_frame(reply_frame({0x03, 0x7F, 0x22, 0x78, 0, 0, 0, 0}));  // pending, restarts the timeout
-  run(b, t, 1500, 100, log);                                                      // 3 s after the request in total
+  run(b, t, 1500, 100, log);                                                       // 3 s after the request in total
   EXPECT_STREQ(b.user_query_result(), "requested");
   b.handle_incoming_can_frame(reply_frame({0x06, 0x62, 0x92, 0x5E, 0x13, 0x88, 0x6F, 0x00}));
   EXPECT_STREQ(b.user_query_result(), "22 92 5E: OK 62 92 5E 13 88 6F");
@@ -869,7 +866,7 @@ TEST(TwingoFreeQuery, VeryLongAnswerIsCutAndNeverOverflowsTheTextBuffer) {
   EXPECT_LT(strlen(r), 336u);
   EXPECT_NE(std::string(r).find("OK 62 92 6C"), std::string::npos);
   EXPECT_NE(std::string(r).find("..."), std::string::npos);  // text cut
-  EXPECT_STREQ(b.start_user_query("22925E"), "OK");           // exchange finished, channel free
+  EXPECT_STREQ(b.start_user_query("22925E"), "OK");          // exchange finished, channel free
 }
 
 TEST(TwingoFreeQuery, StrayConsecutiveFrameIsIgnored) {

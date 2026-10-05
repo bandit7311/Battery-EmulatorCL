@@ -23,7 +23,7 @@ class TestTwingo : public RenaultTwingoGen1Battery {
   int ntp_starts = 0;
   bool clock_set = false;
   uint32_t clock_secs = 0;
-  bool unix_set = false;   // vehicle age (0x350 bytes 1-3) is computed from this UTC time
+  bool unix_set = false;  // vehicle age (0x350 bytes 1-3) is computed from this UTC time
   time_t unix_now = 0;
 
   bool network_ready() override { return network_up; }
@@ -119,7 +119,7 @@ CAN_frame frame_424(int t_min_c, int t_max_c) {
   f.DLC = 8;
   f.ID = 0x424;
   f.data.u8[4] = (uint8_t)(t_min_c + 40);
-  f.data.u8[5] = 96;  // SOH
+  f.data.u8[5] = 96;    // SOH
   f.data.u8[6] = 0x55;  // heartbeat
   f.data.u8[7] = (uint8_t)(t_max_c + 40);
   return f;
@@ -522,7 +522,6 @@ TEST(TwingoTimeFramesTests, TimePidsAreInThePollList) {
   EXPECT_GE(requests, 119u);
 }
 
-
 // ---------------------------------------------------------------------------
 // 0x090 (10 ms) and 0x242 (20 ms) with counter and CRC
 // ---------------------------------------------------------------------------
@@ -594,7 +593,8 @@ TEST(TwingoFastFramesTests, Frame090Every10msWithCounterAndCrc) {
     EXPECT_EQ(fr.data.u8[4], 0xF0);
     EXPECT_EQ(fr.data.u8[5], 0x7F);
     EXPECT_EQ(fr.data.u8[6], 0xF0);
-    std::vector<uint8_t> in = {fr.data.u8[0], fr.data.u8[1], fr.data.u8[2], fr.data.u8[4], fr.data.u8[5], fr.data.u8[6]};
+    std::vector<uint8_t> in = {fr.data.u8[0], fr.data.u8[1], fr.data.u8[2],
+                               fr.data.u8[4], fr.data.u8[5], fr.data.u8[6]};
     EXPECT_EQ(crc8_ref(in, 0xF6), fr.data.u8[3]) << "frame " << i;
     if (i > 0) {
       EXPECT_EQ((f[i].f.data.u8[2] & 0x0F), ((f[i - 1].f.data.u8[2] & 0x0F) + 1) & 0x0F);  // counter +1, wraps 15 -> 0
@@ -720,7 +720,6 @@ TEST(TwingoFastFramesTests, NothingInTrueSilence) {
   }
 }
 
-
 // ---------------------------------------------------------------------------
 // 0x9281 fix: write 0 ("activated"), not 1
 // ---------------------------------------------------------------------------
@@ -740,7 +739,8 @@ TEST(TwingoNewDisplayPidsTests, NvrolResetWritesTemporisationZero) {
     }
   }
   ASSERT_EQ(writes.size(), 1u);
-  EXPECT_EQ(writes[0].data.u8[4], 0x00) << "must write 0x00 (\"temporisation is activated\" per the real ECU dump), not 0x01";
+  EXPECT_EQ(writes[0].data.u8[4], 0x00)
+      << "must write 0x00 (\"temporisation is activated\" per the real ECU dump), not 0x01";
 }
 
 TEST(TwingoNewDisplayPidsTests, Sleep9281WritesTemporisationZero) {
@@ -838,14 +838,13 @@ TEST(TwingoNewDisplayPidsTests, AllSixteenPidsShowNotYetReadBeforeAnyReply) {
   RenaultTwingoGen1Battery b;
   b.setup();
   String html = b.get_uds_info_html();
-  for (const char* label : {"Pack Mileage (0x91CF)", "Vehicle Distance Totalizer (0x925F)",
-                            "Low Voltage Supply (0x9011)", "Pack Voltage, cell sum (0x9006)",
-                            "Cell Voltage A (0x9007", "Cell Voltage B (0x9009", "Cell Voltage A index (0x9008)",
-                            "Cell Voltage B index (0x900A)", "Battery SOH avg (0x9003)",
-                            "Max Charge Power (0x9018)", "Max Generated Power (0x900E)",
-                            "Max Available Power (0x900F)", "Battery SOC, internal (0x9001)",
-                            "Battery USOC, dashboard (0x9002", "Battery SOC min (0x91B9)",
-                            "Battery SOC max (0x91BA)"}) {
+  for (const char* label :
+       {"Pack Mileage (0x91CF)", "Vehicle Distance Totalizer (0x925F)", "Low Voltage Supply (0x9011)",
+        "Pack Voltage, cell sum (0x9006)", "Cell Voltage A (0x9007", "Cell Voltage B (0x9009",
+        "Cell Voltage A index (0x9008)", "Cell Voltage B index (0x900A)", "Battery SOH avg (0x9003)",
+        "Max Charge Power (0x9018)", "Max Generated Power (0x900E)", "Max Available Power (0x900F)",
+        "Battery SOC, internal (0x9001)", "Battery USOC, dashboard (0x9002", "Battery SOC min (0x91B9)",
+        "Battery SOC max (0x91BA)"}) {
     EXPECT_TRUE(contains(html, label)) << label;
   }
   EXPECT_EQ(html.c_str() + std::string(html.c_str()).find("Pack Mileage"),
@@ -904,10 +903,10 @@ TEST(TwingoNewDisplayPidsTests, SohAndPowerLimitsFormula) {
   set_millis64(1000);
   RenaultTwingoGen1Battery b;
   b.setup();
-  b.handle_incoming_can_frame(uds_reply(0x9003, {0x25, 0x75}));   // 95.89 %
-  b.handle_incoming_can_frame(uds_reply(0x9018, {0x05, 0x8B}));   // 14.19 kW
-  b.handle_incoming_can_frame(uds_reply(0x900E, {0x10, 0xCC}));   // 43 kW
-  b.handle_incoming_can_frame(uds_reply(0x900F, {0x1C, 0x20}));   // 72 kW
+  b.handle_incoming_can_frame(uds_reply(0x9003, {0x25, 0x75}));  // 95.89 %
+  b.handle_incoming_can_frame(uds_reply(0x9018, {0x05, 0x8B}));  // 14.19 kW
+  b.handle_incoming_can_frame(uds_reply(0x900E, {0x10, 0xCC}));  // 43 kW
+  b.handle_incoming_can_frame(uds_reply(0x900F, {0x1C, 0x20}));  // 72 kW
   String html = b.get_uds_info_html();
   EXPECT_TRUE(contains(html, "Battery SOH avg (0x9003): 95.890 &#37;"));
   EXPECT_TRUE(contains(html, "Max Charge Power (0x9018): 14.190 kW"));

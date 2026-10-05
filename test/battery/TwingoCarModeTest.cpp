@@ -673,7 +673,7 @@ TEST(TwingoCarMode, Frame29AHasCounterAndChecksum) {
       EXPECT_EQ(f[i].f.data.u8[k], 0x00);
     }
     EXPECT_EQ(f[i].f.data.u8[6], (uint8_t)(i % 16)) << "counter 0-15, frame " << i;
-    EXPECT_EQ(f[i].f.data.u8[7], (uint8_t) ~(i % 16)) << "frame " << i;
+    EXPECT_EQ(f[i].f.data.u8[7], (uint8_t)~(i % 16)) << "frame " << i;
   }
   EXPECT_EQ(f[1].t - f[0].t, 20u);
 }

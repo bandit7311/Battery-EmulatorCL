@@ -43,17 +43,17 @@ AsyncAuthenticationMiddleware web_auth_middleware;
 // Measure OTA progress
 static MyTimer ota_progress_timer = MyTimer(1000);
 
-#include "advanced_battery_html.h"
 #include "../../battery/RENAULT-TWINGO-GEN1-BATTERY.h"
-#include "cellwatch_html.h"
-#include "simulator_html.h"
+#include "advanced_battery_html.h"
 #include "can_logging_html.h"
 #include "can_replay_html.h"
 #include "cellmonitor_html.h"
+#include "cellwatch_html.h"
 #include "debug_logging_html.h"
 #include "events_html.h"
 #include "index_html.h"
 #include "settings_html.h"
+#include "simulator_html.h"
 
 MyTimer ota_timeout_timer = MyTimer(15000);
 bool ota_active = false;
@@ -889,8 +889,8 @@ void init_webserver() {
   def_route_with_auth("/twingoQuery", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     const char* msg = "missing request";
     if (request->hasParam("hex")) {
-      msg = static_cast<RenaultTwingoGen1Battery*>(battery)->start_user_query(
-          request->getParam("hex")->value().c_str());
+      msg =
+          static_cast<RenaultTwingoGen1Battery*>(battery)->start_user_query(request->getParam("hex")->value().c_str());
     }
     request->send(200, "text/plain", msg);
   });

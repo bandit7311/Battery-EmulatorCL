@@ -1115,7 +1115,7 @@ class DataLayerExtended {
     twingoGen1.sleep_failsafe_minutes = 30;
     twingoGen1.cellwatch_cell = 1;
     twingoGen1.simulator_enabled_mask = 0x000003FF;  // the 10 "I" signals on, see sim_signals[0..9]
-    twingoGen1.dtc_ext_read_mask = 0x09;  // Active/Confirmed - memset(0) above would otherwise leave 0x00
+    twingoGen1.dtc_ext_read_mask = 0x09;             // Active/Confirmed - memset(0) above would otherwise leave 0x00
   }
 };
 

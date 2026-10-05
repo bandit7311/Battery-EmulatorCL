@@ -326,7 +326,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static const uint8_t TIME_53B_DAY = 15;
   static const uint8_t TIME_53B_WEEKDAY = 5;
   static const uint32_t TIME_FALLBACK_START_S = 12UL * 3600UL;  // 12:00:00 until a real time is available
-  static constexpr time_t TIME_VALID_AFTER = 1700000000;         // 2023-11-14, anything earlier = clock not set
+  static constexpr time_t TIME_VALID_AFTER = 1700000000;        // 2023-11-14, anything earlier = clock not set
 
   CAN_frame TWINGO_53B_CLOCK = {.FD = false,
                                 .ext_ID = false,
@@ -346,7 +346,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   unsigned long previousMillis_time_service = 0;
   void time_service(unsigned long currentMillis);
   void send_time_frames(unsigned long currentMillis);  // 0x53B, 1 Hz
-  void send_run_350();                                  // 0x350 run frame, called every 100 ms
+  void send_run_350();                                 // 0x350 run frame, called every 100 ms
 #endif
 
 #ifdef TWINGO_FAST_VEHICLE_FRAMES
@@ -438,8 +438,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static const uint16_t EXT_POLL_ENERGY_DISCHARGED = 0x9245;   // Single-frame, 32-bit, x0.001 kWh
   static const uint16_t EXT_POLL_ENERGY_REGENERATED = 0x9247;  // Single-frame, 32-bit, x0.001 kWh
   static const uint16_t EXT_POLL_TEMPORISATION = 0x9281;       // Single-frame, top bit of byte 0
-                                                                 // ("temporisation before sleep" status -
-                                                                 // see NVROL comment block below)
+                                                               // ("temporisation before sleep" status -
+                                                               // see NVROL comment block below)
 
   // 8 single pack temperature sensors, PIDs 0x9131-0x9138 ("Pack temperature 1-8" in the
   // OVMS RT32 module, same LBC). Single-frame, 16-bit raw value, degC = raw * 0.0625 - 40.
@@ -507,8 +507,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
     bool valid = false;
   };
   ExtValue ext_mileage_pack, ext_mileage_vehicle, ext_lv_supply, ext_pack_voltage, ext_cell_v_a, ext_cell_v_b,
-      ext_cell_v_a_nr, ext_cell_v_b_nr, ext_soh_avg, ext_max_charge_power, ext_max_gen_power,
-      ext_max_avail_power, ext_soc_avg, ext_usoc_avg, ext_soc_min, ext_soc_max, ext_battery_current;
+      ext_cell_v_a_nr, ext_cell_v_b_nr, ext_soh_avg, ext_max_charge_power, ext_max_gen_power, ext_max_avail_power,
+      ext_soc_avg, ext_usoc_avg, ext_soc_min, ext_soc_max, ext_battery_current;
   // One line for a display-only ExtValue: "label: value unit<br>" or "label: not yet read<br>".
   static void append_ext_value(String& s, const char* label, const ExtValue& v, double value, const char* unit);
 
@@ -520,18 +520,13 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // 200ms (same cadence as Battery-Emulator's own Zoe Ph2 driver) -> ~27.2s/cycle.
   static const uint8_t EXT_POLL_LIST_LENGTH = 136;
   const uint16_t ext_poll_list[EXT_POLL_LIST_LENGTH] = {
-      0x9021, 0x9022, 0x9023, 0x9024, 0x9025, 0x9026, 0x9027, 0x9028,
-      0x9029, 0x902A, 0x902B, 0x902C, 0x902D, 0x902E, 0x902F, 0x9030,
-      0x9031, 0x9032, 0x9033, 0x9034, 0x9035, 0x9036, 0x9037, 0x9038,
-      0x9039, 0x903A, 0x903B, 0x903C, 0x903D, 0x903E, 0x903F, 0x9041,
-      0x9042, 0x9043, 0x9044, 0x9045, 0x9046, 0x9047, 0x9048, 0x9049,
-      0x904A, 0x904B, 0x904C, 0x904D, 0x904E, 0x904F, 0x9050, 0x9051,
-      0x9052, 0x9053, 0x9054, 0x9055, 0x9056, 0x9057, 0x9058, 0x9059,
-      0x905A, 0x905B, 0x905C, 0x905D, 0x905E, 0x905F, 0x9061, 0x9062,
-      0x9063, 0x9064, 0x9065, 0x9066, 0x9067, 0x9068, 0x9069, 0x906A,
-      0x906B, 0x906C, 0x906D, 0x906E, 0x906F, 0x9070, 0x9071, 0x9072,
-      0x9073, 0x9074, 0x9075, 0x9076, 0x9077, 0x9078, 0x9079, 0x907A,
-      0x907B, 0x907C, 0x907D, 0x907E, 0x907F, 0x9081, 0x9082, 0x9083,
+      0x9021, 0x9022, 0x9023, 0x9024, 0x9025, 0x9026, 0x9027, 0x9028, 0x9029, 0x902A, 0x902B, 0x902C, 0x902D, 0x902E,
+      0x902F, 0x9030, 0x9031, 0x9032, 0x9033, 0x9034, 0x9035, 0x9036, 0x9037, 0x9038, 0x9039, 0x903A, 0x903B, 0x903C,
+      0x903D, 0x903E, 0x903F, 0x9041, 0x9042, 0x9043, 0x9044, 0x9045, 0x9046, 0x9047, 0x9048, 0x9049, 0x904A, 0x904B,
+      0x904C, 0x904D, 0x904E, 0x904F, 0x9050, 0x9051, 0x9052, 0x9053, 0x9054, 0x9055, 0x9056, 0x9057, 0x9058, 0x9059,
+      0x905A, 0x905B, 0x905C, 0x905D, 0x905E, 0x905F, 0x9061, 0x9062, 0x9063, 0x9064, 0x9065, 0x9066, 0x9067, 0x9068,
+      0x9069, 0x906A, 0x906B, 0x906C, 0x906D, 0x906E, 0x906F, 0x9070, 0x9071, 0x9072, 0x9073, 0x9074, 0x9075, 0x9076,
+      0x9077, 0x9078, 0x9079, 0x907A, 0x907B, 0x907C, 0x907D, 0x907E, 0x907F, 0x9081, 0x9082, 0x9083,
       // Cell voltages end here (96 entries). Balancing + metrics follow:
       EXT_POLL_BALANCE_SWITCHES, EXT_POLL_CYCLES, EXT_POLL_ENERGY_CHARGED, EXT_POLL_ENERGY_DISCHARGED,
       EXT_POLL_ENERGY_REGENERATED, EXT_POLL_TEMPORISATION,
@@ -543,10 +538,10 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
       // Time PIDs (raw display only)
       EXT_POLL_TIME, EXT_POLL_PACK_TIME,
       // Display-only PIDs from the real "RBMS_MCPU_RL" dumps (28.09.), see the comment above
-      EXT_POLL_MILEAGE_PACK, EXT_POLL_MILEAGE_VEHICLE, EXT_POLL_LV_SUPPLY, EXT_POLL_PACK_VOLTAGE,
-      EXT_POLL_CELL_V_A, EXT_POLL_CELL_V_B, EXT_POLL_CELL_V_A_NR, EXT_POLL_CELL_V_B_NR, EXT_POLL_SOH_AVG,
-      EXT_POLL_MAX_CHARGE_POWER, EXT_POLL_MAX_GEN_POWER, EXT_POLL_MAX_AVAIL_POWER, EXT_POLL_SOC_AVG,
-      EXT_POLL_USOC_AVG, EXT_POLL_SOC_MIN, EXT_POLL_SOC_MAX, EXT_POLL_BATTERY_CURRENT};
+      EXT_POLL_MILEAGE_PACK, EXT_POLL_MILEAGE_VEHICLE, EXT_POLL_LV_SUPPLY, EXT_POLL_PACK_VOLTAGE, EXT_POLL_CELL_V_A,
+      EXT_POLL_CELL_V_B, EXT_POLL_CELL_V_A_NR, EXT_POLL_CELL_V_B_NR, EXT_POLL_SOH_AVG, EXT_POLL_MAX_CHARGE_POWER,
+      EXT_POLL_MAX_GEN_POWER, EXT_POLL_MAX_AVAIL_POWER, EXT_POLL_SOC_AVG, EXT_POLL_USOC_AVG, EXT_POLL_SOC_MIN,
+      EXT_POLL_SOC_MAX, EXT_POLL_BATTERY_CURRENT};
 
   uint8_t ext_poll_index = 0;
   unsigned long previousMillisExtPoll = 0;
@@ -563,9 +558,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Only ever needed for EXT_POLL_BALANCE_SWITCHES (96 bit doesn't fit a
   // single frame); everything else here is single-frame.
   uint8_t ext_isotp_buffer[40] = {0};  // Real 0x912B response is 35 bytes total (confirmed via
-                                        // CAN log: First Frame "10 23 62 91 2b ...") - the old 24-byte
-                                        // buffer was too small, causing every reassembly attempt to be
-                                        // abandoned before Flow Control was even sent back.
+                                       // CAN log: First Frame "10 23 62 91 2b ...") - the old 24-byte
+                                       // buffer was too small, causing every reassembly attempt to be
+                                       // abandoned before Flow Control was even sent back.
   uint16_t ext_isotp_expected_len = 0;
   uint16_t ext_isotp_received_len = 0;
   bool ext_isotp_in_progress = false;
@@ -736,10 +731,10 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // (subfunction 0x03), sent after starting B009 to see what the routine itself reports, instead of only
   // inferring success from the 0x9281 read-back.
   static const uint8_t NVROL_LOG_STEPS = 6;
-  char nvrol_log[NVROL_LOG_STEPS][48] = {"not run yet", "not run yet", "not run yet", "not run yet",
-                                         "not run yet", "not run yet"};
+  char nvrol_log[NVROL_LOG_STEPS][48] = {"not run yet", "not run yet", "not run yet",
+                                         "not run yet", "not run yet", "not run yet"};
   uint16_t temporisation_readback = 0x100;  // raw byte of 0x9281 read right after the write, 0x100 = none
-  uint8_t nvrol_awaiting_step = 0;  // Which nvrol_log[] slot the next 0x18DAF1DB reply belongs to
+  uint8_t nvrol_awaiting_step = 0;          // Which nvrol_log[] slot the next 0x18DAF1DB reply belongs to
   void handle_nvrol_reply(CAN_frame rx_frame);
 
   // DTC Read/Erase over the extended 29-bit protocol (0x18DADBF1/0x18DAF1DB) - the only protocol that
@@ -763,7 +758,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   };
   uint8_t dtc_ext_state = DTC_EXT_IDLE;
   unsigned long dtc_ext_step_start_ms = 0;
-  static const unsigned long DTC_EXT_SESSION_GAP_MS = 100;    // matches the NVROL sequence's own pacing
+  static const unsigned long DTC_EXT_SESSION_GAP_MS = 100;  // matches the NVROL sequence's own pacing
   // 01.10.: raised from 300ms after a real multi-frame response ("unexpected multi-frame (PCI=0x10)")
   // was followed by "no response" on a later attempt - 300ms likely wasn't enough for First Frame +
   // our Flow Control + all Consecutive Frames to complete; 2000ms is a safety margin, still unverified
@@ -845,9 +840,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // How fast the BMS comes back after Wake up (offsets in ms since the end of the quiet phase, -1 = not yet)
   bool wake_tracking = false;
   unsigned long wake_start_ms = 0;
-  int32_t wake_first_rx = -1;        // first frame from the BMS
-  int32_t wake_first_uds = -1;       // first reply on 0x18DAF1DB
-  int32_t wake_priority_done = -1;   // all four priority PIDs answered
+  int32_t wake_first_rx = -1;          // first frame from the BMS
+  int32_t wake_first_uds = -1;         // first reply on 0x18DAF1DB
+  int32_t wake_priority_done = -1;     // all four priority PIDs answered
   bool wake_priority_timeout = false;  // gave up after 30s
   void priority_answered(uint8_t bit);
   uint32_t nvrol_silence_rx_total = 0;

@@ -16,8 +16,7 @@ String cellwatch_processor(const String& var) {
         "button { background-color: #505E67; color: white; border: none; padding: 10px 20px; "
         "cursor: pointer; border-radius: 10px; margin: 4px; }";
     content += "button:hover { background-color: #3A4A52; }";
-    content +=
-        "table { border-collapse: collapse; width: 100%; max-width: 480px; }";
+    content += "table { border-collapse: collapse; width: 100%; max-width: 480px; }";
     content += "td, th { border: 1px solid #444; padding: 4px 8px; text-align: right; }";
     content += "th { text-align: center; }";
     content += ".delta-up { color: #6fcf6f; }";
@@ -40,7 +39,8 @@ String cellwatch_processor(const String& var) {
     content += "function poll(){";
     content += "fetch('/cellwatchStatus').then(function(r){return r.text();}).then(function(t){";
     content += "var p=t.split('|');";
-    content += "var enabled=p[0]==='1',cell=p[1],mv=parseInt(p[2],10),count=parseInt(p[3],10),sampleMs=parseInt(p[4],10);";
+    content +=
+        "var enabled=p[0]==='1',cell=p[1],mv=parseInt(p[2],10),count=parseInt(p[3],10),sampleMs=parseInt(p[4],10);";
     content +=
         "document.getElementById('status').textContent="
         "(enabled?'Enabled':'Disabled (turn it on in More Battery Info)')+' - watching cell '+cell"
@@ -48,8 +48,7 @@ String cellwatch_processor(const String& var) {
     content += "if(count!==lastCount && count>0){";
     content += "if(startMs===null){startMs=sampleMs;}";
     content += "var delta=(lastMV===null)?0:(mv-lastMV);";
-    content +=
-        "var cls=delta>0?'delta-up':(delta<0?'delta-down':'');";
+    content += "var cls=delta>0?'delta-up':(delta<0?'delta-down':'');";
     content += "var row=document.createElement('tr');";
     content +=
         "row.innerHTML='<td>'+count+'</td><td>'+((sampleMs-startMs)/1000).toFixed(1)+'</td>"

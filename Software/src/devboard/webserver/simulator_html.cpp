@@ -10,8 +10,7 @@ static void append_signal_row(String& content, uint8_t i) {
   bool checked = RenaultTwingoGen1Battery::sim_row_enabled(i);
 
   content += "<tr><td><input type='checkbox' id='sim" + String(i) + "' " + (checked ? "checked " : "") +
-             "onchange=\"fetch('/editTwingoSimSignal?index=" + String(i) +
-             "&value='+(this.checked?1:0))\"></td>";
+             "onchange=\"fetch('/editTwingoSimSignal?index=" + String(i) + "&value='+(this.checked?1:0))\"></td>";
 
   content += "<td>0x" + String(s.id, HEX) + "</td>";
 
@@ -77,21 +76,25 @@ String simulator_processor(const String& var) {
     content += "<label><input type='radio' name='steady350' id='steady350c3' ";
     content += RenaultTwingoGen1Battery::steady_350_use_c3 ? "checked " : "";
     content += "onclick=\"fetch('/editTwingoSteady350?value=1')\"> C3 (old value, for diagnostic tests)</label> ";
-    content += "<span class='note'>- runtime only, back to C7 after a restart; the checkbox of row 0x350 below switches the "
-               "frame on or off, sleep and wake-up send their own 0x350</span></p>";
+    content +=
+        "<span class='note'>- runtime only, back to C7 after a restart; the checkbox of row 0x350 below switches the "
+        "frame on or off, sleep and wake-up send their own 0x350</span></p>";
 
     // Switch A (04.10.): shutdown sequence, wake-up, 0x214 and the end of the rows "as before" or "like the car".
-    content += "<p><b>Shutdown, wake-up, 0x214 and end of the rows:</b> <label><input type='radio' name='carmode' id='carmode0' ";
+    content +=
+        "<p><b>Shutdown, wake-up, 0x214 and end of the rows:</b> <label><input type='radio' name='carmode' "
+        "id='carmode0' ";
     content += RenaultTwingoGen1Battery::shutdown_like_car ? "" : "checked ";
     content += "onclick=\"fetch('/editTwingoCarMode?value=0')\"> as before (default)</label> &nbsp; ";
     content += "<label><input type='radio' name='carmode' id='carmode1' ";
     content += RenaultTwingoGen1Battery::shutdown_like_car ? "checked " : "";
     content += "onclick=\"fetch('/editTwingoCarMode?value=1')\"> like the car (vehicle log of 04.10.)</label> ";
-    content += "<span class='note'>- runtime only, back to \"as before\" after a restart. \"Like the car\" changes the stage "
-               "times and 0x350 bytes of the shutdown (C3 63.2 s, 00 0.9 s), the wake-up (12 steps, about 10 s), sends "
-               "0x214 also while awake (FB FE, F8 3E, 08 02, every 20 ms) and lets every row end where it ends in the "
-               "car (fast frames at C0, others at 00, some until the end of the bus). Every row below stays "
-               "individually switchable.</span></p>";
+    content +=
+        "<span class='note'>- runtime only, back to \"as before\" after a restart. \"Like the car\" changes the stage "
+        "times and 0x350 bytes of the shutdown (C3 63.2 s, 00 0.9 s), the wake-up (12 steps, about 10 s), sends "
+        "0x214 also while awake (FB FE, F8 3E, 08 02, every 20 ms) and lets every row end where it ends in the "
+        "car (fast frames at C0, others at 00, some until the end of the bus). Every row below stays "
+        "individually switchable.</span></p>";
 
     // Switch B (04.10.): vehicle age counter from the clock or smooth.
     content += "<p><b>Vehicle age (0x350 bytes 1-3):</b> <label><input type='radio' name='agemode' id='agemode0' ";
@@ -100,8 +103,9 @@ String simulator_processor(const String& var) {
     content += "<label><input type='radio' name='agemode' id='agemode1' ";
     content += RenaultTwingoGen1Battery::age_counter_smooth ? "checked " : "";
     content += "onclick=\"fetch('/editTwingoAgeMode?value=1')\"> smooth minute counter</label> ";
-    content += "<span class='note'>- runtime only. Smooth: +1 per minute, never a jump (the car's counter never jumps), "
-               "pulled slowly towards the clock; not stored over a restart.</span></p>";
+    content +=
+        "<span class='note'>- runtime only. Smooth: +1 per minute, never a jump (the car's counter never jumps), "
+        "pulled slowly towards the clock; not stored over a restart.</span></p>";
 
     content +=
         "<table><thead><tr><th>On</th><th>ID</th><th>Tag</th><th>Interval</th><th>In car log</th><th>Signal</th>"
