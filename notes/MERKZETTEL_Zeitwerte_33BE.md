@@ -208,3 +208,5 @@ Autozeit = Dateizeit minus ca. 10,2 min (Naeherung).
 - Die Vorhersage "Schnappschuss ca. 3 min nach Sitzungsende" (91C1 ca. 2.180.955) ist WIDERLEGT: tatsaechlich 2.181.041 (86 min spaeter). Die 3-min-Regel gilt nicht.
 - Offen / Hypothese (nicht belegt): Missionseintraege werden erst bei sauberem Sitzungsende (Tiefschlaf/Abschaltfolge) geschrieben; der Schnappschuss wird bei einem anderen Ereignis geschrieben (z. B. Aufwachen/Zuendung an).
 - Zustaende wie READY lassen sich aus den vier Dumps nicht von "Zuendung an" trennen.
+- Antwort Nutzer: zwischen 17:37 und 18:58 hat eine Fahrt stattgefunden. Das erklaert +1 km bei 925F/91CF und den Zaehler 9279 (01 -> 03).
+  Auffaellig (belegt): Die Fahrt steht trotzdem NICHT in der Missionsliste (neuester Eintrag bleibt 17:25, 24.791 km). Eintraege werden also nicht sofort bei Sitzungsende geschrieben.
