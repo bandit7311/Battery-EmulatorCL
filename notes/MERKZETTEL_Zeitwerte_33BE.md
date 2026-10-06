@@ -309,3 +309,13 @@ Befund im Twingo-Fahrlog vom 02.10. (364b56eb), gemessen:
 - Nicht im Log vorhanden: `0x437`, `0x481`, `0x676`, `0x58A`, `0x622`, `0x187`, `0x523`. Offen, ob sie der Hardwarefilter weggenommen hat oder der Twingo sie nicht sendet.
 Schluss (nicht gemessen): Die Hochvoltseite wird bei Stufe C4 zugeschaltet (Spannung am Inverter springt innerhalb 0,9 s auf Akkuspannung), nicht erst bei C7; bei C3 wird sie wieder getrennt. Passt zu 9259 = 05 mit Stromfluss im Auto. Ob 9259 selbst bei C4 von 04 auf 05 wechselt, ist weiter nicht gemessen.
 Korrektur: `0x392` ist laut OVMS HVAC/Kabinentemperatur, nicht Relaisanzeige (Nachtrag 8 nicht darauf stuetzen).
+
+## Nachtrag 10 (06.10.): Relaisstatus im Twingo - 0x676 fehlt, dafuer zwei Bits in 0x1FD und 0x62D
+- `0x676` (PowerRelayState_HEVC) kommt in keinem der drei Logs vor (133 / 117 / 122 verschiedene IDs; auch `0x437`, `0x481`). In der Liste hat das Signal nur den Wert 3 "Fixed value transmitted", waere also ohnehin nicht informativ. Auch keine Frame-Form (500 ms, DLC 8, Byte 8 & 3 = 3) im Log.
+- Suche nach Bits, die in ALLEN Zuschaltfenstern (Fahrlog 02.10., Log 04.10. zwei Starts, Laden 20.11.) gleich wechseln und beim Abtrennen umgekehrt: Es bleiben zwei uebrig (ausser den Spannungsbits von 0x57F selbst):
+  - `0x62D` Byte 4 Bit 1: 1 = HV zugeschaltet, 0 = getrennt.
+  - `0x1FD` Byte 6 Bit 4: 0 = HV zugeschaltet, 1 = getrennt.
+- Uebereinstimmung mit dem HV-Zustand (0x57F-Spannung > 100 V) ueber die ganzen Logs: 0x1FD 99,1-99,7 %, 0x62D 99,0-99,6 % der Frames; Abweichungen nur an den Uebergaengen (Spannung nur mit 1 Hz abgetastet).
+- Umschaltzeiten: 02.10.: C4 bei 62,82 s -> 0x62D = 1 bei 63,19 s, 0x1FD = 0 bei 63,44 s; Abtrennen: C3 bei 394,93 s -> beide bei 397,15-397,19 s. 04.10. zweiter Start: C4 bei 232,96 s -> 0x62D bei 233,02 s, 0x1FD bei 233,29 s; Abtrennen: C3 bei 238,06 s -> beide bei 241,5 s. 04.10. erster Start (C3 -> C7 direkt, 44,94 s): 0x1FD bei 44,96 s, 0x62D bei 45,02 s. Laden 20.11.: 0x62D = 1 bei 10:43:02,880, 0x1FD = 0 bei 10:43:02,955 (Nutzernotiz: Hauptschuetze zu 10:43:03); Abtrennen 10:45:03,88 / 10:45:04,05 (C3 bei 10:45:00,605).
+- Reihenfolge beim Zuschalten: 0x62D vor 0x1FD (ca. 75-270 ms). Abtrennen: beide gleichzeitig, 2-3,5 s nach C3.
+- Sender und Bedeutung der Bits sind NICHT bekannt (0x1FD steht im Code als "EVC (CanZE)", Bits 48-63 folgen der Motorleistung; 0x62D ist nicht in der Simulator-Tabelle und nicht in der CAN-Liste). Die Zuordnung "HV zugeschaltet" beruht auf der Korrelation, nicht auf einer Beschreibung.
