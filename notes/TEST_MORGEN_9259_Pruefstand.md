@@ -52,3 +52,14 @@ Laut Haupt-CPU-XML ist `9281`: `0` = „temporisation is **activated**", `1` = �
 - Auto-Dumps: `925F` Fahrzeug-km = `9262` Safety-CPU = 92.677,00 km. Die Live-Zeit der Safety-CPU (`9261`) ist der Minutenzähler aus `0x350`.
 - Missionsliste im Auto: eine Mission pro Hochvolt-Sitzung, die neueste ist die laufende. `9261` gespeichert liegt nahe am Beginn der laufenden Mission (nicht beim Abschalten).
 - Offene Bauideen (nur nach „bauen"): Zielauswahl `DB`/`DC`/`79B` bei der freien Anfrage; Zoe-Gen2-HEVC-Frames `0x373`/`0x375`/`0x376` (schwach gestützt); `0x5D7` mit Kilometern senden statt `0x426`; Inhalt von `0x426` änderbar machen.
+
+## Teil 3 (neu, aus den Auto-Dumps vom 06.10.): Ereignis statt Dauerzustand
+
+Im Auto zählt `9279` bei **jedem Wechsel** um 1 (Zündung an: neue Mission, Zündung aus: neue Nachlauf-Mission). BMS-Modus `9259`: **05** bei Zündung an, **04** bei Zündung aus (Akku noch wach). Der Prüfstand steht dauernd auf **04**.
+
+1. Lies `22 92 59`, `22 92 79`, `22 92 5C`.
+2. Drücke den **Wake-up-Knopf** (Aufwach-Folge `C0 → … → C7`), beobachte währenddessen alle 2 bis 3 s `22 92 59` und `22 92 79`.
+3. Notiere, ob `9259` kurz auf `05` geht oder `9279` hochzählt.
+4. Danach Sleep-Lauf (Schreibwert `0x00`) und nach dem Aufwachen wieder `9261`, `91C1`, `9275`, `9279`.
+
+Vorhersage für den nächsten Auto-Dump (nach dem Schlaf): `91C1` ca. `21 47 5B`, `9261` ca. `2D 3F 59` (Schnappschuss ca. 3 min nach dem Sitzungsende).

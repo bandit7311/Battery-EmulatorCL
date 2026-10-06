@@ -184,3 +184,12 @@ Stand 05.10.2026. Nur eine Notiz, nichts gebaut.
 - -> Rueckkehr zur Hypothese "gespeichert nach Sitzungsende (nach Temporisation, ca. 3 min)". Die Hypothese "beim Wecken/Missionsbeginn" ist zurueckgezogen.
 - Offen: warum Mission 0 bei Dump 1 (Autozeit ca. 16:33) noch fehlte, obwohl Start 16:20 (Eintrag wird wohl erst bei HV-Aktivierung/READY angelegt).
 - Folge fuer den Prüfstand: ohne Sitzung (9279 = 0, keine Mission) gibt es kein Sitzungsende und damit keinen Schnappschuss. Test: BMS-Modus 04 -> 05 (siehe TEST_MORGEN_9259).
+
+### Dritter MCPU-Dump vom Auto (1791308249, 17:37:29 UTC, nur 72 s nach Dump 2): "Zündung aus, kurz vor Schlaf"
+- Geaendert gegenueber Dump 2: 9259 BMS-Modus 05 -> **04**, 925C Relaisstatus 01 -> **02**, 9279 Missionsindex 00 -> **01**, neue Mission an Index 31 (Start 2.180.950 = Ende von Mission 0, Ende 2.180.952, 2 min, km 24.791 -> 24.791), 12-V (F442) 12,9 V -> 12,0 V, 9284 FF FF FD F9 -> 00 00 00 00, 91CD Kuehltemp.
+- Unveraendert: 9261 (2D 3E FC), 91C1 (21 46 FE), 925F, 91CF -> Schnappschuss noch NICHT erneuert (kurz vor Schlaf).
+- Mission 0 (Index 0): 16:20 bis 17:25 (Autozeit, Offset X = 784.382), 65 min, km 24.791 -> 24.791, USOC 27 -> 25.
+- 9279 zaehlt bei jedem Missionsstart um 1 (31 -> 0 -> 1). Eine Mission beginnt bei Zuendung an UND direkt bei Zuendung aus (kurze "Nachlauf"-Mission bis zum Schlaf).
+- BMS-Modus: 05 = Zuendung an (Sitzung), 04 = Zuendung aus / Akku wach vor dem Schlaf. Prüfstand zeigt 04 (+ Relaisstatus 01 wie "Zuendung an", gemischt).
+- VORHERSAGE fuer naechsten Dump nach dem Schlaf: Schnappschuss = Ende letzte Mission + 3 min -> 91C1 ca. 2.180.955 (0x21475B), 9261 ca. 2.965.337 (0x2D3F59 = 17:30:08 Autozeit). Trifft das ein, ist belegt: gespeichert ca. 3 min nach Sitzungsende (nach Temporisation).
+- Prüfstand-Ideen: 9259/9279/925C direkt nach dem Wake-up-Knopf (Wechsel/Ereignis statt Dauerzustand?) lesen; 9279 muss bei Sitzungsbeginn +1 zaehlen.
