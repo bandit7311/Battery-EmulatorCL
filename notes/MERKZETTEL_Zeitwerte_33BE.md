@@ -241,9 +241,9 @@ Messungen des Nutzers (Zeitabstand zwischen den Abfragen nicht notiert):
 - Herleitung der Epoche: Kommentar zu VEHICLE_AGE_EPOCH_UTC (Header Zeile 310-316), aus beiden Fahrzeug-Logs (02.10. und 03.10.), Streuung ca. +-15 s. Nachrechnung mit SCPU-Dump 1791315194: Abweichung 11 min = PC-Uhr gegen Autouhr (ca. 10,2 min).
 - Vorbehalt: Epoche belegt fuer das Auto; dass der Bench-Akku dieselbe meint, ist Annahme. Quelle des Werts unbekannt (nicht von uns gesendet, nicht geschrieben).
 
-## Nachtrag 4: fruehere Bench-Zeitwerte (aus dem frueheren Chat 0d5cef0c, 02.-04.10.)
-- 02./03.10.: Bench 9261, 9264, 926B, 91C1 alle `00 00 00` (Chat-Zeilen 4176, 7266, 7420-7430).
-- 04.10. (Log mit Abschaltfolge): Bench-9261 = 2.962.019 nach der ersten Abschaltung und 2.962.022 nach der zweiten. Das ist der 0x350-Zaehler beim Wechsel C0 -> 00, vom Akku genau dort gespeichert (Chat-Zeilen 9398-9405, 9474: `62 92 61 2D 32 66` = 2.962.022). Fuenfmal derselbe Befund. Kein anderes Frame aenderte beim Wechsel C0 -> 00 seinen Inhalt (die 16 schnellen IDs waren durch den Filter nicht im Log, daher mit Einschraenkung).
-- Frueher sendete der Emulator als 0x350-Zaehler fest `10 15 7F` = 1.054.079 min, spaeter die echte Uhr (ca. 2,96 Mio.).
-- Heute (06.10.): 9261 = 91C1 = `14 02 70` = 1.311.344 min. Passt zu KEINEM davon (nicht 2,96 Mio., nicht 1.054.079). Dazwischen standen beide laut Messung einmal wieder auf 0; was sie zurueckgesetzt hat (NVROL?), ist ungeprueft.
-- Fazit: Der Bench-Akku hat 9261 am 04.10. gespeichert (beim Abschalten, Wechsel C0 -> 00). Offen bleibt, woher 1.311.344 kommt.
+## Nachtrag 4 (KORRIGIERT): fruehere Zeitwerte, Zuordnung Auto / Bench
+- FEHLER in der ersten Fassung dieses Nachtrags: Die 04.10.-Werte 2.962.019 / 2.962.022 stammen vom FAHRZEUG-Akku, nicht vom Bench. Beleg im frueheren Chat 0d5cef0c: Das Log wurde im Auto mitgeschnitten (Auto startete von selbst neu, "du sitzt im Auto", Zeilen 9298, 9316, 9411-9418). Im selben Chat steht fuer den Bench: "Beim Bench-Akku steht er immer auf 0" (Zeile 9428).
+- Auto-Pack: speichert 9261 = 0x350-Zaehler beim Wechsel C0 -> 00 (fuenfmal reproduziert, 0,5 s genau; die 16 schnellen IDs waren durch den Filter nicht im Log). Nov. 2025: 2.486.870 min (`25 F2 56`).
+- Bench-Pack, laut den mir vorliegenden Daten: 02./03.10. 9261, 9264, 926B, 91C1 alle `00 00 00` (Zeilen 4176, 7266, 7420); in dieser Sitzung (06.10.) ebenfalls 0, bis dann 9261 = 91C1 = `14 02 70` = 1.311.344 min erschien. Das ist nach meinen Daten der erste Wert ungleich 0 am Bench.
+- Frueher sendete der Emulator fest `10 15 7F` = 1.054.079 min, spaeter die echte Uhr (ca. 2,96 Mio.). 1.311.344 passt zu keinem von beiden.
+- Offen: Der Nutzer erinnert fruehere Bench-Zeitwerte, die mir nicht vorliegen. Wenn sie existieren, bitte Wert und Datum nachtragen.
