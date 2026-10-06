@@ -138,7 +138,7 @@ Stand 05.10.2026. Nur eine Notiz, nichts gebaut.
 4. Inhalt von 0x426 aenderbar machen (Bytes 0-3, 7 unbekannt).
 
 ### Tests fuer spaeter (ohne Umbau)
-- Sleep-Lauf mit Schreibwert 0x00 (activated) statt 0x01 (MCPU-XML: 9281 0 = "temporisation is activated"; Zoe-Gen2/ljames28: 01 = enable). Vorher/nachher 9261, 91C1, 9275, 9279 lesen, Rueckleswert 9281 notieren.
+- Sleep-Lauf mit Schreibwert 0x00 (activated) statt 0x01 (MCPU-XML: 9281 0 = "temporisation is activated"; Zoe-Gen2/ljames28: 01 = enable). Vorher/nachher 9261, 91C1, 9275, 9279 lesen, Ruecklesewert 9281 notieren.
 - Reihenfolge fuer E14381: weitere Simulator-Zeilen (0x1F6, 0x211, 0x217, 0xC6, 0x12E, 0x29A, 0x2B7, 0x634 sind aus) alle an, dann halbieren.
 - "Read DTC details" (19 06) fuer E14381.
 - Dump vom Akku des Autos (MCPU + SCPU, mit Zuendung an und nach Abschalten), um 925F/9262 mit 0x5D7 zu vergleichen.
@@ -255,3 +255,18 @@ Messungen des Nutzers (Zeitabstand zwischen den Abfragen nicht notiert):
 - Vergleich Auto-Pack: 91C1 = 1.700.434 (04.11.2025, 3,24 J) und 2.181.061 (06.10.2026, 4,15 J). Zwischen beiden Dumps liegen 480.627 min Pack-Zeit gegen ca. 484.000 min Kalenderzeit, die Pack-Zeit laeuft also fast in Echtzeit. 9261 - 91C1 = 784.382 min im Auto => erstes Einschalten des Auto-Packs ca. 14.08.2022 (Rechnung, passt zum XML-Datum 06/2022).
 - Bench-91C1 aendert sich zwischen den Messungen nicht (mehrere Stunden): ein gespeicherter Stand, kein Live-Zaehler.
 - Ob der Bench-Akku seine 2,49 Jahre in Echtzeit gezaehlt hat (erstes Einschalten ca. Anfang 2024) oder nur Betriebszeit, ist ungeprueft.
+
+## Nachtrag 5 (06.10., Bench): Sleep-Lauf mit Schreibwert 0x00 - Ergebnis
+Lauf: Schreibwert 9281 = 0x00 ("activated"), Ruecklesewert `62 92 81 00` (NVROL-Log "Write 9281=0: OK"). Stillephase mit "BMS SILENT since 00:01", Sicherheitsgrenze 08:00. Simulator-Haken waren aus.
+Die Anzeige "Sleep 0x9281=1" / "skipped (Sleep 0x9281=1)" ist nur der feste Knopfname (Code Zeile 776-780), kein Messwert.
+| Wert | vorher | nachher |
+|---|---|---|
+| 9261 / 91C1 | `14 02 70` = 1.311.344 | unveraendert |
+| 9259 BMS-Modus | 04 | 04 |
+| 925C Relaisstatus | 03 | 03 |
+| 9279 Missionszaehler | 00 | 00 |
+| 9275 / 9276 Missionslisten | leer | leer |
+| 925F Fahrzeug-km | 19.400 | 0 (Ursache ungeklaert; 0x426 war aus) |
+| 9001 / 9002 SOC | 23,47 / 18,36 % | 28,03 / 22,59 % |
+Ergebnis: Der Sleep-Lauf allein, auch mit 0x00, loest am Bench weder eine Mission noch eine Zeitspeicherung aus und aendert 9259/925C nicht.
+Offen: Ob 0x350 an (mit/ohne weitere Zeilen) 925C von 03 auf 01 bringt und 9259 auf 05 (Teil 1 des Tests).
