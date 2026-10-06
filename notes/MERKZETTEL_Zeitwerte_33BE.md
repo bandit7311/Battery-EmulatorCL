@@ -189,7 +189,7 @@ Stand 05.10.2026. Nur eine Notiz, nichts gebaut.
 - Geaendert gegenueber Dump 2: 9259 BMS-Modus 05 -> **04**, 925C Relaisstatus 01 -> **02**, 9279 Missionsindex 00 -> **01**, neue Mission an Index 31 (Start 2.180.950 = Ende von Mission 0, Ende 2.180.952, 2 min, km 24.791 -> 24.791), 12-V (F442) 12,9 V -> 12,0 V, 9284 FF FF FD F9 -> 00 00 00 00, 91CD Kuehltemp.
 - Unveraendert: 9261 (2D 3E FC), 91C1 (21 46 FE), 925F, 91CF -> Schnappschuss noch NICHT erneuert (kurz vor Schlaf).
 - Mission 0 (Index 0): 16:20 bis 17:25 (Autozeit, Offset X = 784.382), 65 min, km 24.791 -> 24.791, USOC 27 -> 25.
-- 9279 zaehlt bei jedem Missionsstart um 1 (31 -> 0 -> 1). Eine Mission beginnt bei Zuendung an UND direkt bei Zuendung aus (kurze "Nachlauf"-Mission bis zum Schlaf).
+- [KORRIGIERT, siehe Nachtrag 2] frueher: "9279 zaehlt bei jedem Missionsstart". Belegt ist: 9279 zaehlt, wenn eine Mission ABGESCHLOSSEN und in den Ring geschrieben wird.
 - BMS-Modus: 05 = Zuendung an (Sitzung), 04 = Zuendung aus / Akku wach vor dem Schlaf. Prüfstand zeigt 04 (+ Relaisstatus 01 wie "Zuendung an", gemischt).
 - VORHERSAGE fuer naechsten Dump nach dem Schlaf: Schnappschuss = Ende letzte Mission + 3 min -> 91C1 ca. 2.180.955 (0x21475B), 9261 ca. 2.965.337 (0x2D3F59 = 17:30:08 Autozeit). Trifft das ein, ist belegt: gespeichert ca. 3 min nach Sitzungsende (nach Temporisation).
 - Prüfstand-Ideen: 9259/9279/925C direkt nach dem Wake-up-Knopf (Wechsel/Ereignis statt Dauerzustand?) lesen; 9279 muss bei Sitzungsbeginn +1 zaehlen.
@@ -198,15 +198,30 @@ Stand 05.10.2026. Nur eine Notiz, nichts gebaut.
 Autozeit = Dateizeit minus ca. 10,2 min (Naeherung).
 - Dateien ...3736 / ...3774 / ...3903 / ...4177 (Abstand 38 s / 129 s / 274 s):
   - 9259/925C/9279: 04/02/03 -> 05/01/03 -> 05/01/03 -> 04/02/04.
-  - 9279 zaehlt beim Wechsel Zuendung an -> aus um 1 (03 -> 04). Zuendung an: 9259 = 05, 925C = 01. Zuendung aus: 9259 = 04, 925C = 02.
+  - [KORRIGIERT] 9279 zaehlt nicht beim Wechsel an/aus, sondern beim Mission-Ende (Eintrag im Ring), siehe Nachtrag 2.
 - Schnappschuss-Paar neu: 9261 = 2.965.423 (18:56 Autozeit), 91C1 = 2.181.041, Differenz weiter 784.382. In allen vier Dumps konstant.
 - 925F = 92.678,00 km, 91CF = 24.792 km (jeweils +1 km gegenueber den Dumps 1-3; ob zwischen 17:37 und 18:58 gefahren wurde: Frage an Nutzer offen).
-- Missionsliste (9275/9276/9278) in allen vier Dumps UNVERAENDERT: neuester Eintrag Start 2.180.885, Ende 2.180.950 (65 min, 17:25 Autozeit, 24.791 km), Liste neueste zuerst.
-  Der Zaehler 9279 ging seit 17:37 von 01 auf 04, ohne dass Eintraege dazukamen.
+- [FALSCH, korrigiert in Nachtrag 2] Ich hatte nur Index 0-4 der Missionsliste geprueft. Die neuen Eintraege stehen am Listenende (Ring, wird abwaerts beschrieben: Index 31, 30, 29, 28).
+  [FALSCH] "Zaehler ohne Eintrag": Zaehler und Eintraege stimmen ueberein.
 
 ### Korrektur der Vorhersage
 - Die Vorhersage "Schnappschuss ca. 3 min nach Sitzungsende" (91C1 ca. 2.180.955) ist WIDERLEGT: tatsaechlich 2.181.041 (86 min spaeter). Die 3-min-Regel gilt nicht.
-- Offen / Hypothese (nicht belegt): Missionseintraege werden erst bei sauberem Sitzungsende (Tiefschlaf/Abschaltfolge) geschrieben; der Schnappschuss wird bei einem anderen Ereignis geschrieben (z. B. Aufwachen/Zuendung an).
+- [FALSCH] Hypothese "Eintraege erst bei Tiefschlaf" ist hinfaellig: Eintraege entstehen am Ende jeder Mission (siehe Nachtrag 2). Offen bleibt nur, wann der Schnappschuss geschrieben wird.
 - Zustaende wie READY lassen sich aus den vier Dumps nicht von "Zuendung an" trennen.
 - Antwort Nutzer: zwischen 17:37 und 18:58 hat eine Fahrt stattgefunden. Das erklaert +1 km bei 925F/91CF und den Zaehler 9279 (01 -> 03).
-  Auffaellig (belegt): Die Fahrt steht trotzdem NICHT in der Missionsliste (neuester Eintrag bleibt 17:25, 24.791 km). Eintraege werden also nicht sofort bei Sitzungsende geschrieben.
+  [FALSCH] Fahrt fehlt nicht in der Liste: Die km-Stufe 24.791 -> 24.792 liegt in der Mission 17:37-17:38 (Index 30).
+
+## Nachtrag 2 (06.10., Dumps 19:16-19:22 Autozeit, MCPU x3 + SCPU x1): Missionsring richtig gelesen
+Ring mit 32 Eintraegen, wird ABWAERTS beschrieben (31, 30, 29, 28, ...). Neueste Eintraege (Autozeit = Pack-Zeit + 784.382 min):
+| Index | Start | Ende | Dauer | km am Ende |
+|---|---|---|---|---|
+| 31 | 17:25 | 17:27 | 2 min | 24.791 |
+| 30 | 17:37 | 17:38 | 1 min | 24.792 (Start 24.791) |
+| 29 | 17:53 | 17:55 | 2 min | 24.792 |
+| 28 | 18:58 | 19:04 | 6 min | 24.792 |
+- Belegt: 9279 = Anzahl abgeschlossener Missionen seit einem Reset (00 bei Dump 17:26 laufender Mission, 01 danach, 03, 04 nach Ende der Mission 18:58-19:04). Waehrend einer laufenden Mission (9259 = 05) bleibt 9279 unveraendert; der Eintrag erscheint erst am Ende.
+- Belegt: Der Eintrag der Sitzung 18:58-19:04 stand spaetestens 2 min nach deren Ende im Ring (Dump 19:06 Autozeit, 9259 = 04).
+- Belegt: Neue Zuendung an (Dumps 19:21-19:24 Autozeit): 9259 = 05, 925C = 01, 9279 bleibt 04, neue Mission noch nicht im Ring.
+- Schnappschuss-Paar: dritte Stufe 9261 = 2.965.443 (19:16), 91C1 = 2.181.061, Differenz weiter 784.382. SCPU live 9261 = 2.965.449 (19:22, Dump 1791315194), SCPU 9262 = 92.678,00 km, SCPU 9259 = 05, 925C = 01.
+- Schnappschuss-Zeitpunkte relativ zu Missionen (alle drei bekannt): 15:57 (3 min nach Ende 15:54), 18:56 (2 min VOR Start der Mission 18:58, 61 min nach Ende 17:55), 19:16 (12 min nach Ende 19:04). Eine einheitliche Regel ist daraus nicht ableitbar. Hypothese (nicht belegt): geschrieben wird bei einem Wach-/Weckereignis, nicht am Missionsende.
+- Fehler in meinem letzten Bericht: "Missionsliste unveraendert / Zaehler ohne Eintrag" war falsch (ich hatte nur Index 0-4 gelesen).

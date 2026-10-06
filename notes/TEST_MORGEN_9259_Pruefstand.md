@@ -55,7 +55,7 @@ Laut Haupt-CPU-XML ist `9281`: `0` = „temporisation is **activated**", `1` = �
 
 ## Teil 3 (neu, aus den Auto-Dumps vom 06.10.): Ereignis statt Dauerzustand
 
-Im Auto zählt `9279` bei **jedem Wechsel** um 1 (Zündung an: neue Mission, Zündung aus: neue Nachlauf-Mission). BMS-Modus `9259`: **05** bei Zündung an, **04** bei Zündung aus (Akku noch wach). Der Prüfstand steht dauernd auf **04**.
+Im Auto zählt `9279` beim **Ende** einer Mission um 1 (nicht beim Start); während der laufenden Mission bleibt er stehen. BMS-Modus `9259`: **05** bei Zündung an, **04** bei Zündung aus (Akku noch wach). Der Prüfstand steht dauernd auf **04**.
 
 1. Lies `22 92 59`, `22 92 79`, `22 92 5C`.
 2. Drücke den **Wake-up-Knopf** (Aufwach-Folge `C0 → … → C7`), beobachte währenddessen alle 2 bis 3 s `22 92 59` und `22 92 79`.
@@ -64,4 +64,4 @@ Im Auto zählt `9279` bei **jedem Wechsel** um 1 (Zündung an: neue Mission, Zü
 
 Vorhersage widerlegt: erwartet `91C1` ca. `21 47 5B`, tatsächlich `21 47 B1` (2.181.041), `9261` = `2D 3F AF`.
 
-**Zusatz für den Prüfstand:** Vor und nach jedem Schritt zusätzlich `22 92 75`/`22 92 76` (neuester Missionseintrag) und `22 92 79` lesen. Im Auto zählte `9279` von 01 auf 04, ohne dass neue Listeneinträge erschienen.
+**Zusatz für den Prüfstand:** Vor und nach jedem Schritt zusätzlich `22 92 75`/`22 92 76` (neuester Missionseintrag) und `22 92 79` lesen. Im Auto zählt `9279` beim **Ende** einer Mission und es erscheint ein Ringeintrag (Ring wird abwärts beschrieben, Index 31, 30, 29, 28 …). Die Liste deshalb komplett lesen, nicht nur den Anfang.
