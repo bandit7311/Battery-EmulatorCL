@@ -247,3 +247,11 @@ Messungen des Nutzers (Zeitabstand zwischen den Abfragen nicht notiert):
 - Bench-Pack, laut den mir vorliegenden Daten: 02./03.10. 9261, 9264, 926B, 91C1 alle `00 00 00` (Zeilen 4176, 7266, 7420); in dieser Sitzung (06.10.) ebenfalls 0, bis dann 9261 = 91C1 = `14 02 70` = 1.311.344 min erschien. Das ist nach meinen Daten der erste Wert ungleich 0 am Bench.
 - Frueher sendete der Emulator fest `10 15 7F` = 1.054.079 min, spaeter die echte Uhr (ca. 2,96 Mio.). 1.311.344 passt zu keinem von beiden.
 - Offen: Der Nutzer erinnert fruehere Bench-Zeitwerte, die mir nicht vorliegen. Wenn sie existieren, bitte Wert und Datum nachtragen.
+
+## KORREKTUR zu "Merken: Zeit im Bench-Akku" (06.10., nach Frage des Nutzers)
+- `91C1` heisst in der Haupt-CPU-XML "Pack Time Life (since 1st power-up)" (`Wxx_abs_time_pack`, 24 Bit, min). Das ist die Lebenszeit des Packs seit dem ersten Einschalten, KEINE Fahrzeuguhr. `9261` ist dagegen "Absolute Time of Vehicle saved" (`Zxx_abs_time_vhc`).
+- Bench: 91C1 = 1.311.344 min = **2,49 Jahre Pack-Lebenszeit**. 9261 hat denselben Wert (Differenz 0): Der Akku hat am Bench nie eine Fahrzeugzeit mit anderem Nullpunkt bekommen.
+- Das Datum "15.08.2023 02:57" ist FALSCH als Zeitpunkt: Die Epoche 15.02.2021 gilt nur fuer 9261 im Auto (0x350-Zaehler), nicht fuer 91C1.
+- Vergleich Auto-Pack: 91C1 = 1.700.434 (04.11.2025, 3,24 J) und 2.181.061 (06.10.2026, 4,15 J). Zwischen beiden Dumps liegen 480.627 min Pack-Zeit gegen ca. 484.000 min Kalenderzeit, die Pack-Zeit laeuft also fast in Echtzeit. 9261 - 91C1 = 784.382 min im Auto => erstes Einschalten des Auto-Packs ca. 14.08.2022 (Rechnung, passt zum XML-Datum 06/2022).
+- Bench-91C1 aendert sich zwischen den Messungen nicht (mehrere Stunden): ein gespeicherter Stand, kein Live-Zaehler.
+- Ob der Bench-Akku seine 2,49 Jahre in Echtzeit gezaehlt hat (erstes Einschalten ca. Anfang 2024) oder nur Betriebszeit, ist ungeprueft.
