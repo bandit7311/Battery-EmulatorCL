@@ -50,7 +50,7 @@ Laut Haupt-CPU-XML ist `9281`: `0` = „temporisation is **activated**", `1` = �
 ## Hintergrund (kurz)
 
 - Auto-Dumps: `925F` Fahrzeug-km = `9262` Safety-CPU = 92.677,00 km. Die Live-Zeit der Safety-CPU (`9261`) ist der Minutenzähler aus `0x350`.
-- Missionsliste im Auto: eine Mission bei Zündung an, eine kurze Nachlauf-Mission bei Zündung aus. `9261`/`91C1` sind ein Schnappschuss-Paar, das ca. 3 min nach dem Ende einer Sitzung geschrieben wird (Stand nach 3 Dumps; Vorhersage siehe Teil 3, noch nicht bestätigt).
+- Missionsliste im Auto: eine Mission bei Zündung an, eine kurze Nachlauf-Mission bei Zündung aus. `9261`/`91C1` sind ein Schnappschuss-Paar. Die frühere "ca. 3 min nach Sitzungsende"-Regel ist durch vier weitere Dumps widerlegt (Schnappschuss 86 min später); Auslöser offen.
 - Offene Bauideen (nur nach „bauen"): Zielauswahl `DB`/`DC`/`79B` bei der freien Anfrage; Zoe-Gen2-HEVC-Frames `0x373`/`0x375`/`0x376` (schwach gestützt); `0x5D7` mit Kilometern senden statt `0x426`; Inhalt von `0x426` änderbar machen.
 
 ## Teil 3 (neu, aus den Auto-Dumps vom 06.10.): Ereignis statt Dauerzustand
@@ -62,4 +62,6 @@ Im Auto zählt `9279` bei **jedem Wechsel** um 1 (Zündung an: neue Mission, Zü
 3. Notiere, ob `9259` kurz auf `05` geht oder `9279` hochzählt.
 4. Danach Sleep-Lauf (Schreibwert `0x00`) und nach dem Aufwachen wieder `9261`, `91C1`, `9275`, `9279`.
 
-Vorhersage für den nächsten Auto-Dump (nach dem Schlaf): `91C1` ca. `21 47 5B`, `9261` ca. `2D 3F 59` (Schnappschuss ca. 3 min nach dem Sitzungsende).
+Vorhersage widerlegt: erwartet `91C1` ca. `21 47 5B`, tatsächlich `21 47 B1` (2.181.041), `9261` = `2D 3F AF`.
+
+**Zusatz für den Prüfstand:** Vor und nach jedem Schritt zusätzlich `22 92 75`/`22 92 76` (neuester Missionseintrag) und `22 92 79` lesen. Im Auto zählte `9279` von 01 auf 04, ohne dass neue Listeneinträge erschienen.

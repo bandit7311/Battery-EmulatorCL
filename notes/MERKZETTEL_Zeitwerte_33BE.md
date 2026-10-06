@@ -193,3 +193,18 @@ Stand 05.10.2026. Nur eine Notiz, nichts gebaut.
 - BMS-Modus: 05 = Zuendung an (Sitzung), 04 = Zuendung aus / Akku wach vor dem Schlaf. Prüfstand zeigt 04 (+ Relaisstatus 01 wie "Zuendung an", gemischt).
 - VORHERSAGE fuer naechsten Dump nach dem Schlaf: Schnappschuss = Ende letzte Mission + 3 min -> 91C1 ca. 2.180.955 (0x21475B), 9261 ca. 2.965.337 (0x2D3F59 = 17:30:08 Autozeit). Trifft das ein, ist belegt: gespeichert ca. 3 min nach Sitzungsende (nach Temporisation).
 - Prüfstand-Ideen: 9259/9279/925C direkt nach dem Wake-up-Knopf (Wechsel/Ereignis statt Dauerzustand?) lesen; 9279 muss bei Sitzungsbeginn +1 zaehlen.
+
+## Nachtrag 06.10.: vier weitere MCPU-Dumps (Zuendzyklus ca. 18:58-19:06 Autozeit)
+Autozeit = Dateizeit minus ca. 10,2 min (Naeherung).
+- Dateien ...3736 / ...3774 / ...3903 / ...4177 (Abstand 38 s / 129 s / 274 s):
+  - 9259/925C/9279: 04/02/03 -> 05/01/03 -> 05/01/03 -> 04/02/04.
+  - 9279 zaehlt beim Wechsel Zuendung an -> aus um 1 (03 -> 04). Zuendung an: 9259 = 05, 925C = 01. Zuendung aus: 9259 = 04, 925C = 02.
+- Schnappschuss-Paar neu: 9261 = 2.965.423 (18:56 Autozeit), 91C1 = 2.181.041, Differenz weiter 784.382. In allen vier Dumps konstant.
+- 925F = 92.678,00 km, 91CF = 24.792 km (jeweils +1 km gegenueber den Dumps 1-3; ob zwischen 17:37 und 18:58 gefahren wurde: Frage an Nutzer offen).
+- Missionsliste (9275/9276/9278) in allen vier Dumps UNVERAENDERT: neuester Eintrag Start 2.180.885, Ende 2.180.950 (65 min, 17:25 Autozeit, 24.791 km), Liste neueste zuerst.
+  Der Zaehler 9279 ging seit 17:37 von 01 auf 04, ohne dass Eintraege dazukamen.
+
+### Korrektur der Vorhersage
+- Die Vorhersage "Schnappschuss ca. 3 min nach Sitzungsende" (91C1 ca. 2.180.955) ist WIDERLEGT: tatsaechlich 2.181.041 (86 min spaeter). Die 3-min-Regel gilt nicht.
+- Offen / Hypothese (nicht belegt): Missionseintraege werden erst bei sauberem Sitzungsende (Tiefschlaf/Abschaltfolge) geschrieben; der Schnappschuss wird bei einem anderen Ereignis geschrieben (z. B. Aufwachen/Zuendung an).
+- Zustaende wie READY lassen sich aus den vier Dumps nicht von "Zuendung an" trennen.
