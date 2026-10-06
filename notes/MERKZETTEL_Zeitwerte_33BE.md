@@ -270,3 +270,10 @@ Die Anzeige "Sleep 0x9281=1" / "skipped (Sleep 0x9281=1)" ist nur der feste Knop
 | 9001 / 9002 SOC | 23,47 / 18,36 % | 28,03 / 22,59 % |
 Ergebnis: Der Sleep-Lauf allein, auch mit 0x00, loest am Bench weder eine Mission noch eine Zeitspeicherung aus und aendert 9259/925C nicht.
 Offen: Ob 0x350 an (mit/ohne weitere Zeilen) 925C von 03 auf 01 bringt und 9259 auf 05 (Teil 1 des Tests).
+
+## Nachtrag 6 (06.10., Bench): funktionierender Satz an Simulator-Haken
+Nutzer-Aussage: Mit `0x090`, `0x242`, `0x350`, `0x423`, `0x69F` an kommen die Zellspannungen wieder und das Status-Display ist nicht mehr gelb (vorher: gelb, keine Entnahmestroeme gesetzt, keine Spannungen). Die Zeilen wurden schrittweise zugeschaltet, nicht einzeln getestet.
+- Das ist ein FUNKTIONIERENDER Satz, nicht bewiesen minimal. Offen: ob `0x423` und `0x69F` noetig sind (vermutet: `0x423` nein, Zoe-Gen1-Weckframe, den das Fahrzeug nie sendet).
+- Belegt vorher: nur `0x350` an -> keine Zellspannungen, SOC 163,82 % (= Rohwert 0xFFF8 aus 0x155); `0x350` + `0x090` + `0x242` -> SOC weiter 163 %.
+- Noch nicht notiert: 9259 / 925C / DTCs in diesem Zustand.
+- Naechster Schritt (Abbau, nach Kontrollwerten): erst `0x423` aus, dann `0x69F` aus; jeweils 30 s warten, SOC, Zellspannungen, Status-Display, 925C, 9259 ablesen.
