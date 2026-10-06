@@ -225,3 +225,13 @@ Ring mit 32 Eintraegen, wird ABWAERTS beschrieben (31, 30, 29, 28, ...). Neueste
 - Schnappschuss-Paar: dritte Stufe 9261 = 2.965.443 (19:16), 91C1 = 2.181.061, Differenz weiter 784.382. SCPU live 9261 = 2.965.449 (19:22, Dump 1791315194), SCPU 9262 = 92.678,00 km, SCPU 9259 = 05, 925C = 01.
 - Schnappschuss-Zeitpunkte relativ zu Missionen (alle drei bekannt): 15:57 (3 min nach Ende 15:54), 18:56 (2 min VOR Start der Mission 18:58, 61 min nach Ende 17:55), 19:16 (12 min nach Ende 19:04). Eine einheitliche Regel ist daraus nicht ableitbar. Hypothese (nicht belegt): geschrieben wird bei einem Wach-/Weckereignis, nicht am Missionsende.
 - Fehler in meinem letzten Bericht: "Missionsliste unveraendert / Zaehler ohne Eintrag" war falsch (ich hatte nur Index 0-4 gelesen).
+
+## Nachtrag 3 (06.10., Bench, Simulator-Haken weitgehend aus): erste Zeitwerte am Bench
+Messungen des Nutzers (Zeitabstand zwischen den Abfragen nicht notiert):
+- Bench 9261 = 91C1 = `14 02 70` = 1.311.344 min (Differenz 0). Vorher am Bench immer `00 00 00`. Nutzer hat nichts geschrieben, nur alle Simulator-Frames ausgeschaltet. Nochmals gelesen: 9261 unveraendert (gespeicherter Wert, kein Zaehler).
+- Der Wert kommt in keiner frueheren Messung und nicht im Code vor (0x350 sendet ca. 2,96 Mio.). Herkunft unbekannt.
+- 9279 = 00, beide Missionslisten (9275/9276) leer: Der Akku hat am Bench KEINE Mission gespeichert, obwohl das Schnappschuss-Paar gesetzt ist. Das Paar entsteht also unabhaengig von Missionen (Auto: Differenz 784.382, Bench: 0).
+- 9259 = 04 (wie immer am Bench).
+- 925C = 03 (NEU). Bisher: 01 = Auto Zuendung an und Bench mit Standard-Haken, 02 = Auto Zuendung aus. 03 erschien, nachdem die Simulator-Frames ausgeschaltet waren. 925C reagiert also auf die Frames am Bus (Hinweis, nicht bewiesen); Bedeutung von 03 unbekannt (XML: 2 Bit "Relay status, internal value", keine Wertetabelle).
+- Weitere Bench-Werte im Screenshot: SOH 9003 = 99,970 % (vorher 99,25), 9001 = 23,47 %, 9002 = 18,36 %, 900E = 43,00 kW, 900F = 71,23 kW, 9018 = 22,00 kW, 925F = 19.400 km, 91CF = 0 km. Hauptdisplay SOC = 163,82 % = Rohwert 0xFFF8 aus 0x155 Byte 4-5 (ungueltig, Treiber filtert nicht).
+- Mit nur 0x350 an kamen keine Zellspannungen mehr; mit 0x350 + 0x090 + 0x242 blieb der SOC bei 163 %.
