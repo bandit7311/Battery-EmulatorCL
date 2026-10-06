@@ -175,3 +175,12 @@ Stand 05.10.2026. Nur eine Notiz, nichts gebaut.
 - 91CA/91CB (Haupt-/Vorladerelais-Anforderung) = 0 ("Opening control") im Dump bei laufender Zuendung - Zustand des Autos beim Dump (READY?) unbekannt.
 - 9259 BMS mode (05) und 925C Relay status (01): in den XMLs keine Aufzaehlung der Werte.
 - Pack-Zeit laeuft langsamer als Absolut-Zeit (Abweichung bei Missionszeiten ca. 15-17 min nach 2-4 Tagen gegenueber 0x350-Zeit) -> Missionszeiten nur grob in Abs-Zeit umrechenbar.
+
+### Zweiter MCPU-Dump vom Auto (1791308177, 06.10.2026 17:36 UTC, "Zündung an", 52,5 min nach Dump 1) - KORREKTUR der Deutung
+- Unveraendert zwischen Dump 1 und 2: 9261 (2D 3E FC), 91C1 (21 46 FE), 925F (92.677 km), 91CF (24.791 km), 9259 (05), 925C (01), 9281 (00), 91CA/91CB (00). Geaendert: Zellspannungen/Temperaturen, 9279 (31 -> 00), Missionsliste.
+- Neue Mission an Index 0 (ueberschreibt aeltesten Eintrag 28.09.): Start 2.180.885, Ende 2.180.950 (65 min), km 24.791 -> 24.791 (nicht gefahren), USOC 27 -> 25, T 20. Missionen gibt es also auch ohne Fahren.
+- Mission Index 1 (Start 2.180.829, Ende 2.180.859, 30 min, 25 km) war bei Dump 1 schon ABGESCHLOSSEN (Ende unveraendert). Frueherer Satz "laufende Mission" war falsch.
+- 9261 und 91C1 sind ein Schnappschuss-Paar: Offset X = 9261 - 91C1 = 784.382. 91C1 = Ende Mission 1 + 3 min -> Schnappschuss ca. 3 min NACH Ende der vorigen Sitzung (nicht beim Start, nicht waehrend der laufenden Sitzung: in 52 min unveraendert). Pruefung: Mission 0 = 16:20 bis 17:25 (Autozeit) passt zum Dump-2-Zeitpunkt (PC-Zeit 17:36 minus ca. 10 min Differenz Auto/PC aus SCPU-Vergleich).
+- -> Rueckkehr zur Hypothese "gespeichert nach Sitzungsende (nach Temporisation, ca. 3 min)". Die Hypothese "beim Wecken/Missionsbeginn" ist zurueckgezogen.
+- Offen: warum Mission 0 bei Dump 1 (Autozeit ca. 16:33) noch fehlte, obwohl Start 16:20 (Eintrag wird wohl erst bei HV-Aktivierung/READY angelegt).
+- Folge fuer den Prüfstand: ohne Sitzung (9279 = 0, keine Mission) gibt es kein Sitzungsende und damit keinen Schnappschuss. Test: BMS-Modus 04 -> 05 (siehe TEST_MORGEN_9259).
