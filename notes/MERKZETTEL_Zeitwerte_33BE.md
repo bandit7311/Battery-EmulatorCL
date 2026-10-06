@@ -277,3 +277,9 @@ Nutzer-Aussage: Mit `0x090`, `0x242`, `0x350`, `0x423`, `0x69F` an kommen die Ze
 - Belegt vorher: nur `0x350` an -> keine Zellspannungen, SOC 163,82 % (= Rohwert 0xFFF8 aus 0x155); `0x350` + `0x090` + `0x242` -> SOC weiter 163 %.
 - Noch nicht notiert: 9259 / 925C / DTCs in diesem Zustand.
 - Naechster Schritt (Abbau, nach Kontrollwerten): erst `0x423` aus, dann `0x69F` aus; jeweils 30 s warten, SOC, Zellspannungen, Status-Display, 925C, 9259 ablesen.
+
+## Nachtrag 7 (06.10.): Was 0x426 tut und was nicht
+- Belegt: `0x426` (unser Zoe-Frame `00 60 01 00 4B C8 00 40`) traegt in den Bytes 4-6 die Kilometer: 0x4BC800 / 256 = 19.400,0 km. Das ist der Wert von `925F`, der mit 0x426 an angezeigt wurde und auf 0 fiel, als 0x426 aus war.
+- Kein Zusammenhang mit der Packzeit: 91C1 (1.311.344 min) erschien, nachdem alle Simulator-Frames ausgeschaltet waren, also auch 0x426. Fuer einen Zeitbezug von 0x426 gibt es keinen Beleg (Aussage Nutzer: 0x426 hat nichts mit der Packzeit zu tun).
+- DTC: Jede Beobachtung mit 0x426 an zeigt E14381 aktiv (Nutzermeldungen 4091-4156: 0x426 an -> 2 Fehler, +0x19F -> E14381 bleibt, +0x436 -> bleibt; 0x426 aus -> weg). Am 06.10. wieder E14381 + E14281 aktiv mit 0x426 an. Ein Zustand "0x426 an und E14381 weg" ist in den Daten nicht belegt.
+- Zielkonflikt: mit 0x426 an hat der Akku 19.400 km (925F), aber E14381; ohne 0x426 kein E14381, aber 925F = 0.
