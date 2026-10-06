@@ -228,7 +228,7 @@ Ring mit 32 Eintraegen, wird ABWAERTS beschrieben (31, 30, 29, 28, ...). Neueste
 
 ## Nachtrag 3 (06.10., Bench, Simulator-Haken weitgehend aus): erste Zeitwerte am Bench
 Messungen des Nutzers (Zeitabstand zwischen den Abfragen nicht notiert):
-- Bench 9261 = 91C1 = `14 02 70` = 1.311.344 min (Differenz 0). Vorher am Bench immer `00 00 00`. Nutzer hat nichts geschrieben, nur alle Simulator-Frames ausgeschaltet. Nochmals gelesen: 9261 unveraendert (gespeicherter Wert, kein Zaehler).
+- Bench 9261 = 91C1 = `14 02 70` = 1.311.344 min (Differenz 0). [KORRIGIERT, siehe Nachtrag 4] Vorher am Bench nicht immer 00. Nutzer hat nichts geschrieben, nur alle Simulator-Frames ausgeschaltet. Nochmals gelesen: 9261 unveraendert (gespeicherter Wert, kein Zaehler).
 - Der Wert kommt in keiner frueheren Messung und nicht im Code vor (0x350 sendet ca. 2,96 Mio.). Herkunft unbekannt.
 - 9279 = 00, beide Missionslisten (9275/9276) leer: Der Akku hat am Bench KEINE Mission gespeichert, obwohl das Schnappschuss-Paar gesetzt ist. Das Paar entsteht also unabhaengig von Missionen (Auto: Differenz 784.382, Bench: 0).
 - 9259 = 04 (wie immer am Bench).
@@ -240,3 +240,10 @@ Messungen des Nutzers (Zeitabstand zwischen den Abfragen nicht notiert):
 - Bench-Akku speichert 9261 = 91C1 = 1.311.344 min (`14 02 70`) = **15.08.2023, 02:57 Uhr** (UTC-Epoche 15.02.2021 11:13:08, Unix 1613387588).
 - Herleitung der Epoche: Kommentar zu VEHICLE_AGE_EPOCH_UTC (Header Zeile 310-316), aus beiden Fahrzeug-Logs (02.10. und 03.10.), Streuung ca. +-15 s. Nachrechnung mit SCPU-Dump 1791315194: Abweichung 11 min = PC-Uhr gegen Autouhr (ca. 10,2 min).
 - Vorbehalt: Epoche belegt fuer das Auto; dass der Bench-Akku dieselbe meint, ist Annahme. Quelle des Werts unbekannt (nicht von uns gesendet, nicht geschrieben).
+
+## Nachtrag 4: fruehere Bench-Zeitwerte (aus dem frueheren Chat 0d5cef0c, 02.-04.10.)
+- 02./03.10.: Bench 9261, 9264, 926B, 91C1 alle `00 00 00` (Chat-Zeilen 4176, 7266, 7420-7430).
+- 04.10. (Log mit Abschaltfolge): Bench-9261 = 2.962.019 nach der ersten Abschaltung und 2.962.022 nach der zweiten. Das ist der 0x350-Zaehler beim Wechsel C0 -> 00, vom Akku genau dort gespeichert (Chat-Zeilen 9398-9405, 9474: `62 92 61 2D 32 66` = 2.962.022). Fuenfmal derselbe Befund. Kein anderes Frame aenderte beim Wechsel C0 -> 00 seinen Inhalt (die 16 schnellen IDs waren durch den Filter nicht im Log, daher mit Einschraenkung).
+- Frueher sendete der Emulator als 0x350-Zaehler fest `10 15 7F` = 1.054.079 min, spaeter die echte Uhr (ca. 2,96 Mio.).
+- Heute (06.10.): 9261 = 91C1 = `14 02 70` = 1.311.344 min. Passt zu KEINEM davon (nicht 2,96 Mio., nicht 1.054.079). Dazwischen standen beide laut Messung einmal wieder auf 0; was sie zurueckgesetzt hat (NVROL?), ist ungeprueft.
+- Fazit: Der Bench-Akku hat 9261 am 04.10. gespeichert (beim Abschalten, Wechsel C0 -> 00). Offen bleibt, woher 1.311.344 kommt.
