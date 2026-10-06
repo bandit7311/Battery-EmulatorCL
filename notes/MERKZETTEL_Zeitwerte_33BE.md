@@ -235,3 +235,8 @@ Messungen des Nutzers (Zeitabstand zwischen den Abfragen nicht notiert):
 - 925C = 03 (NEU). Bisher: 01 = Auto Zuendung an und Bench mit Standard-Haken, 02 = Auto Zuendung aus. 03 erschien, nachdem die Simulator-Frames ausgeschaltet waren. 925C reagiert also auf die Frames am Bus (Hinweis, nicht bewiesen); Bedeutung von 03 unbekannt (XML: 2 Bit "Relay status, internal value", keine Wertetabelle).
 - Weitere Bench-Werte im Screenshot: SOH 9003 = 99,970 % (vorher 99,25), 9001 = 23,47 %, 9002 = 18,36 %, 900E = 43,00 kW, 900F = 71,23 kW, 9018 = 22,00 kW, 925F = 19.400 km, 91CF = 0 km. Hauptdisplay SOC = 163,82 % = Rohwert 0xFFF8 aus 0x155 Byte 4-5 (ungueltig, Treiber filtert nicht).
 - Mit nur 0x350 an kamen keine Zellspannungen mehr; mit 0x350 + 0x090 + 0x242 blieb der SOC bei 163 %.
+
+## Merken: Zeit im Bench-Akku (06.10.)
+- Bench-Akku speichert 9261 = 91C1 = 1.311.344 min (`14 02 70`) = **15.08.2023, 02:57 Uhr** (UTC-Epoche 15.02.2021 11:13:08, Unix 1613387588).
+- Herleitung der Epoche: Kommentar zu VEHICLE_AGE_EPOCH_UTC (Header Zeile 310-316), aus beiden Fahrzeug-Logs (02.10. und 03.10.), Streuung ca. +-15 s. Nachrechnung mit SCPU-Dump 1791315194: Abweichung 11 min = PC-Uhr gegen Autouhr (ca. 10,2 min).
+- Vorbehalt: Epoche belegt fuer das Auto; dass der Bench-Akku dieselbe meint, ist Annahme. Quelle des Werts unbekannt (nicht von uns gesendet, nicht geschrieben).
