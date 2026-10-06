@@ -50,7 +50,7 @@ Laut Haupt-CPU-XML ist `9281`: `0` = „temporisation is **activated**", `1` = �
 ## Hintergrund (kurz)
 
 - Auto-Dumps: `925F` Fahrzeug-km = `9262` Safety-CPU = 92.677,00 km. Die Live-Zeit der Safety-CPU (`9261`) ist der Minutenzähler aus `0x350`.
-- Missionsliste im Auto: eine Mission pro Hochvolt-Sitzung, die neueste ist die laufende. `9261` gespeichert liegt nahe am Beginn der laufenden Mission (nicht beim Abschalten).
+- Missionsliste im Auto: eine Mission bei Zündung an, eine kurze Nachlauf-Mission bei Zündung aus. `9261`/`91C1` sind ein Schnappschuss-Paar, das ca. 3 min nach dem Ende einer Sitzung geschrieben wird (Stand nach 3 Dumps; Vorhersage siehe Teil 3, noch nicht bestätigt).
 - Offene Bauideen (nur nach „bauen"): Zielauswahl `DB`/`DC`/`79B` bei der freien Anfrage; Zoe-Gen2-HEVC-Frames `0x373`/`0x375`/`0x376` (schwach gestützt); `0x5D7` mit Kilometern senden statt `0x426`; Inhalt von `0x426` änderbar machen.
 
 ## Teil 3 (neu, aus den Auto-Dumps vom 06.10.): Ereignis statt Dauerzustand
