@@ -65,3 +65,7 @@ Im Auto zählt `9279` beim **Ende** einer Mission um 1 (nicht beim Start); währ
 Vorhersage widerlegt: erwartet `91C1` ca. `21 47 5B`, tatsächlich `21 47 B1` (2.181.041), `9261` = `2D 3F AF`.
 
 **Zusatz für den Prüfstand:** Vor und nach jedem Schritt zusätzlich `22 92 75`/`22 92 76` (neuester Missionseintrag) und `22 92 79` lesen. Im Auto zählt `9279` beim **Ende** einer Mission und es erscheint ein Ringeintrag (Ring wird abwärts beschrieben, Index 31, 30, 29, 28 …). Die Liste deshalb komplett lesen, nicht nur den Anfang.
+
+## ACHTUNG vor jedem Test (Regel vom 08.10.)
+
+Der Emulator sendet nach einem Neustart mit `0x350` an wieder den **Uhrwert** (ca. 2,97 Mio. min). Das soll nicht mehr passieren. Deshalb vor dem Einschalten von `0x350`: auf `/simulator` unter "Manual vehicle age" **1311345** eintragen und **Set** drücken (zählt dann +1 pro Minute), erst danach `0x350` und alle anderen Zeilen einschalten. Nach jedem Neustart wiederholen. Test dazu: Sleep-Lauf, danach `22 92 61` und `22 91 C1` lesen.

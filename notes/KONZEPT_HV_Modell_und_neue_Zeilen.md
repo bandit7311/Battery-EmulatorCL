@@ -160,6 +160,15 @@ Erfolg wäre: `9259` springt auf `05`, `925C` auf `01`, `9279` zählt, oder `926
 - Möglich, dass **keiner** der neuen Frames `9259` beeinflusst. Dann ist das Ergebnis trotzdem verwertbar: Dieser Satz ist es nicht.
 - Mehr gesendete Frames erhöhen die Buslast auf dem Bench (1 + 0,33 + 2 + 1 Hz, vernachlässigbar) und das Risiko neuer DTCs (E14xxx); darum alle aus.
 
+## 12a. Punkt 17 (Vorschlag, noch nicht freigegeben): Fahrzeugalter ohne Uhrwert
+
+Ziel: Der Emulator sendet nie mehr den Uhrwert; das Alter läuft stetig (+1 pro Minute) von einem Startwert, den der Akku schon kennt.
+- **Quelle ersetzen:** Die Uhr-Quelle (`vehicle_age_clock_minutes()`) und der glatte Zähler, der sich an der Uhr orientiert, entfallen als Standard.
+- **Startwert, Variante A (einfach):** Das manuelle Alter wird im NVM gespeichert (Wert plus Unix-Zeit des Setzens). Nach einem Neustart gilt `Alter = gespeicherter Wert + (jetzt - Setzzeitpunkt) / 60`. Das ist stetig und braucht keine Akku-Abfrage. Ohne NTP: gespeicherter Wert + Laufzeit seit Start.
+- **Startwert, Variante B:** Beim Start/Aufwachen einmal `22 92 61` vom Akku lesen und von dort zählen. Bis die Antwort da ist, kein `0x350` mit Alter senden (offen, was dann stattdessen).
+- **Solange nichts gesetzt ist:** `0x350` darf nicht mit dem Uhrwert laufen. Entweder gar kein Alter senden (offen: welche Bytes) oder die Zeile `0x350` bleibt aus, bis ein Alter gesetzt ist.
+- **Ausgelöst durch:** Beobachtung am Bench 06.10., der Akku hält `9261` = `91C1` = 1.311.344 min, der Uhrwert liegt 3,15 Jahre darüber.
+
 ## 13. Entscheidungen (Stand 08.10.2026)
 
 **Entschieden:**
@@ -167,6 +176,8 @@ Erfolg wäre: `9259` springt auf `05`, `925C` auf `01`, `9279` zählt, oder `926
 2. Strom in `0x57F` = **gemessener Packstrom**. Umrechnung: `I_0x57F = -current_dA / 10` (Emulator: negativ = Entladen; `0x57F`: positiv = Entladen). Ist der Wert ungültig (Betrag über 400 A, solange der `0x155`-Filter fehlt) oder HV aus: 0 A. Rohwert = `(I + 400) * 2`, 11 Bit.
 3. Inverter On = **fest `C7` + 2,0 s** (keine Einstellung).
 4. `0x5D7` Anfangskilometer = **19.400**.
+
+**REGEL (Nutzer, 08.10.): Der Uhrwert als Fahrzeugalter (am 08.10. 2.967.669 min) darf nie wieder gesendet werden.** Bis heute sendet der Emulator ihn aber im Standard: ohne "Manual vehicle age" nimmt `vehicle_age_minutes()` die Uhr (UTC ab 15.02.2021) oder den glatten Zähler, der ebenfalls beim Uhrwert startet. "Manual vehicle age" ist nur zur Laufzeit gültig und nach jedem Neustart weg; die Maske (mit `0x350` an) bleibt aber gespeichert. **Folge: Nach jedem Neustart sendet der Emulator mit `0x350` an wieder den Uhrwert**, bis man das manuelle Alter neu setzt. Das gilt auch für `0x523` (Punkt 15) und Aufwachen/Abschaltfolge.
 
 **Noch offen:**
 5. `0x376`-Zeit: fester Zeitpunkt wie im Zoe-Treiber (April 2025) oder aus `vehicle_age_minutes()`?
