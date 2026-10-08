@@ -1393,8 +1393,22 @@ void RenaultTwingoGen1Battery::append_live_html(String& s) {
   append_ext_value(s, "Battery USOC, dashboard (0x9002, display only)", ext_usoc_avg, ext_usoc_avg.raw * 0.01, "%");
   append_ext_value(s, "Battery SOC min (0x91B9)", ext_soc_min, ext_soc_min.raw * 0.01 - 3.0, "%");
   append_ext_value(s, "Battery SOC max (0x91BA)", ext_soc_max, ext_soc_max.raw * 0.01 - 3.0, "%");
-  append_ext_value(s, "Battery Current (0x900D, display only, see current_dA ToDo)", ext_battery_current,
-                   ((double)(int32_t)ext_battery_current.raw * 0.025 - 1200.0) * -1.0, "A");
+  {
+    const double battery_current_A = ((double)(int32_t)ext_battery_current.raw * 0.025 - 1200.0) * -1.0;
+    if (ext_battery_current.valid && !twingo::battery_current_plausible(battery_current_A)) {
+      char b[64];
+      snprintf(b, sizeof(b), "invalid (raw 0x%08lX)", (unsigned long)ext_battery_current.raw);
+      s += "Battery Current (0x900D, display only, see current_dA ToDo): ";
+      s += b;
+      s += "<br>";
+    } else {
+      append_ext_value(s, "Battery Current (0x900D, display only, see current_dA ToDo)", ext_battery_current,
+                       battery_current_A, "A");
+    }
+    s += "0x155 frames dropped as invalid (current raw 0xFFF or SOC raw above 40000): ";
+    s += String((unsigned long)datalayer_extended.twingoGen1.frame_155_dropped);
+    s += "<br>";
+  }
 }
 
 void RenaultTwingoGen1Battery::append_ext_value(String& s, const char* label, const ExtValue& v, double value,
@@ -1807,12 +1821,22 @@ void RenaultTwingoGen1Battery::handle_incoming_can_frame(CAN_frame rx_frame) {
   }
 
   switch (rx_frame.ID) {
-    case 0x155:  //10ms - Charging power, current and SOC - Confirmed sent by: Fluence ZE40, Zoe 22/41kWh, Kangoo 33kWh
+    case 0x155: {  //10ms - Charging power, current and SOC - Confirmed sent by: Fluence ZE40, Zoe 22/41kWh, Kangoo 33kWh
       datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;
+      // A frame with the "invalid" markers (current raw 0xFFF or SOC raw above 40000, i.e. 100 %; seen right
+      // after a wake-up and with only 0x350 on: SOC raw 0xFFF8 = 163.82 %) is dropped as a whole, the last valid
+      // values stay (08.10.).
+      const uint16_t current_raw = ((rx_frame.data.u8[1] & 0x0F) << 8) | rx_frame.data.u8[2];
+      const uint16_t soc_raw = ((rx_frame.data.u8[4] << 8) | rx_frame.data.u8[5]);
+      if (!twingo::frame_155_valid(current_raw, soc_raw)) {
+        datalayer_extended.twingoGen1.frame_155_dropped++;
+        break;
+      }
       LB_Charging_Power_W = rx_frame.data.u8[0] * 300;
-      LB_Current_raw = ((rx_frame.data.u8[1] & 0x0F) << 8) | rx_frame.data.u8[2];
-      LB_Display_SOC = ((rx_frame.data.u8[4] << 8) | rx_frame.data.u8[5]);
+      LB_Current_raw = current_raw;
+      LB_Display_SOC = soc_raw;
       break;
+    }
 
     case 0x42E:  //NOTE: Not present on 41kWh battery!
       LB_Battery_Voltage = (((((rx_frame.data.u8[3] << 8) | (rx_frame.data.u8[4])) >> 5) & 0x3ff) * 0.5);  //0.5V/bit
@@ -2364,7 +2388,7 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      SIM_END_AT_00},
     {0x42E,
      8,
-     {0x62, 0x1F, 0xD0, 0x5D, 0x44, 0x05, 0x80, 0xFF},
+     {0x62, 0x1F, 0xD0, 0x5D, 0x44, 0x07, 0x80, 0xFF},
      100,
      'A',
      false,
@@ -2372,7 +2396,8 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      false,
      "EVC (CanZE)",
      "Bytes 3/4 = HV battery voltage, 0.5 V per bit (equals EVC $3203, measured 03.10.), plus a temperature field "
-     "(OVMS RT32). Sent with the measured pack voltage, nothing is sent while the voltage is unknown.",
+     "(OVMS RT32) that is fixed at 20 degC (bytes 5/6 = 07 80, 08.10.; before 05 80 = 4 degC). Sent with the "
+     "measured pack voltage, nothing is sent while the voltage is unknown.",
      SIM_END_AT_00},
     {0x432,
      8,

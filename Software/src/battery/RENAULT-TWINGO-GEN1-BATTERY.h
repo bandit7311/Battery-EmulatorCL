@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include "../datalayer/datalayer.h"
+#include "RENAULT-TWINGO-GEN1-LOGIC.h"
 #include "UdsCanBattery.h"
 
 // ---------------------------------------------------------------------------

@@ -267,6 +267,10 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
    *  same mask an external ELM tool used successfully: 01.10., confirmed 183 entries, 7 non-zero incl.
    *  all 6 already-known DTCs). Settable on "More Battery Info" via a checkbox, NOT persisted to NVM. */
   uint8_t dtc_ext_read_mask;  // non-zero default set explicitly in the constructor below (memset(0))
+
+  /** 0x155 frames dropped because they carried the invalid markers (current raw 0xFFF or SOC raw above 40000),
+   *  see twingo::frame_155_valid (08.10.). Runtime only. */
+  uint32_t frame_155_dropped;
 };
 
 struct DATALAYER_INFO_CELLPOWER {
