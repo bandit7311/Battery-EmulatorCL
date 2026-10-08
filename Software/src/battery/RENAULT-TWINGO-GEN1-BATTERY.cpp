@@ -1261,6 +1261,7 @@ void RenaultTwingoGen1Battery::send_350_frame(uint8_t byte0, uint8_t b5, uint8_t
   CAN_frame f = {
       .FD = false, .ext_ID = false, .DLC = 8, .ID = 0x350, .data = {byte0, age[0], age[1], age[2], 0x14, b5, b6, b7}};
   transmit_can_frame(&f);
+  hv_observe_350(byte0, millis());
 }
 
 // One 0x350 frame for the shutdown sequence (case 7) in the mode "as before": bytes 5/6/7 depend only on whether
@@ -2128,6 +2129,7 @@ void RenaultTwingoGen1Battery::send_run_350() {
   TWINGO_350_RUN.data.u8[6] = steady_350_use_c3 ? 0x96 : 0x94;
   TWINGO_350_RUN.data.u8[7] = 0x45;
   transmit_can_frame(&TWINGO_350_RUN);
+  hv_observe_350(TWINGO_350_RUN.data.u8[0], millis());
 }
 #endif  // TWINGO_TIME_FRAMES
 
@@ -2501,7 +2503,8 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      "0x1FD",
      false,
      "EVC (CanZE)",
-     "Bits 48-63 follow the motor power (r = 0.89 in the vehicle log). Meaning unknown.",
+     "HV state (since 08.10., HV state model): byte 0 FE open / 45 closed, byte 5 50 open / A0 closed, first frame "
+     "after the wake-up FF 80 7F FF 7F FF FF. Bits 48-63 follow the motor power (r = 0.89 in the vehicle log).",
      SIM_END_AT_00},
     // 0x55D (02.10.): not in the original 27-signal plan, found while discussing a different topic.
     // Content/interval/direction as discussed; byte 4 is NOT a fast alive counter in the real log (only 2
@@ -2598,6 +2601,58 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      false,
      "BCM (CanZE)",
      "Constant in both vehicle logs; runs until the end of the bus in the shutdown sequence. Meaning unknown.",
+     SIM_END_BUS},  // 08.10. (point 15): HV telemetry of the vehicle, contents follow the HV state model (hv_compute); all off by default.
+    {0x57F,
+     7,
+     {0x64, 0x00, 0x05, 0x7F, 0x80, 0, 0, 0},
+     1000,
+     'A',
+     false,
+     "0x57F",
+     false,
+     "HEVC_BLMS (CAN list C1A_Q4_2017)",
+     "HV telemetry: byte 0/1 pack current ((2*A+800), 0.5 A, positive = discharge, the measured pack current), byte "
+     "1 low 5 bits + byte 2 pack voltage in 0.1 V (13 bit), bytes 3-4 7F 80 / CF A8 from C5 on. Follows the HV "
+     "state model: 0.5 V before the connect, ramp to the pack voltage within 0.9 s, decay after the opening. No "
+     "sign that the pack evaluates it.",
+     SIM_END_BUS},
+    {0x599,
+     6,
+     {0x00, 0x04, 0x26, 0x62, 0x2D, 0x00},
+     3000,
+     'A',
+     false,
+     "0x599",
+     false,
+     "HEVC_BLMS (CAN list C1A_Q4_2017)",
+     "Byte 1: 04 inverter off, 08 inverter on (2.0 s after C7, fixed); first frame after the wake-up 00 07 FF FF FF "
+     "E0. Bytes 2-4 change slowly in the vehicle (rest values of 04.10. here), meaning unknown.",
+     SIM_END_BUS},
+    {0x62D,
+     7,
+     {0x01, 0x45, 0xE0, 0x04, 0x06, 0x80, 0x00},
+     500,
+     'A',
+     false,
+     "0x62D",
+     false,
+     "unknown",
+     "HV state bits: byte 3 04 open / 06 transition / 02 closed (agrees with the relays in nearly all frames of three "
+     "logs), "
+     "byte 5 80 / 40 inverter on / 00 after the disconnect. First two frames after the wake-up 04 7F CC and 04 00 "
+     "00. Rest meaning unknown.",
+     SIM_END_BUS},
+    {0x523,
+     3,
+     {0x00, 0x00, 0x00, 0, 0, 0, 0, 0},
+     1000,
+     'A',
+     false,
+     "0x523",
+     true,
+     "BCM (CAN list C1A_Q4_2017)",
+     "AbsoluteTimeSince1rstIgnition in minutes (24 bit), the same vehicle age as 0x350 bytes 1-3. NOT in the Twingo "
+     "vehicle log, only in the CAN list: a pure test.",
      SIM_END_BUS},
 };
 
@@ -2622,6 +2677,54 @@ static uint8_t sum_complement_checksum(const uint8_t* d, uint8_t n) {
     sum = (uint8_t)(sum + d[i]);
   }
   return (uint8_t)~sum;
+}
+
+// Notes the 0x350 stages for the HV state model (see twingo::hv_compute): wake-up C0 starts again, C4 or the first C7
+// connects, C5/C7 switch 0x57F bytes 3-4, the first C7 starts the inverter timer, C3 of the shutdown sequence
+// disconnects. Without a wake-up (emulator start, C7 or the steady C3 test frame) the HV counts as closed since
+// long before, so nothing animates at the start.
+void RenaultTwingoGen1Battery::hv_observe_350(uint8_t byte0, unsigned long now) {
+  auto& t = hv_times;
+  const bool connected = twingo::hv_is_connected(t);
+  const int64_t n = (int64_t)now;
+  if (NVROLstateMachine == 8 && byte0 == 0xC0) {
+    t = twingo::HvTimes();
+    hv_woke = true;
+    for (uint8_t& c : hv_frames_sent) {
+      c = 0;
+    }
+    return;
+  }
+  if (NVROLstateMachine == 7) {
+    if (byte0 == 0xC3 && powerdown_stage == 0 && connected) {
+      t.disc = n;
+    }
+    return;
+  }
+  if (byte0 == 0xC4 && !connected) {
+    t.connect = n;
+    t.b34 = twingo::HV_NONE;
+    t.c7 = twingo::HV_NONE;
+  } else if (byte0 == 0xC5 && connected && t.b34 == twingo::HV_NONE) {
+    t.b34 = n;
+  } else if (byte0 == 0xC7 || (byte0 == 0xC3 && !hv_woke)) {
+    if (!connected) {
+      t.connect = hv_woke ? n : n - 5000;  // without a wake-up the HV is closed since the start
+      t.b34 = twingo::HV_NONE;
+      t.c7 = twingo::HV_NONE;
+    }
+    if (t.b34 == twingo::HV_NONE) {
+      t.b34 = t.connect;
+    }
+    if (byte0 == 0xC7 && t.c7 == twingo::HV_NONE) {
+      t.c7 = hv_woke ? n : n - 5000;
+    }
+  }
+}
+
+twingo::HvOut RenaultTwingoGen1Battery::hv_now(unsigned long now) const {
+  uint16_t pack = datalayer_battery->status.voltage_dV;
+  return twingo::hv_compute(hv_times, (int64_t)now, pack);
 }
 
 void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMillis) {
@@ -2713,6 +2816,47 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
       f.data.u8[6] = (uint8_t)(0xA0 + 2 * sim_0c6_counter);
       sim_0c6_counter = (uint8_t)((sim_0c6_counter + 1) & 0x0F);
       f.data.u8[7] = sum_complement_checksum(f.data.u8, 7);
+    } else if (sim_signals[i].id == 0x1FD || sim_signals[i].id == 0x599 || sim_signals[i].id == 0x62D ||
+               sim_signals[i].id == 0x57F) {
+      const twingo::HvOut hv = hv_now(currentMillis);
+      if (sim_signals[i].id == 0x57F) {
+        twingo::frame_57f(twingo::hv_57f_amps(datalayer_battery->status.current_dA, hv.relay_a0), hv.volt_dV, hv.b34,
+                          f.data.u8);
+      } else {
+        const uint8_t slot = sim_signals[i].id == 0x1FD ? 0 : (sim_signals[i].id == 0x599 ? 1 : 2);
+        const uint8_t seq = hv_frames_sent[slot]++;
+        if (hv_frames_sent[slot] == 0) {
+          hv_frames_sent[slot] = 255;  // do not wrap into "first frame" again
+        }
+        if (sim_signals[i].id == 0x1FD) {
+          f.data.u8[0] = hv.power_idle ? 0x45 : 0xFE;
+          f.data.u8[5] = hv.relay_a0 ? 0xA0 : 0x50;
+          if (seq == 0) {
+            const uint8_t first[8] = {0xFF, 0x80, 0x7F, 0xFF, 0x7F, 0xFF, 0xFF, 0x00};  // invalid first frame (log)
+            memcpy(f.data.u8, first, 8);
+          }
+        } else if (sim_signals[i].id == 0x599) {
+          f.data.u8[1] = hv.inverter_on ? 0x08 : 0x04;
+          if (seq == 0) {
+            const uint8_t first[6] = {0x00, 0x07, 0xFF, 0xFF, 0xFF, 0xE0};
+            memcpy(f.data.u8, first, 6);
+          }
+        } else {
+          f.data.u8[3] = hv.phase_62d;
+          f.data.u8[5] = hv.b5_62d;
+          if (seq == 0) {
+            const uint8_t first[7] = {0x01, 0x45, 0xE0, 0x04, 0x7F, 0xCC, 0x00};
+            memcpy(f.data.u8, first, 7);
+          } else if (seq == 1) {
+            const uint8_t second[7] = {0x01, 0x45, 0xE0, 0x04, 0x00, 0x00, 0x00};
+            memcpy(f.data.u8, second, 7);
+          }
+        }
+      }
+    } else if (sim_signals[i].id == 0x523) {
+      if (!fill_vehicle_age_350(f.data.u8, currentMillis)) {
+        continue;  // no age known: no frame
+      }
     } else if (sim_signals[i].id == 0x55D) {
       bool restActive = datalayer_extended.twingoGen1.sim_55d_rest_active_enabled;
       bool restActivePrev = datalayer_extended.twingoGen1.sim_55d_rest_active_prev;

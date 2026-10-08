@@ -179,7 +179,7 @@ uint8_t sum_complement(const std::vector<uint8_t>& d) {
 // ---------------------------------------------------------------------------
 
 TEST(TwingoCarMode, TableHas35RowsAndTheSevenNewOnesAreAtTheEnd) {
-  ASSERT_EQ((int)RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT, 35);
+  ASSERT_EQ((int)RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT, 39);
   const uint32_t expected[7] = {0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657};
   for (int i = 0; i < 7; i++) {
     const auto& s = RenaultTwingoGen1Battery::sim_signals[28 + i];
@@ -722,3 +722,73 @@ uint32_t age_of(const CAN_frame& f) {
   return ((uint32_t)f.data.u8[1] << 16) | ((uint32_t)f.data.u8[2] << 8) | f.data.u8[3];
 }
 }  // namespace
+
+// ---------------------------------------------------------------------------
+// Point 15: the HV rows follow the shutdown sequence (C3 = disconnect)
+// ---------------------------------------------------------------------------
+
+TEST(TwingoCarMode, HvRowsFollowTheShutdownSequence) {
+  Switches g(true);
+  datalayer.battery.status.voltage_dV = 3390;
+  datalayer.battery.status.current_dA = 0;
+  datalayer_extended.twingoGen1.simulator_enabled_mask =
+      0x3FFULL | (1ULL << row_of(0x57F)) | (1ULL << row_of(0x599)) | (1ULL << row_of(0x62D)) | (1ULL << row_of(0x1FD));
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  SleepRun r;
+  std::vector<Tx> warm;
+  run(b, t, 12000, 10, warm);  // steady operation: HV closed, inverter on
+  b.request_sleep();
+  run(b, t, 30000, 10, r.log);
+  for (const Tx& x : with_id(r.log, 0x350)) {
+    if (x.f.data.u8[0] == 0xC3) {
+      r.t_first_c3 = x.t;
+      break;
+    }
+  }
+  ASSERT_GT(r.t_first_c3, 0u);
+  r.log.insert(r.log.begin(), warm.begin(), warm.end());
+  auto f62 = with_id(r.log, 0x62D);
+  auto f1f = with_id(r.log, 0x1FD);
+  auto f57 = with_id(r.log, 0x57F);
+  auto f59 = with_id(r.log, 0x599);
+  ASSERT_FALSE(f62.empty());
+  bool saw_closed = false, saw_open = false, saw_inv_off = false;
+  for (const Tx& x : f62) {
+    if (x.t > 3000 &&
+        x.t + 100 < r.t_first_c3) {  // after the two first frames, before the disconnect: HV closed (02), inverter on
+      EXPECT_EQ(x.f.data.u8[3], 0x02) << "at " << x.t;
+      saw_closed = true;
+    } else if (x.t > r.t_first_c3 + 2800) {  // after HV opened (C3 + 2.2 s): 04
+      EXPECT_EQ(x.f.data.u8[3], 0x04) << "at " << x.t;
+      EXPECT_EQ(x.f.data.u8[5], 0x00);
+      saw_open = true;
+    }
+  }
+  for (const Tx& x : f59) {
+    if (x.t > r.t_first_c3 + 1200 && x.f.data.u8[1] != 0x07) {
+      EXPECT_EQ(x.f.data.u8[1], 0x04);  // inverter off 1.0 s after C3
+      saw_inv_off = true;
+    }
+  }
+  EXPECT_TRUE(saw_closed);
+  EXPECT_TRUE(saw_open);
+  EXPECT_TRUE(saw_inv_off);
+  for (const Tx& x : f1f) {
+    if (x.t > r.t_first_c3 + 2800) {
+      EXPECT_EQ(x.f.data.u8[0], 0xFE);
+      EXPECT_EQ(x.f.data.u8[5], 0x50);
+    }
+  }
+  // the voltage decays after the opening and never rises again
+  uint16_t last = 0xFFFF;
+  for (const Tx& x : f57) {
+    if (x.t > r.t_first_c3 + 2800) {
+      uint16_t v = (uint16_t)(((x.f.data.u8[1] & 0x1F) << 8) | x.f.data.u8[2]);
+      EXPECT_LE(v, last);
+      last = v;
+    }
+  }
+  EXPECT_LT(last, 3390);
+}

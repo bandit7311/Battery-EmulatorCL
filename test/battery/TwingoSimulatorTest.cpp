@@ -184,15 +184,16 @@ TEST(TwingoSimulatorTable, TenIRowsInTheDocumentedOrder) {
   }
 }
 
-TEST(TwingoSimulatorTable, OnlyTheFourZoeFramesAreMarkedX) {
+TEST(TwingoSimulatorTable, OnlyTheFourZoeFramesAndTheCanListFrameAreMarkedX) {
   int x_count = 0;
   for (int i = 0; i < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; i++) {
     const auto& s = RenaultTwingoGen1Battery::sim_signals[i];
-    bool expect_x = (s.id == 0x19F || s.id == 0x426 || s.id == 0x436 || s.id == 0x423);
+    bool expect_x = (s.id == 0x19F || s.id == 0x426 || s.id == 0x436 || s.id == 0x423 ||
+                     s.id == 0x523);  // 0x523: only in the CAN list, not in the Twingo log
     EXPECT_EQ(s.not_in_vehicle_log, expect_x) << "0x" << std::hex << s.id;
     x_count += s.not_in_vehicle_log ? 1 : 0;
   }
-  EXPECT_EQ(x_count, 4);
+  EXPECT_EQ(x_count, 5);
 }
 
 TEST(TwingoSimulatorTable, EveryRowHasSenderAndMeaningText) {
@@ -483,12 +484,15 @@ TEST(TwingoSimulatorSwitches, EveryPlannedAndAssumedRowSwitchesOnAndOff) {
       b.setup();
       uint64_t t = 1000;
       std::vector<Tx> log;
-      run(b, t, 2000, 1, log);
+      const uint64_t window = std::max<uint64_t>(2000, 2ull * sig.interval_ms);
+      run(b, t, window, 1, log);
       size_t n = count_id(log, sig.id);
       if (on) {
         // about 2000 ms / interval frames (the table interval is the minimum spacing of the loop)
-        EXPECT_GE(n, 2000u / sig.interval_ms - 2u) << "0x" << std::hex << sig.id << " row " << std::dec << row;
-        EXPECT_LE(n, 2000u / sig.interval_ms + 2u) << "0x" << std::hex << sig.id << " row " << std::dec << row;
+        EXPECT_GE(n + 2u, (size_t)(window / sig.interval_ms))
+            << "0x" << std::hex << sig.id << " row " << std::dec << row;
+        EXPECT_LE(n, (size_t)(window / sig.interval_ms) + 2u)
+            << "0x" << std::hex << sig.id << " row " << std::dec << row;
         for (const Tx& x : with_id(log, sig.id)) {
           EXPECT_EQ(x.f.DLC, sig.dlc) << "0x" << std::hex << sig.id;
         }

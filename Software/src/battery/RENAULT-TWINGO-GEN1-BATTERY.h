@@ -95,8 +95,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
     const char* info;         // what the value means - only what is confirmed, otherwise "meaning unknown"
     SimEnd end_stage;         // see SimEnd
   };
-  // 28 rows of 02.10./03.10. + 7 rows of 04.10. (0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657, all off by default)
-  static const uint8_t SIM_SIGNAL_COUNT = 35;
+  // 28 rows of 02.10./03.10. + 7 rows of 04.10. (0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657) + 4 rows of 08.10.
+  // (0x57F, 0x599, 0x62D, 0x523), all off by default
+  static const uint8_t SIM_SIGNAL_COUNT = 39;
   static const SimSignal sim_signals[SIM_SIGNAL_COUNT];
 
   // Row switches (bit i = sim_signals[i]). 64 bit wide since 04.10.: rows 32-34 do not fit into 32 bits.
@@ -309,6 +310,16 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // 0x29A / 0x0C6 (rows 28 and 30): rolling counter and checksum byte, see send_simulator_signals().
   uint8_t sim_0c6_counter = 0;  // index 0-15 into A0, A2 ... BE
   uint8_t sim_29a_counter = 0;  // 0-15
+
+  // HV state model (point 15): times of the 0x350 stages, see twingo::hv_compute(). hv_observe_350() is called by
+  // every 0x350 that is sent; the rows 0x57F / 0x599 / 0x62D and the HV bits of 0x1FD read hv_now().
+  twingo::HvTimes hv_times;
+  bool hv_woke =
+      false;  // a wake-up (C0 in state 8) was seen: the next C7 is a real connect, not "HV closed since the start"
+  uint8_t hv_frames_sent[4] = {0, 0, 0,
+                               0};  // since the wake-up: 0x1FD, 0x599, 0x62D, 0x5D7 (first frames are "invalid")
+  void hv_observe_350(uint8_t byte0, unsigned long now);
+  twingo::HvOut hv_now(unsigned long now) const;
 
   // Whether a row of the simulator table may still be sent in the current state of the shutdown sequence or of
   // the wake-up (the end rules of 04.10.). In the mode "as before" the old rules stay in place.

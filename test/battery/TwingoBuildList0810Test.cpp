@@ -12,6 +12,10 @@
 
 #include "Arduino.h"
 
+// TX frame capture injected by the emulated CAN layer (see emul/can.cpp).
+void clear_transmitted_frames();
+const std::vector<CAN_frame>& get_transmitted_frames();
+
 // Tests of the build of 08.10. (points 1 to 17 of the Twingo build list). Reference values come from the real vehicle
 // logs of 02.10. and 04.10., the Lade-Log of 20.11.2025 and the bench readings of 06.10.; the numbers are explained
 // at the code they test.
@@ -20,9 +24,20 @@ namespace {
 
 class TestTwingo : public RenaultTwingoGen1Battery {
  public:
+  TestTwingo() {  // the age state is global: every test starts from the seed
+    RenaultTwingoGen1Battery::age_manual_clear();
+    auto& t = datalayer_extended.twingoGen1;
+    t.age_pack_value = 1311344;
+    t.age_pack_unix = 1791319221;
+    t.age_last_sent = 0;
+    t.age_source = 0;
+  }
   bool network_ready() override { return false; }
   void start_ntp() override {}
-  bool get_unix_time(time_t&) override { return false; }
+  bool get_unix_time(time_t& t) override {
+    t = 1791319221;  // the seed reference: age 1,312,784
+    return true;
+  }
   bool get_wall_clock_seconds_of_day(uint32_t& secs) override {
     secs = 12 * 3600;
     return true;
@@ -107,4 +122,177 @@ TEST(TwingoBuild0810, BatteryCurrentPlausibility) {
   EXPECT_TRUE(twingo::battery_current_plausible(499.9));
   EXPECT_FALSE(twingo::battery_current_plausible(-2895.875));  // the invalid value of 06.10.
   EXPECT_FALSE(twingo::battery_current_plausible(500.0));
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Point 15: HV state model and frame encodings
+namespace {
+std::string hex_of(const uint8_t* d, size_t n) {
+  std::string out;
+  char buf[4];
+  for (size_t i = 0; i < n; i++) {
+    snprintf(buf, sizeof(buf), "%02X", d[i]);
+    out += buf;
+    if (i + 1 < n) {
+      out += ' ';
+    }
+  }
+  return out;
+}
+}  // namespace
+
+TEST(TwingoBuild0810, Frame57FEncodingMatchesTheVehicleLog) {
+  uint8_t d[7];
+  twingo::frame_57f(0.0, 3390, false, d);  // 02.10. log: 64 0D 3E 7F 80 00 00 = 339.0 V, 0 A
+  EXPECT_EQ(hex_of(d, 7), "64 0D 3E 7F 80 00 00");
+  twingo::frame_57f(1.0, 3385, false, d);  // 64 4D 39 ...
+  EXPECT_EQ(hex_of(d, 7), "64 4D 39 7F 80 00 00");
+  twingo::frame_57f(4.0, 3380, true, d);  // 65 0D 34 CF A8
+  EXPECT_EQ(hex_of(d, 7), "65 0D 34 CF A8 00 00");
+  twingo::frame_57f(0.0, 5, false, d);  // first frame after the wake-up: 0.5 V
+  EXPECT_EQ(hex_of(d, 7), "64 00 05 7F 80 00 00");
+}
+
+TEST(TwingoBuild0810, Frame57FCurrentSignAndLimits) {
+  EXPECT_DOUBLE_EQ(twingo::hv_57f_amps(-100, true), 10.0);  // the emulator: negative = discharge, 0x57F positive
+  EXPECT_DOUBLE_EQ(twingo::hv_57f_amps(250, true), -25.0);
+  EXPECT_DOUBLE_EQ(twingo::hv_57f_amps(-100, false), 0.0);   // HV open
+  EXPECT_DOUBLE_EQ(twingo::hv_57f_amps(-28950, true), 0.0);  // invalid value (above 400 A)
+}
+
+TEST(TwingoBuild0810, Frame5D7EncodingAndCounter) {
+  uint8_t d[8];
+  twingo::frame_5d7(92591, 0, false, d);  // log: 00 00 08 D4 85 C0 C0 00 for 92591 km (the log shows 92591.12)
+  EXPECT_EQ(hex_of(d, 8), "00 00 08 D4 85 C0 C0 00");
+  twingo::frame_5d7(19400, 31, false, d);
+  EXPECT_EQ(hex_of(d, 8), "00 00 01 D9 A2 00 FE 00");
+  twingo::frame_5d7(19400, 32, false, d);  // wraps after 32 values
+  EXPECT_EQ(d[6], 0xC0);
+  twingo::frame_5d7(19400, 0, true, d);  // very first frame: speed FF FF, byte 7 = 08
+  EXPECT_EQ(hex_of(d, 8), "FF FF 01 D9 A2 00 C0 08");
+}
+
+TEST(TwingoBuild0810, HvModelConnectSequence) {
+  twingo::HvTimes t;
+  t.connect = 1000;
+  auto o = twingo::hv_compute(t, 1000, 3390);
+  EXPECT_TRUE(o.connected);
+  EXPECT_EQ(o.phase_62d, 0x04);
+  EXPECT_FALSE(o.relay_a0);
+  EXPECT_EQ(o.volt_dV, 115);  // 11.5 V at the start of the ramp
+  o = twingo::hv_compute(t, 1300, 3390);
+  EXPECT_EQ(o.phase_62d, 0x06);
+  EXPECT_FALSE(o.relay_a0);
+  o = twingo::hv_compute(t, 1500, 3390);
+  EXPECT_TRUE(o.relay_a0);
+  EXPECT_EQ(o.phase_62d, 0x06);
+  o = twingo::hv_compute(t, 2300, 3390);
+  EXPECT_EQ(o.phase_62d, 0x02);
+  EXPECT_EQ(o.volt_dV, 3390);
+  EXPECT_FALSE(o.b34);
+  EXPECT_FALSE(o.inverter_on);
+  t.b34 = 1500;
+  t.c7 = 3000;
+  EXPECT_TRUE(twingo::hv_compute(t, 3100, 3390).b34);
+  EXPECT_FALSE(twingo::hv_compute(t, 4999, 3390).inverter_on);  // C7 + 2.0 s
+  o = twingo::hv_compute(t, 5000, 3390);
+  EXPECT_TRUE(o.inverter_on);
+  EXPECT_EQ(o.b5_62d, 0x40);
+}
+
+TEST(TwingoBuild0810, HvModelDisconnectSequence) {
+  twingo::HvTimes t;
+  t.connect = 0;
+  t.b34 = 100;
+  t.c7 = 100;
+  t.disc = 100000;
+  auto o = twingo::hv_compute(t, 100000, 3390);
+  EXPECT_TRUE(o.relay_a0);
+  EXPECT_FALSE(o.power_idle);  // 0x1FD byte 0 falls to FE at once
+  EXPECT_TRUE(o.inverter_on);
+  EXPECT_TRUE(o.b34);
+  o = twingo::hv_compute(t, 101100, 3390);  // +1.1 s: inverter off
+  EXPECT_FALSE(o.inverter_on);
+  EXPECT_EQ(o.b5_62d, 0x00);
+  EXPECT_EQ(o.phase_62d, 0x02);
+  EXPECT_TRUE(o.b34);
+  o = twingo::hv_compute(t, 101600, 3390);  // +1.6 s: transition
+  EXPECT_EQ(o.phase_62d, 0x06);
+  o = twingo::hv_compute(t, 102100, 3390);  // +2.1 s: b34 off, HV still closed
+  EXPECT_FALSE(o.b34);
+  EXPECT_TRUE(o.relay_a0);
+  o = twingo::hv_compute(t, 102200, 3390);  // +2.2 s: HV opens
+  EXPECT_FALSE(o.relay_a0);
+  EXPECT_EQ(o.phase_62d, 0x04);
+  EXPECT_EQ(o.volt_dV, 3390);
+  EXPECT_EQ(twingo::hv_compute(t, 102750, 3390).volt_dV, 690);  // 69 V after 0.55 s
+  EXPECT_EQ(twingo::hv_compute(t, 103700, 3390).volt_dV, 360);  // 36 V after 1.5 s
+  EXPECT_EQ(twingo::hv_compute(t, 104700, 3390).volt_dV, 280);  // 28 V after 2.5 s
+  // tau 22 s: after another 22 s 28 V / e = 10.3 V
+  EXPECT_NEAR(twingo::hv_compute(t, 104700 + 22000, 3390).volt_dV, 103, 2);
+  EXPECT_EQ(twingo::hv_compute(t, 104700 + 600000, 3390).volt_dV, 5);  // floor 0.5 V
+}
+
+TEST(TwingoBuild0810, HvRowsFollowTheStagesWithoutAWakeUp) {
+  datalayer.battery.status.voltage_dV = 3390;
+  datalayer.battery.status.current_dA = 0;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL | (1ULL << row_of(0x57F)) | (1ULL << row_of(0x599)) |
+                                                         (1ULL << row_of(0x62D)) | (1ULL << row_of(0x1FD)) |
+                                                         (1ULL << row_of(0x523));
+  TestTwingo b;
+  b.setup();
+  std::vector<CAN_frame> f57, f59, f62, f1f, f52;
+  for (uint64_t t = 1000; t < 12000; t += 10) {
+    set_millis64(t);
+    clear_transmitted_frames();
+    b.transmit_can((unsigned long)t);
+    for (const CAN_frame& f : get_transmitted_frames()) {
+      if (f.ID == 0x57F)
+        f57.push_back(f);
+      if (f.ID == 0x599)
+        f59.push_back(f);
+      if (f.ID == 0x62D)
+        f62.push_back(f);
+      if (f.ID == 0x1FD)
+        f1f.push_back(f);
+      if (f.ID == 0x523)
+        f52.push_back(f);
+    }
+  }
+  ASSERT_GE(f62.size(), 3u);
+  EXPECT_EQ(hex_of(f62[0].data.u8, 7), "01 45 E0 04 7F CC 00");  // the two invalid first frames
+  EXPECT_EQ(hex_of(f62[1].data.u8, 7), "01 45 E0 04 00 00 00");
+  EXPECT_EQ(hex_of(f62[2].data.u8, 7), "01 45 E0 02 06 40 00");  // HV closed since the start, inverter on
+  ASSERT_GE(f59.size(), 2u);
+  EXPECT_EQ(hex_of(f59[0].data.u8, 6), "00 07 FF FF FF E0");
+  EXPECT_EQ(f59[1].data.u8[1], 0x08);
+  ASSERT_GE(f57.size(), 2u);
+  EXPECT_EQ(hex_of(f57[1].data.u8, 7), "64 0D 3E CF A8 00 00");  // 339.0 V, 0 A, bytes 3-4 switched
+  ASSERT_GE(f1f.size(), 2u);
+  EXPECT_EQ(hex_of(f1f[0].data.u8, 8), "FF 80 7F FF 7F FF FF 00");
+  EXPECT_EQ(f1f[1].data.u8[0], 0x45);
+  EXPECT_EQ(f1f[1].data.u8[5], 0xA0);
+  ASSERT_GE(f52.size(), 1u);
+  EXPECT_EQ(hex_of(f52[0].data.u8, 3), "14 08 10");  // 1,312,784 min = the vehicle age
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;
+}
+
+TEST(TwingoBuild0810, Frame523NeedsAnAge) {
+  struct NoClock : public TestTwingo {
+    bool get_unix_time(time_t&) override { return false; }
+  };
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL | (1ULL << row_of(0x523));
+  NoClock b;
+  b.setup();
+  int n = 0;
+  for (uint64_t t = 1000; t < 4000; t += 10) {
+    set_millis64(t);
+    clear_transmitted_frames();
+    b.transmit_can((unsigned long)t);
+    for (const CAN_frame& f : get_transmitted_frames()) {
+      n += (f.ID == 0x523) ? 1 : 0;
+    }
+  }
+  EXPECT_EQ(n, 0);
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;
 }
