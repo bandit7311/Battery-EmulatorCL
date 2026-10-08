@@ -3318,12 +3318,17 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += uq_target == 1 ? " selected" : "";
     content +=
         ">DC (safety CPU)</option></select> <input type='text' id='twingoQueryHex' size='20' "
-        "maxlength='24' placeholder='22925E'> <button onclick='twingoQuery()'>Query</button></h4>";
+        "maxlength='24' placeholder='22925E'> <button onclick='twingoQuery()'>Query</button> "
+        "<button onclick=\"twingoQuick('19 02 09')\">DTC 19 02 09</button> "
+        "<button onclick=\"twingoQuick('22 92 61')\">Time 22 92 61</button> "
+        "<button onclick=\"twingoQuick('10 03')\">Session 10 03</button> "
+        "<button onclick='twingoTimeNow()'>Set time now</button></h4>";
     content +=
         "<p style='margin:0 0 6px 0;font-size:0.85em;'>Write: <code>2E 92 61 00 00 03</code> = $9261 to 3. Allowed "
-        "identifiers: 9261, 91C1, 91CF, 925F, 9281. The value is read first and shown as \"before\"; the write is only "
-        "sent when that read works and the entered value has the same length. Not undoable except by writing the old "
-        "value back.</p>";
+        "identifiers: 9261, 9264, 926B, 91C1, 91CF, 925F, 9281. The value is read first and shown as \"before\"; the "
+        "write is only sent when that read works and the entered value has the same length, and the value is read "
+        "back after the write. A write asks for confirmation. \"Set time now\" writes $9261 with the vehicle age "
+        "that is being sent. Not undoable except by writing the old value back.</p>";
     content += "<h4>Answer: <span id='twingoQueryResult'>";
     content += user_query_result();
     content += "</span></h4>";
@@ -3352,9 +3357,18 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "fetch('/twingoQueryResult?which='+which).then(function(a){return a.text();}).then(function(x){";
     content += "span.textContent=x;if((x!=='requested'&&x!=='')||++n>40){clearInterval(h);}});},250);}";
     content += "function twingoQuery(){var v=document.getElementById('twingoQueryHex').value;";
+    content += "try{localStorage.setItem('twingoQueryHex',v);}catch(e){}";
     content += "var r=document.getElementById('twingoQueryResult');";
+    content += "if(/^\\s*2E/i.test(v)&&!confirm('Write '+v+' to the pack?')){return;}";
     content += "fetch('/twingoQuery?hex='+encodeURIComponent(v)).then(function(a){return a.text();}).then(function(t){";
     content += "if(t!=='OK'){r.textContent=t;return;}r.textContent='requested';twingoPoll('free',r);});}";
+    content += "function twingoQuick(h){document.getElementById('twingoQueryHex').value=h;twingoQuery();}";
+    content += "function twingoTimeNow(){var r=document.getElementById('twingoQueryResult');";
+    content += "if(!confirm('Write $9261 with the vehicle age that is being sent?')){return;}";
+    content += "fetch('/twingoSetTimeNow').then(function(a){return a.text();}).then(function(t){";
+    content += "if(t!=='OK'){r.textContent=t;return;}r.textContent='requested';twingoPoll('free',r);});}";
+    content += "window.addEventListener('load',function(){try{var s=localStorage.getItem('twingoQueryHex');";
+    content += "if(s){document.getElementById('twingoQueryHex').value=s;}}catch(e){}});";
     content += "function twingoFdc(){var r=document.getElementById('twingoFdcResult');";
     content += "fetch('/triggerTwingoDtcFdc').then(function(a){return a.text();}).then(function(t){";
     content += "if(t!=='OK'){r.textContent=t;return;}r.textContent='requested';twingoPoll('fdc',r);});}";
@@ -3491,11 +3505,13 @@ void RenaultTwingoGen1Battery::uq_restore_poll_template() {
   ZOE_POLL_18DADBF1.ID = UQ_ID_REQ_DB;
   ZOE_POLL_FLOW_CONTROL.ID = UQ_ID_REQ_DB;
   uq_active_dc = false;
+  uq_post_read = false;
   ZOE_POLL_18DADBF1.data = {0x03, 0x22, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 }
 
 // Identifiers the free request may write (0x2E): the two time counters, the two mileages and the temporisation.
-const uint16_t RenaultTwingoGen1Battery::UQ_WRITE_DIDS[UQ_WRITE_DID_COUNT] = {0x9261, 0x91C1, 0x91CF, 0x925F, 0x9281};
+const uint16_t RenaultTwingoGen1Battery::UQ_WRITE_DIDS[UQ_WRITE_DID_COUNT] = {0x9261, 0x9264, 0x926B, 0x91C1,
+                                                                              0x91CF, 0x925F, 0x9281};
 
 // Short meaning of the negative response codes (ISO 14229) that matter for a write; "" for any other code.
 const char* RenaultTwingoGen1Battery::uq_nrc_text(uint8_t nrc) {
@@ -3570,6 +3586,7 @@ bool RenaultTwingoGen1Battery::uq_begin(uint8_t mode, const uint8_t* req, uint8_
     uq_req[i] = req[i];
   }
   uq_needs_session = needs_session;
+  uq_post_read = false;
   uq_active_dc = (mode == UQ_FREE && uq_target == 1);
   ZOE_POLL_18DADBF1.ID = uq_active_dc ? UQ_ID_REQ_DC : UQ_ID_REQ_DB;
   ZOE_POLL_FLOW_CONTROL.ID = ZOE_POLL_18DADBF1.ID;
@@ -3630,6 +3647,11 @@ const char* RenaultTwingoGen1Battery::start_user_query(const char* hex) {
     if (n < 2) {
       return "0x19 needs a sub-function";
     }
+  } else if (req[0] == 0x10) {
+    // DiagnosticSessionControl, only the extended session (10 03) that the writes and 0x19 use anyway (point 10)
+    if (n != 2 || req[1] != 0x03) {
+      return "0x10 is only allowed as 10 03 (extended session)";
+    }
   } else if (req[0] == 0x2E) {
     if (uq_target == 1) {
       return "0x2E is not allowed for DC (safety CPU)";
@@ -3647,15 +3669,27 @@ const char* RenaultTwingoGen1Battery::start_user_query(const char* hex) {
       }
     }
     if (!allowed) {
-      return "0x2E is only allowed for 9261, 91C1, 91CF, 925F and 9281";
+      return "0x2E is only allowed for 9261, 9264, 926B, 91C1, 91CF, 925F and 9281";
     }
   } else {
-    return "only 0x22 and 0x19 (read) and 0x2E (write, 9261/91C1/91CF/925F/9281 only) are allowed";
+    return "only 0x22 and 0x19 (read), 0x10 03 (session) and 0x2E (write, 9261/9264/926B/91C1/91CF/925F/9281 only) are "
+           "allowed";
   }
   if (!uq_begin(UQ_FREE, req, n, req[0] == 0x19 || req[0] == 0x2E)) {
     return "busy (another diagnostic exchange or a Sleep/NVROL run is active)";
   }
   return "OK";
+}
+
+const char* RenaultTwingoGen1Battery::write_time_now() {
+  uint32_t age = 0;
+  if (!vehicle_age_available(millis(), age)) {
+    return "no vehicle age known yet (no clock and no manual age)";
+  }
+  char hex[24];
+  snprintf(hex, sizeof(hex), "2E 92 61 %02X %02X %02X", (unsigned)((age >> 16) & 0xFF), (unsigned)((age >> 8) & 0xFF),
+           (unsigned)(age & 0xFF));
+  return start_user_query(hex);
 }
 
 void RenaultTwingoGen1Battery::read_DTC_fdc() {
@@ -3747,6 +3781,16 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
     }
   }
   uq_in_progress = false;
+  if (uq_mode == UQ_FREE && uq_req[0] == 0x2E && uq_buf_len >= 1 && uq_buf[0] == 0x6E && !uq_post_read) {
+    // Positive answer to the write: read the identifier back at once (point 10), the answer is appended to the line
+    ZOE_POLL_18DADBF1.data = {0x03, 0x22, uq_req[1], uq_req[2], 0xAA, 0xAA, 0xAA, 0xAA};
+    transmit_can_frame(&ZOE_POLL_18DADBF1);
+    uq_post_read = true;
+    memcpy(uq_write_line, uq_result, sizeof(uq_write_line));
+    snprintf(uq_result, sizeof(uq_result), "requested");  // the page keeps waiting for the read back
+    dtc_ext_step_start_ms = millis();
+    return;
+  }
   if (uq_mode == UQ_DETAILS) {
     dtc_ext_details_index++;
     if (dtc_ext_details_index < DTC_DETAILS_COUNT) {
@@ -3782,6 +3826,9 @@ bool RenaultTwingoGen1Battery::uq_reply_matches(const uint8_t* p, uint8_t n) con
   }
   if (uq_req[0] == 0x2E) {
     return n >= 3 && uq_req_len >= 3 && p[1] == uq_req[1] && p[2] == uq_req[2];  // 6E <DID>
+  }
+  if (uq_req[0] == 0x10) {
+    return uq_req_len >= 2 && p[1] == uq_req[1];  // 50 03
   }
   return false;
 }
@@ -3840,10 +3887,40 @@ bool RenaultTwingoGen1Battery::handle_pre_read_reply(const CAN_frame& f) {
   return true;
 }
 
+// Reply to the read back after a write (uq_post_read): the data bytes are appended to the result line.
+bool RenaultTwingoGen1Battery::handle_post_read_reply(const CAN_frame& f) {
+  uint8_t pci = f.data.u8[0];
+  if (pci < 3 || pci > 7) {
+    return false;
+  }
+  const uint8_t* p = &f.data.u8[1];
+  memcpy(uq_result, uq_write_line, sizeof(uq_result));
+  size_t pos = strlen(uq_result);
+  if (p[0] == 0x7F && p[1] == 0x22) {
+    if (pci == 3 && p[2] == 0x78) {
+      dtc_ext_step_start_ms = millis();
+      return true;
+    }
+    uq_printf(uq_result, sizeof(uq_result), pos, " | read back refused (NRC 0x%02X)", p[2]);
+  } else if (p[0] == 0x62 && p[1] == uq_req[1] && p[2] == uq_req[2]) {
+    uq_printf(uq_result, sizeof(uq_result), pos, " | read back ");
+    uq_append_hex(uq_result, sizeof(uq_result), pos, &p[3], (uint8_t)(pci - 3));
+  } else {
+    return false;
+  }
+  uq_post_read = false;
+  uq_restore_poll_template();
+  dtc_ext_state = DTC_EXT_IDLE;
+  return true;
+}
+
 // Collects the reply to the request of uq_begin(): single frame, or First Frame (flow control sent here) plus
 // Consecutive Frames. "Response pending" (NRC 0x78) only restarts the timeout. Returns false for a frame that is
 // not the reply to this request; the caller then handles it like any other frame (cell polling etc.).
 bool RenaultTwingoGen1Battery::handle_user_query_reply(const CAN_frame& f) {
+  if (uq_post_read) {
+    return handle_post_read_reply(f);
+  }
   if (uq_pre_read) {
     return handle_pre_read_reply(f);
   }
@@ -3983,6 +4060,15 @@ void RenaultTwingoGen1Battery::handle_dtc_ext(unsigned long currentMillis) {
       break;
     case DTC_EXT_USER_CMD_SENT:
       if (currentMillis - dtc_ext_step_start_ms >= DTC_EXT_REPLY_TIMEOUT_MS) {
+        if (uq_post_read) {
+          memcpy(uq_result, uq_write_line, sizeof(uq_result));
+          size_t pos = strlen(uq_result);
+          uq_printf(uq_result, sizeof(uq_result), pos, " | read back: no response");
+          uq_post_read = false;
+          uq_restore_poll_template();
+          dtc_ext_state = DTC_EXT_IDLE;
+          break;
+        }
         if (uq_mode == UQ_FREE && uq_req[0] == 0x2E) {
           snprintf(uq_result, sizeof(uq_result),
                    uq_pre_read ? "no response to the read before the write - nothing was written"

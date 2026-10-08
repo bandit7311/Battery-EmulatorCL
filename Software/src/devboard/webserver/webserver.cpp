@@ -983,6 +983,11 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
+  // "Set time now" button: writes $9261 with the vehicle age that is being sent (checked write path of the free request).
+  def_route_with_auth("/twingoSetTimeNow", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/plain", static_cast<RenaultTwingoGen1Battery*>(battery)->write_time_now());
+  });
+
   // Answer of the free read request (which=free) or of the fault counters (which=fdc), polled by the page.
   def_route_with_auth("/twingoQueryResult", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     RenaultTwingoGen1Battery* twingo = static_cast<RenaultTwingoGen1Battery*>(battery);

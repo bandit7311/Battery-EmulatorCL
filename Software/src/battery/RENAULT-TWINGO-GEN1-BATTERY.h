@@ -149,7 +149,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Free request on the extended 29-bit protocol (03.10.), "More Battery Info" page: input field,
   // Query button, answer field. Read services are accepted (0x22 ReadDataByIdentifier, 0x19
   // ReadDTCInformation) and, since 05.10., the write service 0x2E only for the identifiers of
-  // UQ_WRITE_DIDS ($9261, $91C1, $91CF, $925F, $9281). A write first opens the extended session, then reads the
+  // UQ_WRITE_DIDS ($9261, $9264, $926B, $91C1, $91CF, $925F, $9281). A write first opens the extended session, then reads the
   // identifier ("before"), refuses when that read fails or the length of the entered value differs from the
   // length read, and only then writes. `hex` = request bytes as hex text (spaces allowed), e.g. "22925E" or
   // "2E 92 61 00 00 03". Returns "OK" when the request was started, otherwise a short reason. The answer is shown
@@ -171,6 +171,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static const uint32_t UQ_ID_REQ_DC = 0x18DADCF1;
   static const uint32_t UQ_ID_RESP_DC = 0x18DAF1DC;
   const char* user_query_result() const { return uq_result; }
+  // "Set time now" (point 10): writes $9261 with the vehicle age that is being sent (0x350 bytes 1-3), 3 data bytes,
+  // through the same checked write path (session, read before, write, read back). Returns "OK" or the reason.
+  const char* write_time_now();
   const char* fdc_query_result() const { return fdc_result; }
   // "Read DTC fault counters": UDS 0x19 0x14 (reportDTCFaultDetectionCounter), shown decoded.
   void read_DTC_fdc();
@@ -834,9 +837,11 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Write (0x2E) of UQ_FREE: the request is preceded by a read of the same identifier ("before" value).
   // uq_pre_read = the read is on the bus and its answer is awaited; uq_before holds that answer's data bytes.
   bool uq_pre_read = false;
+  char uq_write_line[336] = "";  // result line of the write, kept while the read back is awaited
+  bool uq_post_read = false;     // the read back after a positive write answer is awaited (point 10)
   uint8_t uq_before[4] = {0};
   uint8_t uq_before_len = 0;
-  static const uint8_t UQ_WRITE_DID_COUNT = 5;
+  static const uint8_t UQ_WRITE_DID_COUNT = 7;
   static const uint16_t UQ_WRITE_DIDS[UQ_WRITE_DID_COUNT];
   static const char* uq_nrc_text(uint8_t nrc);  // short meaning of a negative response code, "" when not known
   char uq_result[336] = "not run yet";
@@ -844,6 +849,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   bool uq_begin(uint8_t mode, const uint8_t* req, uint8_t len, bool needs_session);
   void uq_send_pre_read();
   bool handle_pre_read_reply(const CAN_frame& f);
+  bool handle_post_read_reply(const CAN_frame& f);
   void uq_send_request();
   bool handle_user_query_reply(const CAN_frame& f);  // false = not the reply to our request, handle it normally
   bool uq_reply_matches(const uint8_t* p, uint8_t n) const;

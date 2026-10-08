@@ -610,3 +610,13 @@ TEST(TwingoBuild0810, ReadRequestsInTheSilenceOnlyWithTheSwitch) {
   sleep_temporisation_frames(b, t, 1000);
   EXPECT_TRUE(sleep_temporisation_frames(b, t, 500).empty());
 }
+
+TEST(TwingoBuild0810, QueryPageHasTheDirectButtonsTheTargetAndTheSilenceSwitch) {
+  TestTwingo b;
+  b.setup();
+  const std::string html = b.get_uds_info_html().c_str();
+  for (const char* want : {"DTC 19 02 09", "Time 22 92 61", "Session 10 03", "Set time now", "twingoQueryTarget",
+                           "DC (safety CPU)", "twingoSilenceDiag", "twingoWrite80", "localStorage"}) {
+    EXPECT_NE(html.find(want), std::string::npos) << want;
+  }
+}

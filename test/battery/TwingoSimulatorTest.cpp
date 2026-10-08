@@ -782,9 +782,11 @@ TEST(TwingoFreeQuery, RejectsInvalidInput) {
   EXPECT_STREQ(b.start_user_query("   "), "empty request");
   EXPECT_STREQ(b.start_user_query("22925G"), "invalid character (hex digits only)");
   EXPECT_STREQ(b.start_user_query("22925"), "odd number of hex digits");
-  const char* not_allowed = "only 0x22 and 0x19 (read) and 0x2E (write, 9261/91C1/91CF/925F/9281 only) are allowed";
+  const char* not_allowed =
+      "only 0x22 and 0x19 (read), 0x10 03 (session) and 0x2E (write, 9261/9264/926B/91C1/91CF/925F/9281 only) are "
+      "allowed";
   EXPECT_STREQ(b.start_user_query("14FFFFFF"), not_allowed);
-  EXPECT_STREQ(b.start_user_query("10 03"), not_allowed);
+  EXPECT_STREQ(b.start_user_query("10 02"), "0x10 is only allowed as 10 03 (extended session)");
   EXPECT_STREQ(b.start_user_query("31 01 B0 09"), not_allowed);
   EXPECT_STREQ(b.start_user_query("27 01"), not_allowed);
   EXPECT_STREQ(b.start_user_query("22"), "0x22 needs one or more 2-byte identifiers");
@@ -1013,7 +1015,7 @@ TEST(TwingoFreeWrite, OnlyTheListedIdentifiersCanBeWritten) {
   }
   TestTwingo b;
   b.setup();
-  const char* refused = "0x2E is only allowed for 9261, 91C1, 91CF, 925F and 9281";
+  const char* refused = "0x2E is only allowed for 9261, 9264, 926B, 91C1, 91CF, 925F and 9281";
   EXPECT_STREQ(b.start_user_query("2E 90 21 00"), refused);        // a cell voltage
   EXPECT_STREQ(b.start_user_query("2E 92 5E 13 88 6F"), refused);  // the vehicle ID
   EXPECT_STREQ(b.start_user_query("2E 92 60 00"), refused);        // neighbour of 9261
@@ -1059,9 +1061,67 @@ TEST(TwingoFreeWrite, SessionThenReadBeforeThenWriteThenAnswerWithBeforeValue) {
   EXPECT_EQ(tx[0].data.u8[6], 0x03);
   EXPECT_STREQ(b.user_query_result(), "requested");
 
+  clear_transmitted_frames();
   b.handle_incoming_can_frame(reply_frame({0x03, 0x6E, 0x92, 0x61, 0, 0, 0, 0}));
-  EXPECT_STREQ(b.user_query_result(), "2E 92 61 00 00 03: before 00 00 00 -> OK 6E 92 61");
+  tx = diag_tx();
+  ASSERT_EQ(tx.size(), 1u);  // read back at once (point 10)
+  EXPECT_EQ(tx[0].data.u8[1], 0x22);
+  EXPECT_EQ(tx[0].data.u8[2], 0x92);
+  EXPECT_EQ(tx[0].data.u8[3], 0x61);
+  EXPECT_STREQ(b.user_query_result(), "requested");
+  b.handle_incoming_can_frame(did_reply(0x9261, {0x00, 0x00, 0x03}));
+  EXPECT_STREQ(b.user_query_result(), "2E 92 61 00 00 03: before 00 00 00 -> OK 6E 92 61 | read back 00 00 03");
   EXPECT_STREQ(b.start_user_query("22925E"), "OK");  // channel is free again
+}
+
+TEST(TwingoFreeWrite, TheNewTimeIdentifiersAndSession1003AreAccepted) {
+  for (const char* ok : {"2E 92 64 00 00 00", "2E 92 6B 00 00 00", "10 03"}) {
+    TestTwingo b;
+    b.setup();
+    EXPECT_STREQ(b.start_user_query(ok), "OK") << ok;
+  }
+}
+
+TEST(TwingoFreeWrite, SetTimeNowWritesTheVehicleAge) {
+  TestTwingo b;
+  b.setup();
+  b.unix_set = true;
+  b.unix_now = 1791319221;  // seed: age 1,312,784 = 0x140810
+  set_millis64(1000);
+  clear_transmitted_frames();
+  ASSERT_STREQ(b.write_time_now(), "OK");
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 300, 50, log);
+  clear_transmitted_frames();
+  b.handle_incoming_can_frame(did_reply(0x9261, {0x00, 0x00, 0x00}));
+  auto tx = diag_tx();
+  ASSERT_EQ(tx.size(), 1u);
+  EXPECT_EQ(tx[0].data.u8[1], 0x2E);
+  EXPECT_EQ(tx[0].data.u8[4], 0x14);
+  EXPECT_EQ(tx[0].data.u8[5], 0x08);
+  EXPECT_EQ(tx[0].data.u8[6], 0x10);
+}
+
+TEST(TwingoFreeWrite, SetTimeNowNeedsAnAge) {
+  TestTwingo b;
+  b.setup();
+  b.unix_set = false;
+  EXPECT_STRNE(b.write_time_now(), "OK");
+}
+
+TEST(TwingoFreeWrite, NoAnswerToTheReadBackIsShownNextToTheWriteResult) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t;
+  std::vector<Tx> log;
+  start_write_until_read(b, "2E 92 61 00 00 03", t, log);
+  b.handle_incoming_can_frame(did_reply(0x9261, {0x00, 0x00, 0x00}));
+  b.handle_incoming_can_frame(reply_frame({0x03, 0x6E, 0x92, 0x61, 0, 0, 0, 0}));
+  run(b, t, 3000, 50, log);  // no answer to the read back
+  EXPECT_NE(std::string(b.user_query_result()).find("OK 6E 92 61 | read back: no response"), std::string::npos)
+      << b.user_query_result();
+  EXPECT_STREQ(b.start_user_query("22925E"), "OK");
 }
 
 TEST(TwingoFreeWrite, NothingIsWrittenWhenTheReadBeforeIsRefused) {
@@ -1167,7 +1227,8 @@ TEST(TwingoFreeWrite, ResponsePendingToTheWriteKeepsWaiting) {
   run(b, t, 1500, 100, log);
   EXPECT_STREQ(b.user_query_result(), "requested");
   b.handle_incoming_can_frame(reply_frame({0x03, 0x6E, 0x92, 0x61, 0, 0, 0, 0}));
-  EXPECT_STREQ(b.user_query_result(), "2E 92 61 00 00 03: before 00 00 00 -> OK 6E 92 61");
+  b.handle_incoming_can_frame(did_reply(0x9261, {0x00, 0x00, 0x03}));  // the read back
+  EXPECT_STREQ(b.user_query_result(), "2E 92 61 00 00 03: before 00 00 00 -> OK 6E 92 61 | read back 00 00 03");
 }
 
 TEST(TwingoFreeWrite, CellPollingIsPausedWhileTheWriteRuns) {
