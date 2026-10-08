@@ -996,6 +996,8 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
 
 // Vehicle age (0x350 bytes 1-3, 0x523, 0x376), minutes - see the comment at the declaration and twingo::age_auto().
 bool RenaultTwingoGen1Battery::shutdown_like_car = false;
+bool RenaultTwingoGen1Battery::time_436_active = false;
+uint32_t RenaultTwingoGen1Battery::time_436_value = 0;
 uint32_t RenaultTwingoGen1Battery::odo_5d7_km = 19400;
 uint32_t RenaultTwingoGen1Battery::odo_426_km = 19400;
 uint8_t RenaultTwingoGen1Battery::odo_426_b7 = 0x40;
@@ -1047,6 +1049,21 @@ void RenaultTwingoGen1Battery::age_manual_set(uint32_t minutes, int64_t unix_s) 
   age_manual_anchor_unix = (unix_s >= twingo::UNIX_PLAUSIBLE_MIN) ? unix_s : 0;
   age_manual_active = true;
   age_save_to_nvm();
+}
+
+void RenaultTwingoGen1Battery::time_436_set(uint32_t minutes) {
+  time_436_value = minutes > AGE_MANUAL_MAX ? AGE_MANUAL_MAX : minutes;
+  time_436_active = true;
+  ZOE_436_VEHICLE_STATUS.data.u8[1] = (uint8_t)(time_436_value >> 16);
+  ZOE_436_VEHICLE_STATUS.data.u8[2] = (uint8_t)(time_436_value >> 8);
+  ZOE_436_VEHICLE_STATUS.data.u8[3] = (uint8_t)time_436_value;
+}
+
+void RenaultTwingoGen1Battery::time_436_clear() {
+  time_436_active = false;
+  ZOE_436_VEHICLE_STATUS.data.u8[1] = 0x14;
+  ZOE_436_VEHICLE_STATUS.data.u8[2] = (zoe_436_counter >> 8) & 0xFF;
+  ZOE_436_VEHICLE_STATUS.data.u8[3] = zoe_436_counter & 0xFF;
 }
 
 void RenaultTwingoGen1Battery::age_manual_clear() {
@@ -3135,8 +3152,17 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
     if (currentMillis - previousMillis60000_436 >= INTERVAL_60_S) {
       previousMillis60000_436 = currentMillis;
       zoe_436_counter++;
-      ZOE_436_VEHICLE_STATUS.data.u8[2] = (zoe_436_counter >> 8) & 0xFF;
-      ZOE_436_VEHICLE_STATUS.data.u8[3] = zoe_436_counter & 0xFF;
+      if (time_436_active) {
+        if (time_436_value < AGE_MANUAL_MAX) {
+          time_436_value++;
+        }
+        ZOE_436_VEHICLE_STATUS.data.u8[1] = (uint8_t)(time_436_value >> 16);
+        ZOE_436_VEHICLE_STATUS.data.u8[2] = (uint8_t)(time_436_value >> 8);
+        ZOE_436_VEHICLE_STATUS.data.u8[3] = (uint8_t)time_436_value;
+      } else {
+        ZOE_436_VEHICLE_STATUS.data.u8[2] = (zoe_436_counter >> 8) & 0xFF;
+        ZOE_436_VEHICLE_STATUS.data.u8[3] = zoe_436_counter & 0xFF;
+      }
     }
 
     // Broadcast 1000ms BCM Gateway alive token

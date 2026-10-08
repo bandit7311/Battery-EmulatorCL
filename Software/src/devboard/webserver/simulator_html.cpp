@@ -134,6 +134,29 @@ String simulator_processor(const String& var) {
     content += "document.getElementById('ageManualState').textContent='off - automatic mode';});}";
     content += "</script>";
 
+    // Time in the Zoe frame 0x436 (bytes 1-3), the bench SCPU seems to take its $9261 from there.
+    content += "<p><b>Time in 0x436 (bytes 1-3):</b> <input type='number' id='t436' min='0' max='16777215' value='";
+    {
+      const uint32_t shown =
+          RenaultTwingoGen1Battery::time_436_active
+              ? RenaultTwingoGen1Battery::time_436_value
+              : (datalayer_extended.twingoGen1.age_last_sent != 0 ? datalayer_extended.twingoGen1.age_last_sent
+                                                                  : 1311344UL);
+      content += String(shown);
+    }
+    content += "' style='width:9em'> minutes <button onclick=\"t436Set()\">Set</button> ";
+    content += "<button onclick=\"t436Off()\">Off</button> <span id='t436State'>";
+    content += RenaultTwingoGen1Battery::time_436_active ? "ACTIVE - counts +1 per minute" : "off - default 14 00 xx";
+    content +=
+        "</span> <span class='note'>- runtime only. The row 0x436 must be on. Default: 14 00 xx (xx = minutes since "
+        "the start of the emulator).</span></p>";
+    content += "<script>function t436Set(){var v=document.getElementById('t436').value;";
+    content += "fetch('/editTwingoTime436?value='+encodeURIComponent(v)).then(function(r){return r.text();})";
+    content += ".then(function(t){document.getElementById('t436State').textContent=(t==='OK')?";
+    content += "'ACTIVE - started at '+v+', +1 per minute':t;});}";
+    content += "function t436Off(){fetch('/editTwingoTime436?value=off').then(function(){";
+    content += "document.getElementById('t436State').textContent='off - default 14 00 xx';});}</script>";
+
     // Odometer (runtime only): 0x5D7 (row 0x5D7) and the Zoe frame 0x426.
     content += "<p><b>Odometer 0x5D7:</b> <input type='number' id='odo5d7' min='0' max='2684354' value='";
     content += String(RenaultTwingoGen1Battery::odo_5d7_km);

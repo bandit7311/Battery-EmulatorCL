@@ -870,6 +870,34 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
+  // Time in 0x436 bytes 1-3: value=<minutes, 0..16777215> or value=off (runtime only).
+  def_route_with_auth("/editTwingoTime436", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!request->hasParam("value")) {
+      request->send(200, "text/plain", "missing value");
+      return;
+    }
+    String v = request->getParam("value")->value();
+    v.trim();
+    RenaultTwingoGen1Battery* twingo = static_cast<RenaultTwingoGen1Battery*>(battery);
+    if (v.length() == 0 || v == "off") {
+      twingo->time_436_clear();
+      request->send(200, "text/plain", "OK off");
+      return;
+    }
+    for (unsigned int i = 0; i < v.length(); i++) {
+      if (v[i] < '0' || v[i] > '9') {
+        request->send(200, "text/plain", "digits only (minutes)");
+        return;
+      }
+    }
+    if (v.length() > 8 || (uint32_t)v.toInt() > RenaultTwingoGen1Battery::AGE_MANUAL_MAX) {
+      request->send(200, "text/plain", "too large (at most 16777215)");
+      return;
+    }
+    twingo->time_436_set((uint32_t)v.toInt());
+    request->send(200, "text/plain", "OK");
+  });
+
   // Odometer (runtime only): which=5d7 (kilometres up to 2684354) or which=426 (kilometres 0..65535, plus b7 = byte 7,
   // decimal 0..255).
   def_route_with_auth("/editTwingoOdo", server, HTTP_GET, [](AsyncWebServerRequest* request) {

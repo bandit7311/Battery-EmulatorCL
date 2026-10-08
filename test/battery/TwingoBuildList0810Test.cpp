@@ -670,3 +670,58 @@ TEST(TwingoBuild0810, ZoeExtraRowsAreOffAndSendTheDriverContents) {
   EXPECT_EQ(f6bf[0].DLC, 3);
   EXPECT_EQ(hex_of(f6bf[0].data.u8, 3), "00 00 00");
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// Time in 0x436 (bytes 1-3), input field like 0x426
+namespace {
+struct T436Guard {
+  ~T436Guard() {
+    RenaultTwingoGen1Battery::time_436_active = false;
+    datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;
+  }
+};
+}  // namespace
+
+TEST(TwingoBuild0810, Time436DefaultIs1400WithTheMinuteCounter) {
+  T436Guard guard;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL;  // 0x436 is row 5
+  TestTwingo b;
+  b.setup();
+  auto f = collect(b, 0x436, 1000, 1300);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(hex_of(f[0].data.u8, 6), "86 14 00 01 FF DC");
+  auto g = collect(b, 0x436, 62000, 62300);  // after the first 60 s step
+  ASSERT_FALSE(g.empty());
+  EXPECT_EQ(hex_of(g.back().data.u8, 6), "86 14 00 02 FF DC");
+}
+
+TEST(TwingoBuild0810, Time436CarriesTheEnteredValueAndCountsOnePerMinute) {
+  T436Guard guard;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL;
+  TestTwingo b;
+  b.setup();
+  collect(b, 0x436, 1000, 1100);
+  b.time_436_set(1315021);  // 0x1410CD
+  auto f = collect(b, 0x436, 1100, 1400);
+  ASSERT_FALSE(f.empty());
+  const uint32_t v = (f[0].data.u8[1] << 16) | (f[0].data.u8[2] << 8) | f[0].data.u8[3];
+  EXPECT_EQ(v, 1315021u);
+  EXPECT_EQ(f[0].data.u8[0], 0x86);
+  EXPECT_EQ(f[0].data.u8[4], 0xFF);
+  auto g = collect(b, 0x436, 62000, 62300);
+  ASSERT_FALSE(g.empty());
+  const uint32_t w = (g.back().data.u8[1] << 16) | (g.back().data.u8[2] << 8) | g.back().data.u8[3];
+  EXPECT_EQ(w, 1315022u);
+  b.time_436_clear();
+  auto i = collect(b, 0x436, 62600, 62900);
+  ASSERT_FALSE(i.empty());
+  EXPECT_EQ(i[0].data.u8[1], 0x14);  // back to 14 00 xx
+}
+
+TEST(TwingoBuild0810, Time436ValueIsLimitedTo24Bit) {
+  T436Guard guard;
+  TestTwingo b;
+  b.setup();
+  b.time_436_set(0xFFFFFFFFu);
+  EXPECT_EQ(RenaultTwingoGen1Battery::time_436_value, 0xFFFFFFu);
+}

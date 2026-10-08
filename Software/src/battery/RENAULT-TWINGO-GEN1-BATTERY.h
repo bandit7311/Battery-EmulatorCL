@@ -143,6 +143,14 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static uint32_t odo_5d7_km;
   static uint32_t odo_426_km;
   static uint8_t odo_426_b7;
+  // Time in the Zoe frame 0x436 (I row 5), bytes 1-3 (24 bit minutes, high byte first). Default: 14 00 xx with the
+  // minute counter of the emulator (xx counts +1 per minute since the start) - the bench SCPU seems to take its $9261
+  // from exactly these three bytes. With a value set here the three bytes carry that value and count +1 per minute from
+  // then on (runtime only). Off returns to the default.
+  static bool time_436_active;
+  static uint32_t time_436_value;
+  void time_436_set(uint32_t minutes);
+  void time_436_clear();
   static void age_load_from_nvm();  // no-op in the unit tests
   static void age_save_to_nvm();    // no-op in the unit tests
 
