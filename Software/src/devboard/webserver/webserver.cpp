@@ -869,6 +869,54 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
+  // Odometer (runtime only): which=5d7 (kilometres up to 2684354) or which=426 (kilometres 0..65535, plus b7 = byte 7,
+  // decimal 0..255).
+  def_route_with_auth("/editTwingoOdo", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!request->hasParam("which") || !request->hasParam("km")) {
+      request->send(200, "text/plain", "missing which/km");
+      return;
+    }
+    String which = request->getParam("which")->value();
+    String km = request->getParam("km")->value();
+    km.trim();
+    if (km.length() == 0 || km.length() > 7) {
+      request->send(200, "text/plain", "km: digits only");
+      return;
+    }
+    for (unsigned int i = 0; i < km.length(); i++) {
+      if (km[i] < '0' || km[i] > '9') {
+        request->send(200, "text/plain", "km: digits only");
+        return;
+      }
+    }
+    uint32_t v = (uint32_t)km.toInt();
+    if (which == "5d7") {
+      if (v > RenaultTwingoGen1Battery::ODO_5D7_MAX_KM) {
+        request->send(200, "text/plain", "too large (at most 2684354)");
+        return;
+      }
+      RenaultTwingoGen1Battery::odo_5d7_km = v;
+    } else if (which == "426") {
+      if (v > RenaultTwingoGen1Battery::ODO_426_MAX_KM) {
+        request->send(200, "text/plain", "too large (at most 65535)");
+        return;
+      }
+      RenaultTwingoGen1Battery::odo_426_km = v;
+      if (request->hasParam("b7")) {
+        long b7 = request->getParam("b7")->value().toInt();
+        if (b7 < 0 || b7 > 255) {
+          request->send(200, "text/plain", "b7: 0..255");
+          return;
+        }
+        RenaultTwingoGen1Battery::odo_426_b7 = (uint8_t)b7;
+      }
+    } else {
+      request->send(200, "text/plain", "which: 5d7 or 426");
+      return;
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
   // One checkbox toggles one bit of simulator_enabled_mask (64 bit since 04.10.), persisted to NVM as two uint32
   // (TWINGOSIMMASK = bits 0-31 as before, TWINGOSIMHI = bits 32 and up).
   def_route_with_auth("/editTwingoSimSignal", server, HTTP_GET, [](AsyncWebServerRequest* request) {

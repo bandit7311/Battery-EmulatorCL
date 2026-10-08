@@ -987,6 +987,9 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
 
 // Vehicle age (0x350 bytes 1-3, 0x523, 0x376), minutes - see the comment at the declaration and twingo::age_auto().
 bool RenaultTwingoGen1Battery::shutdown_like_car = false;
+uint32_t RenaultTwingoGen1Battery::odo_5d7_km = 19400;
+uint32_t RenaultTwingoGen1Battery::odo_426_km = 19400;
+uint8_t RenaultTwingoGen1Battery::odo_426_b7 = 0x40;
 bool RenaultTwingoGen1Battery::age_manual_active = false;
 uint32_t RenaultTwingoGen1Battery::age_manual_start_min = 0;
 unsigned long RenaultTwingoGen1Battery::age_manual_set_ms = 0;
@@ -2654,6 +2657,19 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      "AbsoluteTimeSince1rstIgnition in minutes (24 bit), the same vehicle age as 0x350 bytes 1-3. NOT in the Twingo "
      "vehicle log, only in the CAN list: a pure test.",
      SIM_END_BUS},
+    {0x5D7,
+     8,
+     {0x00, 0x00, 0x01, 0xD9, 0xA2, 0x00, 0xC0, 0x00},
+     100,
+     'A',
+     false,
+     "0x5D7",
+     false,
+     "EVC (CanZE)",
+     "Vehicle odometer: bytes 2-5 = (km * 100) << 4 (0.01 km, up to 2,684,354 km; value editable below, default "
+     "19,400), bytes 0-1 speed 0, byte 6 counter C0, C2 .. FE, first frame after the wake-up FF FF .. 08. Ends at the "
+     "C0 stage. Compare $925F with the 0x426 value.",
+     SIM_END_AT_C0},
 };
 
 // EXPERIMENTAL override for the 0x55D row above, content from an unsourced text (no log/code evidence,
@@ -2853,6 +2869,14 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
           }
         }
       }
+    } else if (sim_signals[i].id == 0x5D7) {
+      uint8_t& sent = hv_frames_sent[3];
+      const bool first = sent == 0;
+      if (sent < 255) {
+        sent++;
+      }
+      twingo::frame_5d7(odo_5d7_km > ODO_5D7_MAX_KM ? ODO_5D7_MAX_KM : odo_5d7_km, sim_5d7_counter, first, f.data.u8);
+      sim_5d7_counter = (uint8_t)((sim_5d7_counter + 1) & 0x1F);
     } else if (sim_signals[i].id == 0x523) {
       if (!fill_vehicle_age_350(f.data.u8, currentMillis)) {
         continue;  // no age known: no frame
@@ -2954,6 +2978,11 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
         transmit_can_frame(&ZOE_19F_INVERTER);
       }
       if (sim_enabled(4)) {
+        const uint32_t km256 = (odo_426_km > ODO_426_MAX_KM ? ODO_426_MAX_KM : odo_426_km) * 256UL;
+        ZOE_426_POWER_MUX.data.u8[4] = (uint8_t)(km256 >> 16);
+        ZOE_426_POWER_MUX.data.u8[5] = (uint8_t)(km256 >> 8);
+        ZOE_426_POWER_MUX.data.u8[6] = (uint8_t)km256;
+        ZOE_426_POWER_MUX.data.u8[7] = odo_426_b7;
         transmit_can_frame(&ZOE_426_POWER_MUX);
       }
       if (sim_enabled(5)) {

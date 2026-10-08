@@ -296,3 +296,84 @@ TEST(TwingoBuild0810, Frame523NeedsAnAge) {
   EXPECT_EQ(n, 0);
   datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// Points 13 and 14: 0x5D7 with kilometres, 0x426 editable
+namespace {
+struct OdoGuard {
+  ~OdoGuard() {
+    RenaultTwingoGen1Battery::odo_5d7_km = 19400;
+    RenaultTwingoGen1Battery::odo_426_km = 19400;
+    RenaultTwingoGen1Battery::odo_426_b7 = 0x40;
+    datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;
+  }
+};
+
+std::vector<CAN_frame> collect(RenaultTwingoGen1Battery& b, uint32_t id, uint64_t from, uint64_t to) {
+  std::vector<CAN_frame> out;
+  for (uint64_t t = from; t < to; t += 10) {
+    set_millis64(t);
+    clear_transmitted_frames();
+    b.transmit_can((unsigned long)t);
+    for (const CAN_frame& f : get_transmitted_frames()) {
+      if (f.ID == id && !f.ext_ID) {
+        out.push_back(f);
+      }
+    }
+  }
+  return out;
+}
+}  // namespace
+
+TEST(TwingoBuild0810, Row5D7SendsTheOdometerWithCounter) {
+  OdoGuard guard;
+  const int row = row_of(0x5D7);
+  ASSERT_GE(row, 0);
+  EXPECT_EQ(RenaultTwingoGen1Battery::sim_signals[row].interval_ms, 100);
+  EXPECT_EQ(RenaultTwingoGen1Battery::sim_signals[row].end_stage, RenaultTwingoGen1Battery::SIM_END_AT_C0);
+  EXPECT_FALSE(RenaultTwingoGen1Battery::sim_row_enabled(row));  // off by default
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL | (1ULL << row);
+  TestTwingo b;
+  b.setup();
+  auto f = collect(b, 0x5D7, 1000, 5000);
+  ASSERT_GE(f.size(), 35u);
+  EXPECT_EQ(hex_of(f[0].data.u8, 8), "FF FF 01 D9 A2 00 C0 08");  // first frame
+  EXPECT_EQ(hex_of(f[1].data.u8, 8), "00 00 01 D9 A2 00 C2 00");
+  EXPECT_EQ(f[32].data.u8[6], 0xC0);  // counter wraps after 32 values
+  EXPECT_EQ(f[0].DLC, 8);
+}
+
+TEST(TwingoBuild0810, Row5D7FollowsTheEnteredKilometres) {
+  OdoGuard guard;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL | (1ULL << row_of(0x5D7));
+  RenaultTwingoGen1Battery::odo_5d7_km = 92591;
+  TestTwingo b;
+  b.setup();
+  auto f = collect(b, 0x5D7, 1000, 1500);
+  ASSERT_GE(f.size(), 2u);
+  EXPECT_EQ(hex_of(f[1].data.u8, 8), "00 00 08 D4 85 C0 C2 00");
+  RenaultTwingoGen1Battery::odo_5d7_km = 5000000;  // above the 32 bit limit: clamped, no overflow
+  f = collect(b, 0x5D7, 1500, 1700);
+  ASSERT_FALSE(f.empty());
+  const uint32_t odo =
+      ((uint32_t)f[0].data.u8[2] << 24) | (f[0].data.u8[3] << 16) | (f[0].data.u8[4] << 8) | f[0].data.u8[5];
+  EXPECT_EQ(odo, (2684354u * 100u) << 4);
+}
+
+TEST(TwingoBuild0810, Frame426KilometresAndByte7AreEditable) {
+  OdoGuard guard;
+  TestTwingo b;
+  b.setup();
+  auto f = collect(b, 0x426, 1000, 1300);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(hex_of(f[0].data.u8, 8), "00 60 01 00 4B C8 00 40");  // unchanged default: 19,400 km
+  RenaultTwingoGen1Battery::odo_426_km = 65535;
+  RenaultTwingoGen1Battery::odo_426_b7 = 0x00;
+  f = collect(b, 0x426, 1300, 1600);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(hex_of(f[0].data.u8, 8), "00 60 01 00 FF FF 00 00");
+  RenaultTwingoGen1Battery::odo_426_km = 70000;  // above 65,535: clamped
+  f = collect(b, 0x426, 1600, 1900);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(hex_of(f[0].data.u8, 8), "00 60 01 00 FF FF 00 00");
+}

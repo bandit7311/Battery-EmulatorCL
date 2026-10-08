@@ -134,6 +134,24 @@ String simulator_processor(const String& var) {
     content += "document.getElementById('ageManualState').textContent='off - automatic mode';});}";
     content += "</script>";
 
+    // Odometer (runtime only): 0x5D7 (row 0x5D7) and the Zoe frame 0x426.
+    content += "<p><b>Odometer 0x5D7:</b> <input type='number' id='odo5d7' min='0' max='2684354' value='";
+    content += String(RenaultTwingoGen1Battery::odo_5d7_km);
+    content += "' style='width:8em'> km <button onclick=\"odoSet('5d7')\">Set</button> &nbsp; ";
+    content += "<b>0x426 (Zoe frame):</b> <input type='number' id='odo426' min='0' max='65535' value='";
+    content += String(RenaultTwingoGen1Battery::odo_426_km);
+    content += "' style='width:6em'> km, byte 7 <input type='number' id='odo426b7' min='0' max='255' value='";
+    content += String(RenaultTwingoGen1Battery::odo_426_b7);
+    content += "' style='width:4em'> <button onclick=\"odoSet('426')\">Set</button> <span id='odoState'></span> ";
+    content +=
+        "<span class='note'>- runtime only. 0x426 holds km * 256 in 24 bit, so at most 65,535 km, and it triggers "
+        "E14381; 0x5D7 reaches 2,684,354 km. Defaults 19,400 km, byte 7 = 64 (0x40).</span></p>";
+    content += "<script>function odoSet(w){var u='/editTwingoOdo?which='+w+'&km='+encodeURIComponent(";
+    content += "document.getElementById(w=='5d7'?'odo5d7':'odo426').value);";
+    content += "if(w=='426'){u+='&b7='+encodeURIComponent(document.getElementById('odo426b7').value);}";
+    content += "fetch(u).then(function(r){return r.text();}).then(function(t){";
+    content += "document.getElementById('odoState').textContent=t;});}</script>";
+
     content +=
         "<table><thead><tr><th>On</th><th>ID</th><th>Tag</th><th>Interval</th><th>In car log</th><th>Signal</th>"
         "<th>Sender</th><th>Meaning</th></tr></thead><tbody>";

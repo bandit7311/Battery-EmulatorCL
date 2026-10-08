@@ -96,8 +96,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
     SimEnd end_stage;         // see SimEnd
   };
   // 28 rows of 02.10./03.10. + 7 rows of 04.10. (0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657) + 4 rows of 08.10.
-  // (0x57F, 0x599, 0x62D, 0x523), all off by default
-  static const uint8_t SIM_SIGNAL_COUNT = 39;
+  // (0x57F, 0x599, 0x62D, 0x523) + 0x5D7 (09.10.), all off by default
+  static const uint8_t SIM_SIGNAL_COUNT = 40;
   static const SimSignal sim_signals[SIM_SIGNAL_COUNT];
 
   // Row switches (bit i = sim_signals[i]). 64 bit wide since 04.10.: rows 32-34 do not fit into 32 bits.
@@ -135,6 +135,14 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static int64_t age_manual_anchor_unix;  // Unix time at which age_manual_start_min was valid, 0 = not yet known
   static void age_manual_set(uint32_t minutes, int64_t unix_s = 0);  // unix_s 0 = unknown, millis() counts instead
   static void age_manual_clear();
+  // Odometer (runtime only): 0x5D7 (row 39, kilometres * 100 << 4 in bytes 2-5, up to 2,684,354 km) and the Zoe frame
+  // 0x426 (I row 4, bytes 4-6 = km * 256, so 0 .. 65,535 km; byte 7 free). Defaults: 19,400 km (the value the pack
+  // showed as $925F), byte 7 = 0x40.
+  static const uint32_t ODO_5D7_MAX_KM = 2684354UL;
+  static const uint32_t ODO_426_MAX_KM = 65535UL;
+  static uint32_t odo_5d7_km;
+  static uint32_t odo_426_km;
+  static uint8_t odo_426_b7;
   static void age_load_from_nvm();  // no-op in the unit tests
   static void age_save_to_nvm();    // no-op in the unit tests
 
@@ -310,6 +318,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // 0x29A / 0x0C6 (rows 28 and 30): rolling counter and checksum byte, see send_simulator_signals().
   uint8_t sim_0c6_counter = 0;  // index 0-15 into A0, A2 ... BE
   uint8_t sim_29a_counter = 0;  // 0-15
+  uint8_t sim_5d7_counter = 0;  // 0-31, byte 6 = C0 + 2 * counter
 
   // HV state model (point 15): times of the 0x350 stages, see twingo::hv_compute(). hv_observe_350() is called by
   // every 0x350 that is sent; the rows 0x57F / 0x599 / 0x62D and the HV bits of 0x1FD read hv_now().
