@@ -149,6 +149,16 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // then on (runtime only). Off returns to the default.
   static bool time_436_active;
   static uint32_t time_436_value;
+  // "Follow the vehicle age" (stored in the NVM): bytes 1-3 of 0x436 carry the same age as 0x350, so a restart does not
+  // send 14 00 01 any more. Without a valid age no 0x436 is sent in this mode. A value set by hand wins over it.
+  static bool time_436_follow_age;
+  void time_436_follow_set(bool on);
+  // All rows off at once / back (point 19, 09.10.), runtime only (not stored in the NVM): the sudden end of every frame,
+  // as it happened at the first non-zero 9261 of the bench pack on 06.10.
+  static uint64_t sim_mask_saved;
+  static bool sim_mask_saved_valid;
+  static void sim_all_off();
+  static void sim_restore();
   void time_436_set(uint32_t minutes);
   void time_436_clear();
   static void age_load_from_nvm();  // no-op in the unit tests

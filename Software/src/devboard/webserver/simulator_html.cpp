@@ -150,6 +150,18 @@ String simulator_processor(const String& var) {
     content +=
         "</span> <span class='note'>- runtime only. The row 0x436 must be on. Default: 14 00 xx (xx = minutes since "
         "the start of the emulator).</span></p>";
+    content += "<p><label><input type='checkbox' id='t436follow' ";
+    content += RenaultTwingoGen1Battery::time_436_follow_age ? "checked " : "";
+    content +=
+        "onclick=\"fetch('/editTwingoTime436Follow?value='+(this.checked?1:0))\"> 0x436 carries the vehicle age "
+        "(stored)</label> <span class='note'>- the same age as 0x350 (bytes 1-3), also after a restart. Without a "
+        "valid "
+        "age (no clock) no 0x436 is sent. A value set above by hand wins over it.</span></p>";
+    content += "<p><button onclick=\"fetch('/twingoSimAllOff')\">All rows off at once</button> ";
+    content += "<button onclick=\"fetch('/twingoSimRestore')\">Rows back as before</button> ";
+    content +=
+        "<span class='note'>- runtime only, not stored. Every frame (also 0x350) ends at once, without the shutdown "
+        "sequence. Reload the page to see the checkboxes.</span></p>";
     content += "<script>function t436Set(){var v=document.getElementById('t436').value;";
     content += "fetch('/editTwingoTime436?value='+encodeURIComponent(v)).then(function(r){return r.text();})";
     content += ".then(function(t){document.getElementById('t436State').textContent=(t==='OK')?";

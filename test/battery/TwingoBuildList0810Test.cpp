@@ -871,3 +871,135 @@ TEST(TwingoBuild0810, QueryPageHasTheButtonsForBothCpus) {
     EXPECT_NE(html.find(want), std::string::npos) << want;
   }
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// Point 19: state / relay / km buttons, decoding, 0x436 follows the vehicle age, all rows off at once
+TEST(TwingoBuild0810, QueryPageHasStateRelayAndKmButtonsForBothCpus) {
+  TestTwingo b;
+  b.setup();
+  const std::string html = b.get_uds_info_html().c_str();
+  for (const char* want : {"State 22 92 59 MCPU", "State 22 92 59 SCPU", "Relay 22 92 5C MCPU", "Relay 22 92 5C SCPU",
+                           "Km 22 92 5F MCPU", "Km 22 92 62 SCPU", "twingoQuick('22 92 62',1)"}) {
+    EXPECT_NE(html.find(want), std::string::npos) << want;
+  }
+}
+
+namespace {
+const char* query_and_answer(TestTwingo& b, uint64_t& t, const char* hex, int8_t target, uint32_t did,
+                             std::initializer_list<uint8_t> data) {
+  settle(b, t, 700);
+  EXPECT_STREQ(b.start_user_query(hex, target), "OK");
+  CAN_frame r = {};
+  r.ext_ID = true;
+  r.DLC = 8;
+  r.ID = target == 1 ? 0x18DAF1DC : 0x18DAF1DB;
+  r.data.u8[0] = (uint8_t)(3 + data.size());
+  r.data.u8[1] = 0x62;
+  r.data.u8[2] = (uint8_t)(did >> 8);
+  r.data.u8[3] = (uint8_t)did;
+  uint8_t i = 4;
+  for (uint8_t v : data) {
+    r.data.u8[i++] = v;
+  }
+  b.handle_incoming_can_frame(r);
+  return b.user_query_result();
+}
+}  // namespace
+
+TEST(TwingoBuild0810, TimeAnswersAreShownInDaysHoursMinutes) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  // 1,311,344 min = 910 d 15 h 44 min
+  EXPECT_STREQ(query_and_answer(b, t, "22 92 61", 0, 0x9261, {0x14, 0x02, 0x70}),
+               "22 92 61: OK 62 92 61 14 02 70 | 1311344 min = 910 d 15 h 44 min");
+}
+
+TEST(TwingoBuild0810, KilometreAnswersAreShownInKm) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  EXPECT_STREQ(query_and_answer(b, t, "22 92 5F", 0, 0x925F, {0x00, 0x1D, 0x9C, 0x14}),
+               "22 92 5F: OK 62 92 5F 00 1D 9C 14 | 19405.00 km");
+  EXPECT_STREQ(query_and_answer(b, t, "22 92 62", 1, 0x9262, {0x80, 0x1D, 0x9C, 0x14}),
+               "[DC] 22 92 62: OK 62 92 62 80 1D 9C 14 | 19405.00 km");
+  // 9262 on the MCPU is the balancing counter: no km shown
+  EXPECT_STREQ(query_and_answer(b, t, "22 92 62", 0, 0x9262, {0x80, 0x00, 0x00, 0x00}),
+               "22 92 62: OK 62 92 62 80 00 00 00");
+}
+
+namespace {
+struct FollowGuard {
+  ~FollowGuard() {
+    RenaultTwingoGen1Battery::time_436_follow_age = false;
+    RenaultTwingoGen1Battery::time_436_active = false;
+    datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;
+  }
+};
+}  // namespace
+
+TEST(TwingoBuild0810, Time436CanFollowTheVehicleAge) {
+  FollowGuard guard;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL;  // 0x436 is row 5
+  TestTwingo b;
+  b.setup();
+  b.time_436_follow_set(true);
+  auto f = collect(b, 0x436, 1000, 1300);
+  ASSERT_FALSE(f.empty());
+  const uint32_t v = (f.back().data.u8[1] << 16) | (f.back().data.u8[2] << 8) | f.back().data.u8[3];
+  EXPECT_EQ(v, 1312784u);  // the age of the seed at the frozen test clock, the same as 0x350
+  b.time_436_follow_set(false);
+  auto g = collect(b, 0x436, 1300, 1600);
+  ASSERT_FALSE(g.empty());
+  EXPECT_EQ(g.back().data.u8[1], 0x14);  // back to 14 00 xx
+  EXPECT_EQ(g.back().data.u8[2], 0x00);
+}
+
+TEST(TwingoBuild0810, Time436FollowingSendsNothingWithoutAnAge) {
+  struct NoClock : public TestTwingo {
+    bool get_unix_time(time_t&) override { return false; }
+  };
+  FollowGuard guard;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL;
+  NoClock b;
+  b.setup();
+  b.time_436_follow_set(true);
+  auto f = collect(b, 0x436, 1000, 2000);
+  EXPECT_TRUE(f.empty());
+}
+
+TEST(TwingoBuild0810, ManualValueBeatsFollowingTheAge) {
+  FollowGuard guard;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL;
+  TestTwingo b;
+  b.setup();
+  b.time_436_follow_set(true);
+  b.time_436_set(1311364);
+  auto f = collect(b, 0x436, 1000, 1300);
+  ASSERT_FALSE(f.empty());
+  const uint32_t v = (f.back().data.u8[1] << 16) | (f.back().data.u8[2] << 8) | f.back().data.u8[3];
+  EXPECT_EQ(v, 1311364u);
+}
+
+TEST(TwingoBuild0810, AllRowsOffAtOnceAndBack) {
+  struct Guard {
+    ~Guard() {
+      RenaultTwingoGen1Battery::sim_mask_saved_valid = false;
+      datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;
+    }
+  } guard;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FFULL | (1ULL << row_of(0x436)) | (1ULL << row_of(0x57F));
+  const uint64_t before = datalayer_extended.twingoGen1.simulator_enabled_mask;
+  TestTwingo b;
+  b.setup();
+  RenaultTwingoGen1Battery::sim_all_off();
+  EXPECT_EQ(datalayer_extended.twingoGen1.simulator_enabled_mask, 0ULL);
+  RenaultTwingoGen1Battery::sim_all_off();  // pressed twice: the first state stays saved
+  EXPECT_EQ(datalayer_extended.twingoGen1.simulator_enabled_mask, 0ULL);
+  auto f = collect(b, 0x350, 1000, 1500);
+  EXPECT_TRUE(f.empty());  // even 0x350 is gone
+  RenaultTwingoGen1Battery::sim_restore();
+  EXPECT_EQ(datalayer_extended.twingoGen1.simulator_enabled_mask, before);
+  RenaultTwingoGen1Battery::sim_restore();  // nothing saved: unchanged
+  EXPECT_EQ(datalayer_extended.twingoGen1.simulator_enabled_mask, before);
+}

@@ -996,6 +996,9 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
 
 // Vehicle age (0x350 bytes 1-3, 0x523, 0x376), minutes - see the comment at the declaration and twingo::age_auto().
 bool RenaultTwingoGen1Battery::shutdown_like_car = false;
+bool RenaultTwingoGen1Battery::time_436_follow_age = false;
+uint64_t RenaultTwingoGen1Battery::sim_mask_saved = 0;
+bool RenaultTwingoGen1Battery::sim_mask_saved_valid = false;
 bool RenaultTwingoGen1Battery::time_436_active = false;
 uint32_t RenaultTwingoGen1Battery::time_436_value = 0;
 uint32_t RenaultTwingoGen1Battery::odo_5d7_km = 19400;
@@ -1016,6 +1019,7 @@ void RenaultTwingoGen1Battery::age_load_from_nvm() {
   auto& t = datalayer_extended.twingoGen1;
   t.age_pack_value = prefs.getUInt("TWAGEPV", t.age_pack_value);
   t.age_pack_unix = prefs.getUInt("TWAGEPT", t.age_pack_unix);
+  time_436_follow_age = prefs.getBool("TW436A", false);
   if (prefs.getBool("TWAGEMA", false)) {
     age_manual_active = true;
     age_manual_start_min = prefs.getUInt("TWAGEMV", 0);
@@ -1035,6 +1039,7 @@ void RenaultTwingoGen1Battery::age_save_to_nvm() {
   auto& t = datalayer_extended.twingoGen1;
   prefs.putUInt("TWAGEPV", t.age_pack_value);
   prefs.putUInt("TWAGEPT", t.age_pack_unix);
+  prefs.putBool("TW436A", time_436_follow_age);
   prefs.putBool("TWAGEMA", age_manual_active);
   prefs.putUInt("TWAGEMV", age_manual_start_min);
   prefs.putUInt("TWAGEMT", (uint32_t)age_manual_anchor_unix);
@@ -1048,6 +1053,31 @@ void RenaultTwingoGen1Battery::age_manual_set(uint32_t minutes, int64_t unix_s) 
   age_manual_ms_valid = true;
   age_manual_anchor_unix = (unix_s >= twingo::UNIX_PLAUSIBLE_MIN) ? unix_s : 0;
   age_manual_active = true;
+  age_save_to_nvm();
+}
+
+void RenaultTwingoGen1Battery::sim_all_off() {
+  if (!sim_mask_saved_valid) {
+    sim_mask_saved = datalayer_extended.twingoGen1.simulator_enabled_mask;
+    sim_mask_saved_valid = true;
+  }
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 0;
+}
+
+void RenaultTwingoGen1Battery::sim_restore() {
+  if (sim_mask_saved_valid) {
+    datalayer_extended.twingoGen1.simulator_enabled_mask = sim_mask_saved;
+    sim_mask_saved_valid = false;
+  }
+}
+
+void RenaultTwingoGen1Battery::time_436_follow_set(bool on) {
+  time_436_follow_age = on;
+  if (!on && !time_436_active) {
+    ZOE_436_VEHICLE_STATUS.data.u8[1] = 0x14;  // back to 14 00 xx with the minute counter
+    ZOE_436_VEHICLE_STATUS.data.u8[2] = (zoe_436_counter >> 8) & 0xFF;
+    ZOE_436_VEHICLE_STATUS.data.u8[3] = zoe_436_counter & 0xFF;
+  }
   age_save_to_nvm();
 }
 
@@ -3127,7 +3157,20 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
         transmit_can_frame(&ZOE_426_POWER_MUX);
       }
       if (sim_enabled(5)) {
-        transmit_can_frame(&ZOE_436_VEHICLE_STATUS);
+        bool send_436 = true;
+        if (time_436_follow_age && !time_436_active) {
+          uint32_t age_min = 0;
+          if (vehicle_age_available(currentMillis, age_min)) {
+            ZOE_436_VEHICLE_STATUS.data.u8[1] = (uint8_t)(age_min >> 16);
+            ZOE_436_VEHICLE_STATUS.data.u8[2] = (uint8_t)(age_min >> 8);
+            ZOE_436_VEHICLE_STATUS.data.u8[3] = (uint8_t)age_min;
+          } else {
+            send_436 = false;  // no age known: no frame
+          }
+        }
+        if (send_436) {
+          transmit_can_frame(&ZOE_436_VEHICLE_STATUS);
+        }
       }
 
 #ifdef TWINGO_TIME_FRAMES
@@ -3392,11 +3435,17 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
         "<table style='border-collapse:collapse'><tr>"
         "<td><button onclick=\"twingoQuick('19 02 09',0)\">DTC 19 02 09 MCPU</button></td>"
         "<td><button onclick=\"twingoQuick('22 92 61',0)\">Time 22 92 61 MCPU</button></td>"
-        "<td><button onclick=\"twingoQuick('10 03',0)\">Session 10 03</button></td>"
-        "<td><button onclick='twingoTimeNow()'>Set time now</button></td></tr><tr>"
+        "<td><button onclick=\"twingoQuick('22 92 59',0)\">State 22 92 59 MCPU</button></td>"
+        "<td><button onclick=\"twingoQuick('22 92 5C',0)\">Relay 22 92 5C MCPU</button></td>"
+        "<td><button onclick=\"twingoQuick('22 92 5F',0)\">Km 22 92 5F MCPU</button></td></tr><tr>"
         "<td><button onclick=\"twingoQuick('19 02 09',1)\">DTC 19 02 09 SCPU</button></td>"
         "<td><button onclick=\"twingoQuick('22 92 61',1)\">Time 22 92 61 SCPU</button></td>"
-        "<td></td><td></td></tr></table>";
+        "<td><button onclick=\"twingoQuick('22 92 59',1)\">State 22 92 59 SCPU</button></td>"
+        "<td><button onclick=\"twingoQuick('22 92 5C',1)\">Relay 22 92 5C SCPU</button></td>"
+        "<td><button onclick=\"twingoQuick('22 92 62',1)\">Km 22 92 62 SCPU</button></td></tr><tr>"
+        "<td><button onclick=\"twingoQuick('10 03',0)\">Session 10 03</button></td>"
+        "<td><button onclick='twingoTimeNow()'>Set time now</button></td>"
+        "<td></td><td></td><td></td></tr></table>";
     content +=
         "<p style='margin:0 0 6px 0;font-size:0.85em;'>Write: <code>2E 92 61 00 00 03</code> = $9261 to 3. Allowed "
         "identifiers: 9261, 9264, 926B, 91C1, 91CF, 925F, 9281. The value is read first and shown as \"before\"; the "
@@ -3873,6 +3922,28 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
     uq_append_hex(out, outsz, pos, uq_buf, uq_buf_len);
     if (uq_expected_len > uq_buf_len) {
       uq_printf(out, outsz, pos, " (cut, %u bytes in total)", (unsigned)uq_expected_len);
+    }
+    if (uq_mode == UQ_FREE && uq_req[0] == 0x22 && uq_req_len == 3 && uq_buf_len >= 4 && uq_buf[0] == 0x62 &&
+        uq_buf_len == uq_expected_len) {
+      // Known identifiers shown in plain words (point 19): the times as days / hours / minutes, the mileages in km
+      const uint16_t did = (uint16_t)((uq_buf[1] << 8) | uq_buf[2]);
+      const uint8_t n = (uint8_t)(uq_buf_len - 3);
+      const uint8_t* d = &uq_buf[3];
+      if ((did == 0x9261 || did == 0x91C1) && n == 3) {
+        const uint32_t m = ((uint32_t)d[0] << 16) | ((uint32_t)d[1] << 8) | d[2];
+        uq_printf(out, outsz, pos, " | %lu min = %lu d %lu h %lu min", (unsigned long)m, (unsigned long)(m / 1440UL),
+                  (unsigned long)((m % 1440UL) / 60UL), (unsigned long)(m % 60UL));
+      } else if (did == 0x925F && n == 4) {
+        const uint32_t raw = ((uint32_t)d[0] << 24) | ((uint32_t)d[1] << 16) | ((uint32_t)d[2] << 8) | d[3];
+        uq_printf(out, outsz, pos, " | %lu.%02lu km", (unsigned long)(raw / 100UL), (unsigned long)(raw % 100UL));
+      } else if (did == 0x9262 && n == 4 && uq_active_dc) {
+        // SCPU vehicle distance totalizer: raw minus 0x80000000, 0.01 km
+        const uint32_t raw = ((uint32_t)d[0] << 24) | ((uint32_t)d[1] << 16) | ((uint32_t)d[2] << 8) | d[3];
+        const uint32_t v = raw - 0x80000000UL;
+        if (raw >= 0x80000000UL) {
+          uq_printf(out, outsz, pos, " | %lu.%02lu km", (unsigned long)(v / 100UL), (unsigned long)(v % 100UL));
+        }
+      }
     }
     if (uq_mode == UQ_FREE && uq_req[0] == 0x19 && uq_req[1] == 0x02 && uq_buf_len >= 3 && uq_buf[0] == 0x59 &&
         uq_buf[1] == 0x02 && uq_buf_len == uq_expected_len && ((uq_buf_len - 3) % 4) == 0) {

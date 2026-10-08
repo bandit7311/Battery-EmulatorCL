@@ -870,6 +870,25 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
+  // 0x436 follows the vehicle age (stored in the NVM).
+  def_route_with_auth("/editTwingoTime436Follow", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      static_cast<RenaultTwingoGen1Battery*>(battery)->time_436_follow_set(
+          request->getParam("value")->value().toInt() != 0);
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  // All rows off at once / back (runtime only).
+  def_route_with_auth("/twingoSimAllOff", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    RenaultTwingoGen1Battery::sim_all_off();
+    request->send(200, "text/plain", "OK");
+  });
+  def_route_with_auth("/twingoSimRestore", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    RenaultTwingoGen1Battery::sim_restore();
+    request->send(200, "text/plain", "OK");
+  });
+
   // Time in 0x436 bytes 1-3: value=<minutes, 0..16777215> or value=off (runtime only).
   def_route_with_auth("/editTwingoTime436", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (!request->hasParam("value")) {
