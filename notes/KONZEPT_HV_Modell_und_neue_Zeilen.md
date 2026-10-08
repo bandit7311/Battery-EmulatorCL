@@ -179,11 +179,14 @@ Ziel: Der Emulator sendet nie mehr den Uhrwert; das Alter läuft stetig (+1 pro 
 
 **REGEL (Nutzer, 08.10.): Der Uhrwert als Fahrzeugalter (am 08.10. 2.967.669 min) darf nie wieder gesendet werden.** Bis heute sendet der Emulator ihn aber im Standard: ohne "Manual vehicle age" nimmt `vehicle_age_minutes()` die Uhr (UTC ab 15.02.2021) oder den glatten Zähler, der ebenfalls beim Uhrwert startet. "Manual vehicle age" ist nur zur Laufzeit gültig und nach jedem Neustart weg; die Maske (mit `0x350` an) bleibt aber gespeichert. **Folge: Nach jedem Neustart sendet der Emulator mit `0x350` an wieder den Uhrwert**, bis man das manuelle Alter neu setzt. Das gilt auch für `0x523` (Punkt 15) und Aufwachen/Abschaltfolge.
 
+5. Punkt 17 = **Variante A** (manuelles Alter wird mit Setzzeitpunkt gespeichert und läuft nach dem Neustart stetig weiter). Der Faktor "Alterung nur 1/10" kommt später (Todo, Abschnitt 14).
+6. `0x376`-Zeit **aus unserem gesetzten Alter** (`vehicle_age_minutes()`), nicht fest April 2025.
+7. Zoe-Zusatzframes `0x5F8`, `0x6BF`, `0x0EE`: **nein**.
+8. `DF`/`DA` als Ziele: **nicht nötig**, kommen auf die Nice-to-have-Liste fürs Auto (Abschnitt 14).
+
 **Noch offen:**
-5. `0x376`-Zeit: fester Zeitpunkt wie im Zoe-Treiber (April 2025) oder aus `vehicle_age_minutes()`?
-6. Zoe-Zusatzframes `0x5F8`, `0x6BF`, `0x0EE` mit aufnehmen? (Voreinstellung nein)
-7. `DF`/`DA` als Ziele (nur im Auto sinnvoll)?
-8. Freigabe "bauen".
+9. Was sendet `0x350` mit Alter, solange nichts gesetzt ist? Empfehlung: Zeile `0x350` sendet erst, wenn ein Alter gesetzt ist; beim allerersten Start also einmal manuell setzen.
+10. Freigabe "bauen" und Reihenfolge.
 
 ## 13a. Ursprüngliche Fragen (zur Dokumentation)
 
@@ -193,3 +196,15 @@ Ziel: Der Emulator sendet nie mehr den Uhrwert; das Alter läuft stetig (+1 pro 
 4. `0x5D7`: Anfangs-Kilometer 19.400 oder 92.678?
 5. `0x376`-Zeit: wie der Zoe-Treiber (fester Zeitpunkt, hier April 2025) oder aus der Echtzeit/`vehicle_age_minutes()`?
 6. Zoe-Zusatzframes `0x5F8`, `0x6BF`, `0x0EE` mit aufnehmen? (Voreinstellung nein)
+
+
+## 14. Todo (später) und Nice-to-have am Auto
+
+**Todo (später, nicht jetzt):**
+- Faktor für das Fahrzeugalter: Das Alter wächst nur mit 1/10 der Echtzeit (Wunsch des Nutzers 08.10.). Vor dem Bau klären: Der Akku-Zähler läuft real +1 pro Minute. Mit 1/10 fällt unser Alter pro Minute um 0,9 min hinter die Packzeit zurück; ein Sicherheitsvorsprung von 1.440 min wäre nach etwa 1.600 min (27 h) aufgebraucht. Faktor deshalb einstellbar machen (Standard 1) oder den Vorsprung mitwachsen lassen.
+
+**Nice-to-have am Auto (nur dort sinnvoll):**
+- Zielauswahl `DF` (Inverter `0x18DADFF1`/`0x18DAF1DF`: `$2004`, `$70D7`, `$7083`) und `DA` (EVC `0x18DADAF1`/`0x18DAF1DA`) in der freien Anfrage.
+- Inverter-Dump bei Zündung aus (`9259` = 04) zum Beleg, dass der Wechsel 04 → 05 das Schließen der Schütze ist.
+- Messung mit Zeitauflösung: `22 92 59` und `22 90 0D` im Sekundentakt während der Zündung, dazu CAN-Mitschnitt.
+- Ungefilterter Mitschnitt (30 s Zündung an) auf der Frage, ob `0x437`/`0x676` existieren.
