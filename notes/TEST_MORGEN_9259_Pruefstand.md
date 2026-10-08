@@ -68,4 +68,12 @@ Vorhersage widerlegt: erwartet `91C1` ca. `21 47 5B`, tatsächlich `21 47 B1` (2
 
 ## ACHTUNG vor jedem Test (Regel vom 08.10.)
 
-Der Emulator sendet nach einem Neustart mit `0x350` an wieder den **Uhrwert** (ca. 2,97 Mio. min). Das soll nicht mehr passieren. Deshalb vor dem Einschalten von `0x350`: auf `/simulator` unter "Manual vehicle age" **1311345** eintragen und **Set** drücken (zählt dann +1 pro Minute), erst danach `0x350` und alle anderen Zeilen einschalten. Nach jedem Neustart wiederholen. Test dazu: Sleep-Lauf, danach `22 92 61` und `22 91 C1` lesen.
+Der Emulator sendet nach einem Neustart mit `0x350` an wieder den **Uhrwert** (ca. 2,97 Mio. min). Das soll nicht mehr passieren. Deshalb vor dem Einschalten von `0x350`: auf `/simulator` unter "Manual vehicle age" **1314935** eintragen und **Set** drücken (zählt dann +1 pro Minute), erst danach `0x350` und alle anderen Zeilen einschalten. Nach jedem Neustart wiederholen. Test dazu: Sleep-Lauf, danach `22 92 61` und `22 91 C1` lesen.
+
+### Herleitung des Alters (08.10., Entscheidung des Nutzers)
+
+- Im Akku gelesen: `9261` = `91C1` = 1.311.344 min (06.10., 22:40 MESZ, unverändert bis 23:17 MESZ).
+- Vom ersten Screenshot bis 08.10., 10:32 MESZ vergingen 2.151 min, das ergibt 1.313.495 min.
+- Dazu ein Tag Sicherheit (+1.440 min) = **1.314.935**, damit der Wert nicht unter der (vermuteten) internen Packzeit liegt. Gilt für ein Setzen am 08.10.; später am selben Tag ist die Sicherheit kleiner.
+- Nicht verwenden: 2.967.669 (Uhrwert, 3,15 Jahre Sprung) und 1.054.079 (alte feste Zeit, kleiner als der gespeicherte Wert).
+- Probe: Set 1314935, `0x350` an, Sleep-Lauf, danach `22 92 61` und `22 91 C1` lesen. Wächst `9261` gegenüber 1.311.344, hat der Akku den Wert übernommen.
