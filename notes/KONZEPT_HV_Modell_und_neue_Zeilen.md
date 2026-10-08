@@ -169,6 +169,22 @@ Ziel: Der Emulator sendet nie mehr den Uhrwert; das Alter läuft stetig (+1 pro 
 - **Solange nichts gesetzt ist:** `0x350` darf nicht mit dem Uhrwert laufen. Entweder gar kein Alter senden (offen: welche Bytes) oder die Zeile `0x350` bleibt aus, bis ein Alter gesetzt ist.
 - **Ausgelöst durch:** Beobachtung am Bench 06.10., der Akku hält `9261` = `91C1` = 1.311.344 min, der Uhrwert liegt 3,15 Jahre darüber.
 
+## 12b. Punkt 17, endgültige Regel für das Fahrzeugalter (Nutzer, 08.10.)
+
+Das Alter ist immer der **höhere** von zwei Werten. Beide zählen ab ihrem Referenzzeitpunkt mit +1 pro Minute weiter, dazu kommt **einmal** ein Sicherheitsvorsprung von 1.440 min (ein Tag).
+
+- **Referenz (persistiert im NVM):** Wert `V_ref` und Unix-Zeit `t_ref` (aus NTP).
+  - Quelle M (manuell): Nutzer setzt `V_ref` und `t_ref = jetzt`.
+  - Quelle P (Akku): erster gelesener Wert `9261` (ersatzweise `91C1`), der nicht 0 ist, mit `t_ref` = Zeitpunkt des Lesens. Wird später ein größerer Wert gelesen als unsere Hochrechnung, wird die Referenz auf ihn angehoben (der Akku hat dann etwas übernommen oder weitergezählt).
+- **Alter(t) = max( M(t), P(t) )** mit `X(t) = V_ref(X) + (t - t_ref(X)) / 60 + 1440`.
+- **Nie rückwärts:** Ist der berechnete Wert kleiner als der zuletzt gesendete, gilt der zuletzt gesendete plus die vergangenen Minuten.
+- **Senden:** `0x350` (und `0x523`, `0x376`) tragen das Alter erst, wenn mindestens eine Referenz vorliegt. Bei gelesener 0 ohne manuelle Referenz: nichts senden.
+- **Der Uhrwert (2.967.669) und 1.054.079 kommen nicht mehr vor.**
+- **Beispiel heute:** Referenz `V_ref` = 1.311.344, `t_ref` = 06.10. 20:40:21 UTC (erster Screenshot). Am 08.10. um 10:32 MESZ: 1.311.344 + 2.151 + 1.440 = **1.314.935**. Das entspricht dem Handwert.
+- **Vorbelegung (Vorschlag):** Die Referenz wird beim ersten Start mit diesem Beispiel vorbelegt, damit man nichts von Hand eintragen muss.
+- **Grenze:** Ohne NTP-Zeit nach einem Neustart fehlt die Ausfallzeit; dann gilt der gespeicherte Wert plus Laufzeit seit dem Start, und der Wert läge zu niedrig. Daher NTP voraussetzen oder die Zeile erst nach NTP senden.
+- **Tests:** reine Funktion `age(t, refs, last_sent)`: Maximum, Monotonie, 1.440-Vorsprung genau einmal, 0 gelesen, Anheben der Referenz, kein NTP.
+
 ## 13. Entscheidungen (Stand 08.10.2026)
 
 **Entschieden:**
