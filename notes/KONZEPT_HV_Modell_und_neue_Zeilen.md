@@ -74,7 +74,7 @@ Zeiten relativ zum Stufenwechsel; L1 = Fahrlog 02.10., L2a/L2b = Log 04.10. (ers
 | Aufwachen (`C0` gesendet) | alles aus, ungültige Erstframes |
 | Stufe `C4` zum ersten Mal | `T4`: Spannungsrampe 0 → Packspannung in 0,9 s; `T4+0,2 s` `0x62D` → `06`; `T4+0,4 s` `0x1FD` → HV zu; `T4+1,2 s` `0x62D` → `02` |
 | Stufe `C5` (oder `C7`, falls kein `C5`) | `b34_active` = wahr (`CF A8`) |
-| Stufe `C7` | Inverter On nach 2,0 s (wie L2; L1 hatte 14 s, vermutlich Fahrerhandlung) |
+| Stufe `C7` | Inverter On nach **2,0 s, fest** (entschieden 08.10.; wie L2; L1 hatte 14 s, vermutlich Fahrerhandlung) |
 | `C3` aus der Abschaltfolge (`powerdown_stage` 0) | `T3`: `0x1FD` Byte 1 → `FE` sofort; Inverter Off `T3+1,0 s`; `0x62D` → `06` `T3+1,5 s`; HV auf `T3+2,2 s` (Bits, Spannungsabfall); `b34` aus `T3+2,0 s` |
 | Dauerframe `C7` ohne Aufwachen (Start des Emulators) | wie "HV zu seit Beginn" (damit sich beim Start nichts Seltsames abspielt) |
 | Dauerframe `C3` (Testmodus "steady C3") | HV bleibt zu (kein Abschalten, nur die Abschaltfolge löst es aus) |
@@ -101,7 +101,7 @@ Neue Indizes ab 35 (die Maske ist 64 Bit, passt; insgesamt höchstens bis 45). A
 - **Byte 7** = `00`; nur der erste Frame nach dem Start hat `08` (mit Geschwindigkeit `FF FF`).
 - **Bytes 0-1** Geschwindigkeit (0,01 km/h), im Stand `00 00`.
 - **Zeile:** neue Zeile Index 39, `0x5D7`, 100 ms, Ende `SIM_END_AT_C0` (im Log letzter Frame bei `C0`), Standard aus.
-- **Kilometerwert:** frei eingebbar wie "Manual vehicle age" (nur zur Laufzeit), Voreinstellung 19.400 km (wie bisher bei `0x426`, damit der Vergleich sauber ist). **Offen:** Anfangswert.
+- **Kilometerwert:** frei eingebbar wie "Manual vehicle age" (nur zur Laufzeit), Voreinstellung **19.400 km** (entschieden 08.10.; wie bisher bei `0x426`, damit der Vergleich sauber ist).
 - **Warum nicht über `0x426`:** `0x426` hat nur 24 Bit mit 1/256 km, also höchstens **65.535,99 km**. Ein echter Twingo-Stand (92.678 km) passt dort nicht hinein. `0x5D7` schafft bis 2.684.354 km.
 
 ## 6. Punkt 14: `0x426` editierbar
@@ -114,8 +114,8 @@ Neue Indizes ab 35 (die Maske ist 64 Bit, passt; insgesamt höchstens bis 45). A
 ## 7. Punkt 12: Zielauswahl
 
 - **Heute:** Die freie Anfrage sendet immer auf `0x18DADBF1` (MCPU) und liest `0x18DAF1DB`. Die Anfrage-ID steht im Frame `ZOE_POLL_18DADBF1`, die Antwort-ID wird in `handle_incoming_can_frame()` fest als `0x18DAF1DB` behandelt.
-- **Vorschlag:** Auswahl `DB` (MCPU, Standard) und `DC` (Safety-CPU: Anfrage `0x18DADCF1`, Antwort `0x18DAF1DC`). Nur zur Laufzeit, nicht im NVM. Beim Wechsel wird der Antwortfilter mitgeschaltet; das Flow-Control-Frame bekommt dieselbe Ziel-ID.
-- **`79B` streichen (Empfehlung):** Der Code-Kommentar sagt, `0x79B/0x7BB` "hat auf diesem Akku nie eine Anfrage beantwortet (über viele Mitschnitte bestätigt)". Eine Auswahl `79B` brächte nichts.
+- **Entschieden (08.10.):** Auswahl `DB` (MCPU, Standard) und `DC` (Safety-CPU: Anfrage `0x18DADCF1`, Antwort `0x18DAF1DC`). Nur zur Laufzeit, nicht im NVM. Beim Wechsel wird der Antwortfilter mitgeschaltet; das Flow-Control-Frame bekommt dieselbe Ziel-ID.
+- **`79B` gestrichen (entschieden 08.10.):** Der Code-Kommentar sagt, `0x79B/0x7BB` "hat auf diesem Akku nie eine Anfrage beantwortet (über viele Mitschnitte bestätigt)". Eine Auswahl `79B` brächte nichts.
 - **Optional (nur im Auto sinnvoll, da am Bench nicht vorhanden):** `DF` (Inverter `0x18DADFF1` / `0x18DAF1DF`, für `$2004`, `$70D7`, `$7083`) und `DA` (EVC `0x18DADAF1` / `0x18DAF1DA`).
 - **Einschränkung:** Der Treiber hat eine einzige geteilte Anfrage in der Schwebe (`ext_isotp_in_progress`); die Auswahl gilt für die freie Anfrage, nicht für das zyklische Polling (das bleibt auf MCPU).
 
@@ -160,7 +160,21 @@ Erfolg wäre: `9259` springt auf `05`, `925C` auf `01`, `9279` zählt, oder `926
 - Möglich, dass **keiner** der neuen Frames `9259` beeinflusst. Dann ist das Ergebnis trotzdem verwertbar: Dieser Satz ist es nicht.
 - Mehr gesendete Frames erhöhen die Buslast auf dem Bench (1 + 0,33 + 2 + 1 Hz, vernachlässigbar) und das Risiko neuer DTCs (E14xxx); darum alle aus.
 
-## 13. Entscheidungen für den Nutzer
+## 13. Entscheidungen (Stand 08.10.2026)
+
+**Entschieden:**
+1. `79B` wird aus Punkt 12 gestrichen. Zielauswahl nur `DB` (MCPU, Standard) und `DC` (Safety-CPU). `DF`/`DA` sind noch nicht entschieden und bleiben draußen, bis der Nutzer sie nennt.
+2. Strom in `0x57F` = **gemessener Packstrom**. Umrechnung: `I_0x57F = -current_dA / 10` (Emulator: negativ = Entladen; `0x57F`: positiv = Entladen). Ist der Wert ungültig (Betrag über 400 A, solange der `0x155`-Filter fehlt) oder HV aus: 0 A. Rohwert = `(I + 400) * 2`, 11 Bit.
+3. Inverter On = **fest `C7` + 2,0 s** (keine Einstellung).
+4. `0x5D7` Anfangskilometer = **19.400**.
+
+**Noch offen:**
+5. `0x376`-Zeit: fester Zeitpunkt wie im Zoe-Treiber (April 2025) oder aus `vehicle_age_minutes()`?
+6. Zoe-Zusatzframes `0x5F8`, `0x6BF`, `0x0EE` mit aufnehmen? (Voreinstellung nein)
+7. `DF`/`DA` als Ziele (nur im Auto sinnvoll)?
+8. Freigabe "bauen".
+
+## 13a. Ursprüngliche Fragen (zur Dokumentation)
 
 1. `79B` aus Punkt 12 streichen? (Empfehlung ja.) `DF`/`DA` aufnehmen?
 2. Inverter-Strom in `0x57F`: gemessenen Packstrom verwenden oder immer 0 A?
