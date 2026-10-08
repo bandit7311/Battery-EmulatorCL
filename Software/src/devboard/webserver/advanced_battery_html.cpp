@@ -1,5 +1,6 @@
 #include "advanced_battery_html.h"
 #include <Arduino.h>
+#include <string.h>
 #include <vector>
 #include "../../battery/BATTERIES.h"
 #include "../../datalayer/datalayer.h"
@@ -39,6 +40,8 @@ std::vector<BatteryCommand> battery_commands = {
      [](Battery* b) { return b && b->supports_contactor_reset(); }, [](Battery* b) { b->reset_contactor(); }},
     {"resetDTC", "Erase DTC", "erase DTCs?", [](Battery* b) { return b && b->supports_reset_DTC(); },
      [](Battery* b) { b->reset_DTC(); }, true},
+    {"resetDTCscpu", "Erase DTC SCPU", "erase the DTCs of the safety CPU (SCPU)?",
+     [](Battery* b) { return b && b->supports_reset_DTC_scpu(); }, [](Battery* b) { b->reset_DTC_scpu(); }, false},
     {"startBalancing", "Balancing",
      "continue? Please charge battery fully for this to work. After a couple of minutes, battery will sleep and do "
      "balancing. It often takes many hours. There will be no progress indication.",
@@ -55,6 +58,8 @@ std::vector<BatteryCommand> battery_commands = {
      [](Battery* b) { return b && b->supports_isolation_test(); }, [](Battery* b) { b->request_isolation_test(); }},
     {"readDTC", "Read DTC", nullptr, [](Battery* b) { return b && b->supports_read_DTC(); },
      [](Battery* b) { b->read_DTC(); }, true},
+    {"readDTCscpu", "Read DTC SCPU", nullptr, [](Battery* b) { return b && b->supports_read_DTC_scpu(); },
+     [](Battery* b) { b->read_DTC_scpu(); }, false},
     {"resetBECM", "Restart BECM module", "restart BECM??", [](Battery* b) { return b && b->supports_reset_BECM(); },
      [](Battery* b) { b->reset_BECM(); }},
     {"contactorClose", "Close Contactors", "a contactor close request?",
@@ -95,8 +100,11 @@ String advanced_battery_processor(const String& var) {
       for (const auto& cmd : battery_commands) {
         if (cmd.condition(batt)) {
           // Button for user action
-          content += "<button onclick='ask" + String(cmd.identifier) + "(" + String(ix) + ")'>" + String(cmd.title) +
-                     "</button>";
+          String title = String(cmd.title);
+          if (strcmp(cmd.identifier, "readDTC") == 0 || strcmp(cmd.identifier, "resetDTC") == 0) {
+            title += batt->dtc_title_suffix();  // e.g. " MCPU" when the pack has a second control unit
+          }
+          content += "<button onclick='ask" + String(cmd.identifier) + "(" + String(ix) + ")'>" + title + "</button>";
 
           // Script that calls the backend to perform the command
           content += "<script>";

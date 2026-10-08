@@ -162,7 +162,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // length read, and only then writes. `hex` = request bytes as hex text (spaces allowed), e.g. "22925E" or
   // "2E 92 61 00 00 03". Returns "OK" when the request was started, otherwise a short reason. The answer is shown
   // by user_query_result().
-  const char* start_user_query(const char* hex);
+  // target: 0 = DB (MCPU), 1 = DC (SCPU), -1 = the selection of the page (uq_target). Besides 0x22 / 0x19 / 0x10 03 / 0x2E
+  // the request 14 FF FF FF (clear all DTCs, after the extended session) is accepted.
+  const char* start_user_query(const char* hex, int8_t target = -1);
   // Target of the free request (point 12, runtime only): 0 = DB, the MCPU (request 0x18DADBF1, reply 0x18DAF1DB, the
   // default), 1 = DC, the safety CPU (0x18DADCF1 / 0x18DAF1DC). Only the free request uses it; DTC reads and the cyclic
   // polling stay on the MCPU. The write service 0x2E is refused for DC.
@@ -214,6 +216,12 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   bool get_dtc_standard_code_string() override { return false; }
   void read_DTC() override;  // uses dtc_ext_read_mask below (default 0x09, Active/Confirmed)
   void reset_DTC() override;
+  // The same for the safety CPU (DC) through the free request; the answer is shown in the field "Answer" on this page.
+  bool supports_read_DTC_scpu() override { return true; }
+  bool supports_reset_DTC_scpu() override { return true; }
+  void read_DTC_scpu() override;
+  void reset_DTC_scpu() override;
+  const char* dtc_title_suffix() override { return " MCPU"; }
 #ifdef TWINGO_EXTENDED_CELL_POLLING
   bool supports_reset_NVROL() override { return true; }
   void reset_NVROL() override { start_nvrol_run(0); }
@@ -865,6 +873,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   void uq_reply_complete();
   void uq_restore_poll_template();
   bool uq_active_dc = false;  // the running free request goes to the safety CPU
+  uint8_t uq_req_target = 0;  // target chosen for the request that uq_begin() starts now
   void handle_dtc_ext(unsigned long currentMillis);
   void handle_dtc_ext_reply(CAN_frame rx_frame);
   void handle_dtc_read_response(const uint8_t* data, uint16_t len);

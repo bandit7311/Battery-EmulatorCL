@@ -725,3 +725,149 @@ TEST(TwingoBuild0810, Time436ValueIsLimitedTo24Bit) {
   b.time_436_set(0xFFFFFFFFu);
   EXPECT_EQ(RenaultTwingoGen1Battery::time_436_value, 0xFFFFFFu);
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// DTC buttons for MCPU and SCPU, 14 FF FF FF, decoding of 19 02
+namespace {
+CAN_frame reply_on(uint32_t id, std::initializer_list<uint8_t> bytes) {
+  CAN_frame f = {};
+  f.ext_ID = true;
+  f.DLC = 8;
+  f.ID = id;
+  uint8_t i = 0;
+  for (uint8_t b : bytes) {
+    f.data.u8[i++] = b;
+  }
+  return f;
+}
+
+std::vector<CAN_frame> ext_frames_since_clear() {
+  std::vector<CAN_frame> out;
+  for (const CAN_frame& f : get_transmitted_frames()) {
+    if (f.ext_ID) {
+      out.push_back(f);
+    }
+  }
+  return out;
+}
+
+void settle(TestTwingo& b, uint64_t& t, uint64_t ms) {
+  for (uint64_t e = t + ms; t < e; t += 10) {
+    set_millis64(t);
+    b.transmit_can((unsigned long)t);
+  }
+}
+}  // namespace
+
+TEST(TwingoBuild0810, ScpuButtonsExistAndTheMcpuButtonsAreLabelled) {
+  TestTwingo b;
+  b.setup();
+  EXPECT_TRUE(b.supports_read_DTC());
+  EXPECT_TRUE(b.supports_reset_DTC());
+  EXPECT_TRUE(b.supports_read_DTC_scpu());
+  EXPECT_TRUE(b.supports_reset_DTC_scpu());
+  EXPECT_STREQ(b.dtc_title_suffix(), " MCPU");
+}
+
+TEST(TwingoBuild0810, ReadDtcScpuGoesToTheSafetyCpuAndDecodesTwoEntries) {
+  struct Guard {
+    ~Guard() { RenaultTwingoGen1Battery::uq_target = 0; }
+  } guard;
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  settle(b, t, 700);
+  clear_transmitted_frames();
+  b.read_DTC_scpu();
+  auto tx = ext_frames_since_clear();
+  ASSERT_FALSE(tx.empty());
+  EXPECT_EQ(tx[0].ID, 0x18DADCF1u);  // the session goes to the SCPU as well
+  EXPECT_EQ(tx[0].data.u8[1], 0x10);
+  settle(b, t, 300);
+  clear_transmitted_frames();
+  settle(b, t, 100);
+  bool seen_request = false;
+  // the request 19 02 09 was sent by the state machine on the SCPU ID (the gap has passed after settle)
+  b.handle_incoming_can_frame(reply_on(0x18DAF1DC, {0x02, 0x50, 0x03, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}));
+  (void)seen_request;
+  // two entries: 59 02 FF E1 43 81 68 1B B1 08 28 (11 bytes, multi-frame)
+  clear_transmitted_frames();
+  b.handle_incoming_can_frame(reply_on(0x18DAF1DC, {0x10, 0x0B, 0x59, 0x02, 0xFF, 0xE1, 0x43, 0x81}));
+  auto fc = ext_frames_since_clear();
+  ASSERT_FALSE(fc.empty());
+  EXPECT_EQ(fc[0].ID, 0x18DADCF1u);  // the flow control also goes to the SCPU
+  EXPECT_EQ(fc[0].data.u8[0], 0x30);
+  b.handle_incoming_can_frame(reply_on(0x18DAF1DC, {0x21, 0x68, 0x1B, 0xB1, 0x08, 0x28, 0xAA, 0xAA}));
+  EXPECT_STREQ(b.user_query_result(), "[DC] 19 02 09: OK 59 02 FF E1 43 81 68 1B B1 08 28 | DTC: E14381=68 1BB108=28");
+}
+
+TEST(TwingoBuild0810, ClearAllDtcsOnTheScpu) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  settle(b, t, 700);
+  clear_transmitted_frames();
+  b.reset_DTC_scpu();
+  auto tx = ext_frames_since_clear();
+  ASSERT_FALSE(tx.empty());
+  EXPECT_EQ(tx[0].ID, 0x18DADCF1u);
+  EXPECT_EQ(tx[0].data.u8[1], 0x10);  // session first
+  clear_transmitted_frames();
+  settle(b, t, 300);
+  bool sent = false;
+  for (const CAN_frame& f : ext_frames_since_clear()) {
+    if (f.data.u8[1] == 0x14) {
+      EXPECT_EQ(f.ID, 0x18DADCF1u);
+      EXPECT_EQ(f.data.u8[0], 0x04);
+      EXPECT_EQ(f.data.u8[2], 0xFF);
+      EXPECT_EQ(f.data.u8[3], 0xFF);
+      EXPECT_EQ(f.data.u8[4], 0xFF);
+      sent = true;
+    }
+  }
+  EXPECT_TRUE(sent);
+  b.handle_incoming_can_frame(reply_on(0x18DAF1DC, {0x01, 0x54, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}));
+  EXPECT_STREQ(b.user_query_result(), "[DC] 14 FF FF FF: OK 54");
+  // back on the MCPU ID afterwards
+  clear_transmitted_frames();
+  settle(b, t, 700);
+  for (const CAN_frame& f : ext_frames_since_clear()) {
+    EXPECT_NE(f.ID, 0x18DADCF1u);
+  }
+}
+
+TEST(TwingoBuild0810, FreeRequestTargetCanBeGivenPerCall) {
+  struct Guard {
+    ~Guard() { RenaultTwingoGen1Battery::uq_target = 0; }
+  } guard;
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  settle(b, t, 700);
+  RenaultTwingoGen1Battery::uq_target = 1;  // the page select stands on DC
+  clear_transmitted_frames();
+  ASSERT_STREQ(b.start_user_query("22 92 61", 0), "OK");  // but this call asks the MCPU
+  for (const CAN_frame& f : ext_frames_since_clear()) {
+    EXPECT_EQ(f.ID, 0x18DADBF1u);
+  }
+}
+
+TEST(TwingoBuild0810, TimeoutOnTheScpuIsMarked) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  settle(b, t, 700);
+  ASSERT_STREQ(b.start_user_query("22 92 61", 1), "OK");
+  settle(b, t, 3000);
+  EXPECT_STREQ(b.user_query_result(), "[DC] no response");
+}
+
+TEST(TwingoBuild0810, QueryPageHasTheButtonsForBothCpus) {
+  TestTwingo b;
+  b.setup();
+  const std::string html = b.get_uds_info_html().c_str();
+  for (const char* want : {"DTC 19 02 09 MCPU", "DTC 19 02 09 SCPU", "Time 22 92 61 MCPU", "Time 22 92 61 SCPU",
+                           "twingoQuick('19 02 09',1)", "twingoQuick('22 92 61',0)"}) {
+    EXPECT_NE(html.find(want), std::string::npos) << want;
+  }
+}

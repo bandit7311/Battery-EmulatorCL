@@ -783,9 +783,11 @@ TEST(TwingoFreeQuery, RejectsInvalidInput) {
   EXPECT_STREQ(b.start_user_query("22925G"), "invalid character (hex digits only)");
   EXPECT_STREQ(b.start_user_query("22925"), "odd number of hex digits");
   const char* not_allowed =
-      "only 0x22 and 0x19 (read), 0x10 03 (session) and 0x2E (write, 9261/9264/926B/91C1/91CF/925F/9281 only) are "
-      "allowed";
-  EXPECT_STREQ(b.start_user_query("14FFFFFF"), not_allowed);
+      "only 0x22 and 0x19 (read), 0x10 03 (session), 14 FF FF FF (clear DTCs) and 0x2E (write, "
+      "9261/9264/926B/91C1/91CF/925F/9281 only) are allowed";
+  EXPECT_STREQ(b.start_user_query("11 01"), not_allowed);
+  EXPECT_STREQ(b.start_user_query("14 01 02 03"), "0x14 is only allowed as 14 FF FF FF (clear all DTCs)");
+  EXPECT_STREQ(b.start_user_query("14 FF FF"), "0x14 is only allowed as 14 FF FF FF (clear all DTCs)");
   EXPECT_STREQ(b.start_user_query("10 02"), "0x10 is only allowed as 10 03 (extended session)");
   EXPECT_STREQ(b.start_user_query("31 01 B0 09"), not_allowed);
   EXPECT_STREQ(b.start_user_query("27 01"), not_allowed);
@@ -798,7 +800,7 @@ TEST(TwingoFreeQuery, RejectsInvalidInput) {
   // None of the rejected inputs sent anything.
   clear_transmitted_frames();
   b.start_user_query("2E902100");  // a write to an identifier that is not on the list
-  b.start_user_query("14FFFFFF");
+  b.start_user_query("11 01");
   EXPECT_TRUE(get_transmitted_frames().empty());
 }
 
@@ -970,7 +972,7 @@ TEST(TwingoFreeQuery, ServiceNineteenOpensTheSessionFirstAndThenSendsTheRequest)
   }
   EXPECT_TRUE(found);
   b.handle_incoming_can_frame(reply_frame({0x03, 0x59, 0x02, 0xFF, 0, 0, 0, 0}));
-  EXPECT_STREQ(b.user_query_result(), "19 02 FF: OK 59 02 FF");
+  EXPECT_STREQ(b.user_query_result(), "19 02 FF: OK 59 02 FF | no DTC");
 }
 
 TEST(TwingoFreeQuery, ReadServiceTwentyTwoNeedsNoSession) {
@@ -1496,7 +1498,7 @@ TEST(TwingoPage, ShowsInputButtonAndAnswerFieldForTheFreeRequest) {
   b.setup();
   String html = b.get_uds_info_html();
   EXPECT_TRUE(contains(html, "id='twingoQueryHex'"));
-  EXPECT_TRUE(contains(html, "onclick='twingoQuery()'"));
+  EXPECT_TRUE(contains(html, "onclick='twingoQuery(-1)'"));
   EXPECT_TRUE(contains(html, "id='twingoQueryResult'"));
   EXPECT_TRUE(contains(html, "twingoFdc()"));
   EXPECT_TRUE(contains(html, "/twingoQuery?hex="));
@@ -1631,7 +1633,7 @@ TEST(TwingoReplyMatching, ReadServiceNineteenSubFunctionMustBeEchoed) {
   EXPECT_STREQ(b.user_query_result(), "requested");
   b.handle_incoming_can_frame(reply_frame({0x10, 0x0B, 0x59, 0x02, 0xFF, 0xE1, 0x43, 0x81}));
   b.handle_incoming_can_frame(reply_frame({0x21, 0x2F, 0x1B, 0x07, 0x15, 0x2F, 0xAA, 0xAA}));
-  EXPECT_STREQ(b.user_query_result(), "19 02 09: OK 59 02 FF E1 43 81 2F 1B 07 15 2F");
+  EXPECT_STREQ(b.user_query_result(), "19 02 09: OK 59 02 FF E1 43 81 2F 1B 07 15 2F | DTC: E14381=2F 1B0715=2F");
 }
 
 // ---------------------------------------------------------------------------

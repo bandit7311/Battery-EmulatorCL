@@ -101,6 +101,10 @@ class Battery {
   virtual bool supports_sleep_control() { return false; }
   virtual bool supports_reset_DTC() { return false; }
   virtual bool supports_read_DTC() { return false; }
+  // Second control unit of a pack (Twingo: the safety CPU, SCPU); the buttons are added after Read DTC / Erase DTC.
+  virtual bool supports_read_DTC_scpu() { return false; }
+  virtual bool supports_reset_DTC_scpu() { return false; }
+  virtual const char* dtc_title_suffix() { return ""; }  // appended to the titles of Read DTC / Erase DTC
   virtual bool supports_reset_SOH() { return false; }
   virtual bool supports_reset_BECM() { return false; }
   virtual bool supports_calibrate_SOC() { return false; }
@@ -135,6 +139,8 @@ class Battery {
   virtual void request_wake_up() {}
   virtual void reset_DTC() {}
   virtual void read_DTC() {}
+  virtual void read_DTC_scpu() {}
+  virtual void reset_DTC_scpu() {}
   virtual void reset_SOH() {}
   virtual void reset_BECM() {}
   virtual void request_open_contactors() {}

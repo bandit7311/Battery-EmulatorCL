@@ -989,8 +989,12 @@ void init_webserver() {
   def_route_with_auth("/twingoQuery", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     const char* msg = "missing request";
     if (request->hasParam("hex")) {
-      msg =
-          static_cast<RenaultTwingoGen1Battery*>(battery)->start_user_query(request->getParam("hex")->value().c_str());
+      int8_t target = -1;  // -1 = the selection of the page, 0 = DB (MCPU), 1 = DC (SCPU)
+      if (request->hasParam("target")) {
+        target = request->getParam("target")->value().toInt() == 1 ? 1 : 0;
+      }
+      msg = static_cast<RenaultTwingoGen1Battery*>(battery)->start_user_query(request->getParam("hex")->value().c_str(),
+                                                                              target);
     }
     request->send(200, "text/plain", msg);
   });

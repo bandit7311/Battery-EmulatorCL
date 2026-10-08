@@ -3388,11 +3388,15 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += uq_target == 1 ? " selected" : "";
     content +=
         ">DC (safety CPU)</option></select> <input type='text' id='twingoQueryHex' size='20' "
-        "maxlength='24' placeholder='22925E'> <button onclick='twingoQuery()'>Query</button> "
-        "<button onclick=\"twingoQuick('19 02 09')\">DTC 19 02 09</button> "
-        "<button onclick=\"twingoQuick('22 92 61')\">Time 22 92 61</button> "
-        "<button onclick=\"twingoQuick('10 03')\">Session 10 03</button> "
-        "<button onclick='twingoTimeNow()'>Set time now</button></h4>";
+        "maxlength='24' placeholder='22925E'> <button onclick='twingoQuery(-1)'>Query</button></h4>"
+        "<table style='border-collapse:collapse'><tr>"
+        "<td><button onclick=\"twingoQuick('19 02 09',0)\">DTC 19 02 09 MCPU</button></td>"
+        "<td><button onclick=\"twingoQuick('22 92 61',0)\">Time 22 92 61 MCPU</button></td>"
+        "<td><button onclick=\"twingoQuick('10 03',0)\">Session 10 03</button></td>"
+        "<td><button onclick='twingoTimeNow()'>Set time now</button></td></tr><tr>"
+        "<td><button onclick=\"twingoQuick('19 02 09',1)\">DTC 19 02 09 SCPU</button></td>"
+        "<td><button onclick=\"twingoQuick('22 92 61',1)\">Time 22 92 61 SCPU</button></td>"
+        "<td></td><td></td></tr></table>";
     content +=
         "<p style='margin:0 0 6px 0;font-size:0.85em;'>Write: <code>2E 92 61 00 00 03</code> = $9261 to 3. Allowed "
         "identifiers: 9261, 9264, 926B, 91C1, 91CF, 925F, 9281. The value is read first and shown as \"before\"; the "
@@ -3426,13 +3430,14 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "function twingoPoll(which,span){var n=0;var h=setInterval(function(){";
     content += "fetch('/twingoQueryResult?which='+which).then(function(a){return a.text();}).then(function(x){";
     content += "span.textContent=x;if((x!=='requested'&&x!=='')||++n>40){clearInterval(h);}});},250);}";
-    content += "function twingoQuery(){var v=document.getElementById('twingoQueryHex').value;";
+    content += "function twingoQuery(t){var v=document.getElementById('twingoQueryHex').value;";
     content += "try{localStorage.setItem('twingoQueryHex',v);}catch(e){}";
     content += "var r=document.getElementById('twingoQueryResult');";
     content += "if(/^\\s*2E/i.test(v)&&!confirm('Write '+v+' to the pack?')){return;}";
-    content += "fetch('/twingoQuery?hex='+encodeURIComponent(v)).then(function(a){return a.text();}).then(function(t){";
-    content += "if(t!=='OK'){r.textContent=t;return;}r.textContent='requested';twingoPoll('free',r);});}";
-    content += "function twingoQuick(h){document.getElementById('twingoQueryHex').value=h;twingoQuery();}";
+    content += "var q='/twingoQuery?hex='+encodeURIComponent(v);if(t===0||t===1){q+='&target='+t;}";
+    content += "fetch(q).then(function(a){return a.text();}).then(function(m){";
+    content += "if(m!=='OK'){r.textContent=m;return;}r.textContent='requested';twingoPoll('free',r);});}";
+    content += "function twingoQuick(h,t){document.getElementById('twingoQueryHex').value=h;twingoQuery(t);}";
     content += "function twingoTimeNow(){var r=document.getElementById('twingoQueryResult');";
     content += "if(!confirm('Write $9261 with the vehicle age that is being sent?')){return;}";
     content += "fetch('/twingoSetTimeNow').then(function(a){return a.text();}).then(function(t){";
@@ -3536,6 +3541,16 @@ void RenaultTwingoGen1Battery::read_DTC() {
 }
 
 const uint32_t RenaultTwingoGen1Battery::DTC_DETAILS_CODES[DTC_DETAILS_COUNT] = {0xE14381, 0x1B0715};
+
+void RenaultTwingoGen1Battery::read_DTC_scpu() {
+  char hex[16];
+  snprintf(hex, sizeof(hex), "19 02 %02X", (unsigned)datalayer_extended.twingoGen1.dtc_ext_read_mask);
+  start_user_query(hex, 1);  // the answer is the field "Answer" of this page
+}
+
+void RenaultTwingoGen1Battery::reset_DTC_scpu() {
+  start_user_query("14 FF FF FF", 1);
+}
 
 void RenaultTwingoGen1Battery::read_DTC_details() {
   if (dtc_ext_state != DTC_EXT_IDLE || UserRequestNVROLReset) {
@@ -3657,7 +3672,7 @@ bool RenaultTwingoGen1Battery::uq_begin(uint8_t mode, const uint8_t* req, uint8_
   }
   uq_needs_session = needs_session;
   uq_post_read = false;
-  uq_active_dc = (mode == UQ_FREE && uq_target == 1);
+  uq_active_dc = (mode == UQ_FREE && uq_req_target == 1);
   ZOE_POLL_18DADBF1.ID = uq_active_dc ? UQ_ID_REQ_DC : UQ_ID_REQ_DB;
   ZOE_POLL_FLOW_CONTROL.ID = ZOE_POLL_18DADBF1.ID;
   uq_pre_read = false;
@@ -3675,7 +3690,8 @@ bool RenaultTwingoGen1Battery::uq_begin(uint8_t mode, const uint8_t* req, uint8_
   return true;
 }
 
-const char* RenaultTwingoGen1Battery::start_user_query(const char* hex) {
+const char* RenaultTwingoGen1Battery::start_user_query(const char* hex, int8_t target) {
+  const uint8_t tgt = target < 0 ? uq_target : (target == 1 ? 1 : 0);
   uint8_t req[8];
   uint8_t n = 0;
   int hi = -1;
@@ -3717,13 +3733,18 @@ const char* RenaultTwingoGen1Battery::start_user_query(const char* hex) {
     if (n < 2) {
       return "0x19 needs a sub-function";
     }
+  } else if (req[0] == 0x14) {
+    // ClearDiagnosticInformation, only "all DTCs" (14 FF FF FF), point 18 (09.10.)
+    if (n != 4 || req[1] != 0xFF || req[2] != 0xFF || req[3] != 0xFF) {
+      return "0x14 is only allowed as 14 FF FF FF (clear all DTCs)";
+    }
   } else if (req[0] == 0x10) {
     // DiagnosticSessionControl, only the extended session (10 03) that the writes and 0x19 use anyway (point 10)
     if (n != 2 || req[1] != 0x03) {
       return "0x10 is only allowed as 10 03 (extended session)";
     }
   } else if (req[0] == 0x2E) {
-    if (uq_target == 1) {
+    if (tgt == 1) {
       return "0x2E is not allowed for DC (safety CPU)";
     }
     // WriteDataByIdentifier: 2E <DID hi> <DID lo> <1..4 data bytes> (a single frame carries 7 bytes at most),
@@ -3742,10 +3763,11 @@ const char* RenaultTwingoGen1Battery::start_user_query(const char* hex) {
       return "0x2E is only allowed for 9261, 9264, 926B, 91C1, 91CF, 925F and 9281";
     }
   } else {
-    return "only 0x22 and 0x19 (read), 0x10 03 (session) and 0x2E (write, 9261/9264/926B/91C1/91CF/925F/9281 only) are "
-           "allowed";
+    return "only 0x22 and 0x19 (read), 0x10 03 (session), 14 FF FF FF (clear DTCs) and 0x2E (write, "
+           "9261/9264/926B/91C1/91CF/925F/9281 only) are allowed";
   }
-  if (!uq_begin(UQ_FREE, req, n, req[0] == 0x19 || req[0] == 0x2E)) {
+  uq_req_target = tgt;
+  if (!uq_begin(UQ_FREE, req, n, req[0] == 0x19 || req[0] == 0x2E || req[0] == 0x14)) {
     return "busy (another diagnostic exchange or a Sleep/NVROL run is active)";
   }
   return "OK";
@@ -3811,7 +3833,10 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
   out[0] = '\0';
   size_t pos = 0;
   if (uq_mode == UQ_FREE) {
-    // The request first, then the answer: "22 92 5E: OK 62 92 5E 13 88 6F"
+    // The request first, then the answer: "22 92 5E: OK 62 92 5E 13 88 6F" ("[DC] " in front for the safety CPU)
+    if (uq_active_dc) {
+      uq_printf(out, outsz, pos, "[DC] ");
+    }
     uq_append_hex(out, outsz, pos, uq_req, uq_req_len);
     uq_printf(out, outsz, pos, ": ");
     if (uq_req[0] == 0x2E && uq_before_len > 0) {
@@ -3849,6 +3874,24 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
     if (uq_expected_len > uq_buf_len) {
       uq_printf(out, outsz, pos, " (cut, %u bytes in total)", (unsigned)uq_expected_len);
     }
+    if (uq_mode == UQ_FREE && uq_req[0] == 0x19 && uq_req[1] == 0x02 && uq_buf_len >= 3 && uq_buf[0] == 0x59 &&
+        uq_buf[1] == 0x02 && uq_buf_len == uq_expected_len && ((uq_buf_len - 3) % 4) == 0) {
+      // ReadDTCInformation 02: 59 02 <availability mask>, then per DTC 3 bytes code + 1 byte status
+      const uint16_t entries = (uint16_t)((uq_buf_len - 3) / 4);
+      if (entries == 0) {
+        uq_printf(out, outsz, pos, " | no DTC");
+      } else {
+        uq_printf(out, outsz, pos, " | DTC:");
+        for (uint16_t e = 0; e < entries; e++) {
+          const uint8_t* d = &uq_buf[3 + e * 4];
+          if (pos + 14 >= outsz) {
+            uq_printf(out, outsz, pos, " ...");
+            break;
+          }
+          uq_printf(out, outsz, pos, " %02X%02X%02X=%02X", d[0], d[1], d[2], d[3]);
+        }
+      }
+    }
   }
   uq_in_progress = false;
   if (uq_mode == UQ_FREE && uq_req[0] == 0x2E && uq_buf_len >= 1 && uq_buf[0] == 0x6E && !uq_post_read) {
@@ -3879,6 +3922,9 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
 // Everything else - the "50 03 ..." confirmation of the session we opened, a late reply of the cell polling
 // ("62 90 72 ...") - does not belong to the request (03.10.: both were shown as the answer before).
 bool RenaultTwingoGen1Battery::uq_reply_matches(const uint8_t* p, uint8_t n) const {
+  if (uq_req_len >= 1 && uq_req[0] == 0x14 && n >= 1 && p[0] == 0x54) {
+    return true;  // positive answer to ClearDiagnosticInformation is the single byte 54
+  }
   if (n < 2 || uq_req_len < 1) {
     return false;
   }
@@ -4144,7 +4190,8 @@ void RenaultTwingoGen1Battery::handle_dtc_ext(unsigned long currentMillis) {
                    uq_pre_read ? "no response to the read before the write - nothing was written"
                                : "no response to the write - not known whether it was written, read the value again");
         } else {
-          snprintf(uq_mode == UQ_FDC ? fdc_result : uq_result, sizeof(uq_result), "no response");
+          snprintf(uq_mode == UQ_FDC ? fdc_result : uq_result, sizeof(uq_result), "%sno response",
+                   (uq_mode == UQ_FREE && uq_active_dc) ? "[DC] " : "");
         }
         uq_pre_read = false;
         uq_in_progress = false;
