@@ -179,7 +179,7 @@ uint8_t sum_complement(const std::vector<uint8_t>& d) {
 // ---------------------------------------------------------------------------
 
 TEST(TwingoCarMode, TableHas35RowsAndTheSevenNewOnesAreAtTheEnd) {
-  ASSERT_EQ((int)RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT, 40);
+  ASSERT_EQ((int)RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT, 43);
   const uint32_t expected[7] = {0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657};
   for (int i = 0; i < 7; i++) {
     const auto& s = RenaultTwingoGen1Battery::sim_signals[28 + i];

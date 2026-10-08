@@ -2027,6 +2027,11 @@ void RenaultTwingoGen1Battery::handle_incoming_can_frame(CAN_frame rx_frame) {
         handle_extended_reply(rx_frame);
       }
       break;
+    case 0x18DAF1DC:  // reply of the safety CPU, only while a free request to DC is running
+      if (uq_active_dc && (dtc_ext_state == DTC_EXT_USER_CMD_SENT || dtc_ext_state == DTC_EXT_USER_SESSION_SENT)) {
+        handle_extended_reply(rx_frame);
+      }
+      break;
 #endif
     default:
       break;
@@ -2670,6 +2675,43 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      "19,400), bytes 0-1 speed 0, byte 6 counter C0, C2 .. FE, first frame after the wake-up FF FF .. 08. Ends at the "
      "C0 stage. Compare $925F with the 0x426 value.",
      SIM_END_AT_C0},
+    // 09.10. (point 16): Zoe Gen2 frames (ljames28 driver), neither in the Twingo vehicle log nor in the CAN list. Test
+    // material: in the Zoe the LBC seems to take its time from these HEVC frames.
+    {0x373,
+     8,
+     {0xC1, 0x40, 0x5D, 0xB2, 0x00, 0x01, 0xFF, 0xE3},
+     100,
+     'A',
+     false,
+     "0x373",
+     true,
+     "HEVC (Zoe Gen2 driver)",
+     "HEVC wake-up/sleep frame of the Zoe Gen2 driver: bytes 2-3 swap between 5D B2 and B2 5D every 5 frames. Not in "
+     "the Twingo vehicle log; test whether the pack reacts.",
+     SIM_END_BUS},
+    {0x375,
+     8,
+     {0x02, 0x29, 0x00, 0xBF, 0xFE, 0x64, 0x00, 0xFF},
+     100,
+     'A',
+     false,
+     "0x375",
+     true,
+     "HEVC (Zoe Gen2 driver)",
+     "HEVC status frame of the Zoe Gen2 driver, constant. Not in the Twingo vehicle log.",
+     SIM_END_BUS},
+    {0x376,
+     8,
+     {0, 0, 0, 0, 0, 0, 0x0A, 0x00},
+     100,
+     'A',
+     false,
+     "0x376",
+     true,
+     "HEVC (Zoe Gen2 driver)",
+     "Time frame of the Zoe Gen2 driver: the minutes (here our vehicle age, as in 0x350) as three base-255 digits "
+     "(year, hour, minute), sent twice. Not sent without an age. Not in the Twingo vehicle log.",
+     SIM_END_BUS},
 };
 
 // EXPERIMENTAL override for the 0x55D row above, content from an unsourced text (no log/code evidence,
@@ -2869,6 +2911,18 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
           }
         }
       }
+    } else if (sim_signals[i].id == 0x373) {
+      if ((sim_373_counter / 5) % 2 == 1) {
+        f.data.u8[2] = 0xB2;
+        f.data.u8[3] = 0x5D;
+      }
+      sim_373_counter = (uint8_t)((sim_373_counter + 1) % 10);
+    } else if (sim_signals[i].id == 0x376) {
+      uint32_t age_min = 0;
+      if (!vehicle_age_available(currentMillis, age_min)) {
+        continue;  // no age known: no frame
+      }
+      twingo::frame_376(age_min, f.data.u8);
     } else if (sim_signals[i].id == 0x5D7) {
       uint8_t& sent = hv_frames_sent[3];
       const bool first = sent == 0;
@@ -3215,13 +3269,19 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
 
     content +=
         "<h4><button onclick=\"window.open('/simulator','_blank')\">Open CAN Signal Simulator page</button>"
-        " - 35 individually toggleable cyclic signals</h4>";
+        " - 43 individually toggleable cyclic signals</h4>";
 
     // Free request (03.10., write added 05.10.): input field, Query button and answer field. The read services
     // 0x22 and 0x19 and the write service 0x2E for a fixed list of identifiers are accepted (see
     // start_user_query()). The answer is polled from /twingoQueryResult.
     content +=
-        "<h4>Free request (0x22 / 0x19 read, 0x2E write): <input type='text' id='twingoQueryHex' size='20' "
+        "<h4>Free request (0x22 / 0x19 read, 0x2E write): <select id='twingoQueryTarget' "
+        "onchange=\"fetch('/twingoQueryTarget?value='+this.value)\"><option value='0'";
+    content += uq_target == 0 ? " selected" : "";
+    content += ">DB (MCPU)</option><option value='1'";
+    content += uq_target == 1 ? " selected" : "";
+    content +=
+        ">DC (safety CPU)</option></select> <input type='text' id='twingoQueryHex' size='20' "
         "maxlength='24' placeholder='22925E'> <button onclick='twingoQuery()'>Query</button></h4>";
     content +=
         "<p style='margin:0 0 6px 0;font-size:0.85em;'>Write: <code>2E 92 61 00 00 03</code> = $9261 to 3. Allowed "
@@ -3387,7 +3447,12 @@ void RenaultTwingoGen1Battery::reset_DTC() {
 // Free read request, fault counters (19 14) and DTC details (19 06): one request on the extended 29-bit
 // protocol, one reply collector (03.10.). Only read services are accepted for the free request.
 // ---------------------------------------------------------------------------
+uint8_t RenaultTwingoGen1Battery::uq_target = 0;
+
 void RenaultTwingoGen1Battery::uq_restore_poll_template() {
+  ZOE_POLL_18DADBF1.ID = UQ_ID_REQ_DB;
+  ZOE_POLL_FLOW_CONTROL.ID = UQ_ID_REQ_DB;
+  uq_active_dc = false;
   ZOE_POLL_18DADBF1.data = {0x03, 0x22, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 }
 
@@ -3465,6 +3530,9 @@ bool RenaultTwingoGen1Battery::uq_begin(uint8_t mode, const uint8_t* req, uint8_
     uq_req[i] = req[i];
   }
   uq_needs_session = needs_session;
+  uq_active_dc = (mode == UQ_FREE && uq_target == 1);
+  ZOE_POLL_18DADBF1.ID = uq_active_dc ? UQ_ID_REQ_DC : UQ_ID_REQ_DB;
+  ZOE_POLL_FLOW_CONTROL.ID = ZOE_POLL_18DADBF1.ID;
   uq_pre_read = false;
   uq_before_len = 0;
   snprintf(mode == UQ_FDC ? fdc_result : uq_result, sizeof(uq_result), "requested");
@@ -3523,6 +3591,9 @@ const char* RenaultTwingoGen1Battery::start_user_query(const char* hex) {
       return "0x19 needs a sub-function";
     }
   } else if (req[0] == 0x2E) {
+    if (uq_target == 1) {
+      return "0x2E is not allowed for DC (safety CPU)";
+    }
     // WriteDataByIdentifier: 2E <DID hi> <DID lo> <1..4 data bytes> (a single frame carries 7 bytes at most),
     // only for the identifiers of UQ_WRITE_DIDS.
     if (n < 4) {

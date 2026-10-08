@@ -96,8 +96,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
     SimEnd end_stage;         // see SimEnd
   };
   // 28 rows of 02.10./03.10. + 7 rows of 04.10. (0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657) + 4 rows of 08.10.
-  // (0x57F, 0x599, 0x62D, 0x523) + 0x5D7 (09.10.), all off by default
-  static const uint8_t SIM_SIGNAL_COUNT = 40;
+  // (0x57F, 0x599, 0x62D, 0x523) + 0x5D7 + Zoe Gen2 frames 0x373/0x375/0x376 (09.10.), all off by default
+  static const uint8_t SIM_SIGNAL_COUNT = 43;
   static const SimSignal sim_signals[SIM_SIGNAL_COUNT];
 
   // Row switches (bit i = sim_signals[i]). 64 bit wide since 04.10.: rows 32-34 do not fit into 32 bits.
@@ -155,6 +155,13 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // "2E 92 61 00 00 03". Returns "OK" when the request was started, otherwise a short reason. The answer is shown
   // by user_query_result().
   const char* start_user_query(const char* hex);
+  // Target of the free request (point 12, runtime only): 0 = DB, the MCPU (request 0x18DADBF1, reply 0x18DAF1DB, the
+  // default), 1 = DC, the safety CPU (0x18DADCF1 / 0x18DAF1DC). Only the free request uses it; DTC reads and the cyclic
+  // polling stay on the MCPU. The write service 0x2E is refused for DC.
+  static uint8_t uq_target;
+  static const uint32_t UQ_ID_REQ_DB = 0x18DADBF1;
+  static const uint32_t UQ_ID_REQ_DC = 0x18DADCF1;
+  static const uint32_t UQ_ID_RESP_DC = 0x18DAF1DC;
   const char* user_query_result() const { return uq_result; }
   const char* fdc_query_result() const { return fdc_result; }
   // "Read DTC fault counters": UDS 0x19 0x14 (reportDTCFaultDetectionCounter), shown decoded.
@@ -318,6 +325,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // 0x29A / 0x0C6 (rows 28 and 30): rolling counter and checksum byte, see send_simulator_signals().
   uint8_t sim_0c6_counter = 0;  // index 0-15 into A0, A2 ... BE
   uint8_t sim_29a_counter = 0;  // 0-15
+  uint8_t sim_373_counter = 0;  // 0-9, bytes 2-3 swap every 5 frames
   uint8_t sim_5d7_counter = 0;  // 0-31, byte 6 = C0 + 2 * counter
 
   // HV state model (point 15): times of the 0x350 stages, see twingo::hv_compute(). hv_observe_350() is called by
@@ -833,6 +841,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   bool uq_reply_matches(const uint8_t* p, uint8_t n) const;
   void uq_reply_complete();
   void uq_restore_poll_template();
+  bool uq_active_dc = false;  // the running free request goes to the safety CPU
   void handle_dtc_ext(unsigned long currentMillis);
   void handle_dtc_ext_reply(CAN_frame rx_frame);
   void handle_dtc_read_response(const uint8_t* data, uint16_t len);

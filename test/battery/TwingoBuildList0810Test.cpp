@@ -377,3 +377,111 @@ TEST(TwingoBuild0810, Frame426KilometresAndByte7AreEditable) {
   ASSERT_FALSE(f.empty());
   EXPECT_EQ(hex_of(f[0].data.u8, 8), "00 60 01 00 FF FF 00 00");
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// Point 16: Zoe Gen2 frames 0x373 / 0x375 / 0x376
+TEST(TwingoBuild0810, Frame376CarriesTheAgeAsBase255Digits) {
+  uint8_t d[8];
+  twingo::frame_376(1312784, d);  // 20 * 65025 + 48 * 255 + 44
+  EXPECT_EQ(hex_of(d, 8), "14 30 2C 14 30 2C 0A 00");
+  twingo::frame_376(0, d);
+  EXPECT_EQ(hex_of(d, 8), "00 00 00 00 00 00 0A 00");
+  twingo::frame_376(254, d);
+  EXPECT_EQ(d[2], 254);
+  twingo::frame_376(255, d);
+  EXPECT_EQ(hex_of(d, 3), "00 01 00");
+}
+
+TEST(TwingoBuild0810, ZoeRowsSendTheirFramesAndAreOffByDefault) {
+  OdoGuard guard;
+  for (uint32_t id : {0x373u, 0x375u, 0x376u}) {
+    const int row = row_of(id);
+    ASSERT_GE(row, 0);
+    EXPECT_FALSE(RenaultTwingoGen1Battery::sim_row_enabled(row)) << std::hex << id;
+    EXPECT_EQ(RenaultTwingoGen1Battery::sim_signals[row].interval_ms, 100);
+  }
+  datalayer_extended.twingoGen1.simulator_enabled_mask =
+      0x3FFULL | (1ULL << row_of(0x373)) | (1ULL << row_of(0x375)) | (1ULL << row_of(0x376));
+  TestTwingo b;
+  b.setup();
+  auto f373 = collect(b, 0x373, 1000, 2200);
+  ASSERT_GE(f373.size(), 11u);
+  EXPECT_EQ(hex_of(f373[0].data.u8, 8), "C1 40 5D B2 00 01 FF E3");
+  EXPECT_EQ(hex_of(f373[4].data.u8, 8), "C1 40 5D B2 00 01 FF E3");
+  EXPECT_EQ(hex_of(f373[5].data.u8, 8), "C1 40 B2 5D 00 01 FF E3");  // swapped after 5 frames
+  EXPECT_EQ(hex_of(f373[10].data.u8, 8), "C1 40 5D B2 00 01 FF E3");
+  auto f375 = collect(b, 0x375, 2200, 2500);
+  ASSERT_FALSE(f375.empty());
+  EXPECT_EQ(hex_of(f375[0].data.u8, 8), "02 29 00 BF FE 64 00 FF");
+  auto f376 = collect(b, 0x376, 2500, 2800);
+  ASSERT_FALSE(f376.empty());
+  EXPECT_EQ(hex_of(f376[0].data.u8, 8), "14 30 2C 14 30 2C 0A 00");  // the age 1,312,784 of the seed
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Point 12: target DB / DC of the free request
+TEST(TwingoBuild0810, FreeRequestGoesToTheSelectedTarget) {
+  struct TargetGuard {
+    ~TargetGuard() { RenaultTwingoGen1Battery::uq_target = 0; }
+  } guard;
+  TestTwingo b;
+  b.setup();
+  EXPECT_EQ(RenaultTwingoGen1Battery::uq_target, 0);
+  // DB (default): request on 0x18DADBF1
+  std::vector<CAN_frame> tx;
+  uint64_t t = 1000;
+  set_millis64(t);
+  for (; t < 1700; t += 10) {  // let the first polls pass
+    set_millis64(t);
+    b.transmit_can((unsigned long)t);
+  }
+  ASSERT_STREQ(b.start_user_query("22 92 5E"), "OK");
+  for (const CAN_frame& f : get_transmitted_frames()) {
+    if (f.ext_ID && f.data.u8[1] == 0x22 && f.data.u8[2] == 0x92) {
+      EXPECT_EQ(f.ID, 0x18DADBF1u);
+    }
+  }
+}
+
+TEST(TwingoBuild0810, FreeRequestToDcUsesTheSafetyCpuIds) {
+  struct TargetGuard {
+    ~TargetGuard() { RenaultTwingoGen1Battery::uq_target = 0; }
+  } guard;
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  for (; t < 1700; t += 10) {
+    set_millis64(t);
+    b.transmit_can((unsigned long)t);
+  }
+  RenaultTwingoGen1Battery::uq_target = 1;
+  EXPECT_STRNE(b.start_user_query("2E 92 61 00 00 03"), "OK");  // writes are refused for DC
+  clear_transmitted_frames();
+  ASSERT_STREQ(b.start_user_query("22 92 5E"), "OK");
+  bool seen = false;
+  for (const CAN_frame& f : get_transmitted_frames()) {
+    if (f.ext_ID && f.data.u8[1] == 0x22 && f.data.u8[2] == 0x92 && f.data.u8[3] == 0x5E) {
+      EXPECT_EQ(f.ID, 0x18DADCF1u);
+      seen = true;
+    }
+  }
+  EXPECT_TRUE(seen);
+  // reply from the safety CPU on 0x18DAF1DC is taken as the answer
+  CAN_frame r = {};
+  r.ext_ID = true;
+  r.DLC = 8;
+  r.ID = 0x18DAF1DC;
+  const uint8_t data[8] = {0x04, 0x62, 0x92, 0x5E, 0x2A, 0xAA, 0xAA, 0xAA};
+  memcpy(r.data.u8, data, 8);
+  b.handle_incoming_can_frame(r);
+  EXPECT_NE(std::string(b.user_query_result()).find("62 92 5E 2A"), std::string::npos) << b.user_query_result();
+  // back to DB after the exchange: the polling frame has the MCPU ID again
+  for (uint64_t e = t + 700; t < e; t += 10) {
+    set_millis64(t);
+    clear_transmitted_frames();
+    b.transmit_can((unsigned long)t);
+    for (const CAN_frame& f : get_transmitted_frames()) {
+      EXPECT_NE(f.ID, 0x18DADCF1u);
+    }
+  }
+}

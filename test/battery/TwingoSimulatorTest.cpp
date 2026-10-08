@@ -184,16 +184,17 @@ TEST(TwingoSimulatorTable, TenIRowsInTheDocumentedOrder) {
   }
 }
 
-TEST(TwingoSimulatorTable, OnlyTheFourZoeFramesAndTheCanListFrameAreMarkedX) {
+TEST(TwingoSimulatorTable, OnlyTheZoeFramesAndTheCanListFrameAreMarkedX) {
   int x_count = 0;
   for (int i = 0; i < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; i++) {
     const auto& s = RenaultTwingoGen1Battery::sim_signals[i];
-    bool expect_x = (s.id == 0x19F || s.id == 0x426 || s.id == 0x436 || s.id == 0x423 ||
-                     s.id == 0x523);  // 0x523: only in the CAN list, not in the Twingo log
+    bool expect_x =
+        (s.id == 0x19F || s.id == 0x426 || s.id == 0x436 || s.id == 0x423 || s.id == 0x523 || s.id == 0x373 ||
+         s.id == 0x375 || s.id == 0x376);  // 0x523: only in the CAN list; 0x373/375/376: Zoe Gen2 driver only
     EXPECT_EQ(s.not_in_vehicle_log, expect_x) << "0x" << std::hex << s.id;
     x_count += s.not_in_vehicle_log ? 1 : 0;
   }
-  EXPECT_EQ(x_count, 5);
+  EXPECT_EQ(x_count, 8);
 }
 
 TEST(TwingoSimulatorTable, EveryRowHasSenderAndMeaningText) {

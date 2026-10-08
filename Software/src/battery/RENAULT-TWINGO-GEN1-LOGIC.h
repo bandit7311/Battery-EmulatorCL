@@ -210,6 +210,20 @@ inline void frame_5d7(uint32_t km, uint8_t counter, bool first, uint8_t* d) {
   d[7] = first ? 0x08 : 0x00;
 }
 
+// 0x376 (Zoe Gen2 driver): the vehicle time as minutes in three base-255 digits (year, hour, minute), sent twice in
+// bytes 0-2 and 3-5, bytes 6-7 = 0A 00. Here the minutes are the vehicle age (point 16, 09.10.), not the time since
+// the Zoe production.
+inline void frame_376(uint32_t minutes, uint8_t* d) {
+  const uint8_t y = (uint8_t)((minutes / 65025UL) & 0xFF);
+  const uint8_t h = (uint8_t)((minutes / 255UL) % 255UL);
+  const uint8_t m = (uint8_t)(minutes % 255UL);
+  d[0] = d[3] = y;
+  d[1] = d[4] = h;
+  d[2] = d[5] = m;
+  d[6] = 0x0A;
+  d[7] = 0x00;
+}
+
 }  // namespace twingo
 
 #endif  // RENAULT_TWINGO_GEN1_LOGIC_H

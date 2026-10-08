@@ -966,6 +966,14 @@ void init_webserver() {
     request->send(200, "text/plain", msg);
   });
 
+  // Target of the free request (point 12): value=0 DB (MCPU, default), value=1 DC (safety CPU). Runtime only.
+  def_route_with_auth("/twingoQueryTarget", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      RenaultTwingoGen1Battery::uq_target = request->getParam("value")->value().toInt() == 1 ? 1 : 0;
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
   // Answer of the free read request (which=free) or of the fault counters (which=fdc), polled by the page.
   def_route_with_auth("/twingoQueryResult", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     RenaultTwingoGen1Battery* twingo = static_cast<RenaultTwingoGen1Battery*>(battery);
