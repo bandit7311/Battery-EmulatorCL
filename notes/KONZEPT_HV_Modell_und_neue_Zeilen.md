@@ -188,6 +188,8 @@ Ziel: Der Emulator sendet nie mehr den Uhrwert; das Alter läuft stetig (+1 pro 
 9. Was sendet `0x350` mit Alter, solange nichts gesetzt ist? Empfehlung: Zeile `0x350` sendet erst, wenn ein Alter gesetzt ist; beim allerersten Start also einmal manuell setzen.
 10. Freigabe "bauen" und Reihenfolge.
 
+**Präzisierung zu Punkt 17 (Nutzer, 08.10.):** `0x350` sendet das Alter erst, wenn ein Alter vorliegt, das aus dem Akku (`91C1`) kam. Das ist nicht Variante A allein, sondern A plus B (Start aus dem Akku). Offene Details: Quelle `9261` (Fahrzeugzeit) statt `91C1` (Packzeit), Sicherheitsvorsprung, Verhalten bei gelesener 0, Fallback auf das gespeicherte manuelle Alter. Siehe Antwort vom 08.10. und Abschnitt 12a.
+
 ## 13a. Ursprüngliche Fragen (zur Dokumentation)
 
 1. `79B` aus Punkt 12 streichen? (Empfehlung ja.) `DF`/`DA` aufnehmen?
