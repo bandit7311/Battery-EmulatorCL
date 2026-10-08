@@ -210,3 +210,10 @@ Ziel: Der Emulator sendet nie mehr den Uhrwert; das Alter läuft stetig (+1 pro 
 - Inverter-Dump bei Zündung aus (`9259` = 04) zum Beleg, dass der Wechsel 04 → 05 das Schließen der Schütze ist.
 - Messung mit Zeitauflösung: `22 92 59` und `22 90 0D` im Sekundentakt während der Zündung, dazu CAN-Mitschnitt.
 - Ungefilterter Mitschnitt (30 s Zündung an) auf der Frage, ob `0x437`/`0x676` existieren.
+
+**Nice-to-have (allgemein, nicht ausgearbeitet):**
+- Physischer Shutdown-Taster am Gerät, der die Abschaltfolge auslöst (Entscheidung 08.10.: aus Punkt 7 der alten Bauliste herausgenommen).
+
+**Entscheidung 08.10. zur alten Bauliste:**
+- Punkt 7 lautet jetzt nur noch: Events nach dem Wiederanlauf automatisch quittieren (ohne Shutdown-Taster).
+- Punkt 8 (Diagnose in der Stille erlauben, Schalter aus als Voreinstellung, nur Lesedienste) bleibt unverändert.
