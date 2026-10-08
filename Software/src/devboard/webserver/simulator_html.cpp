@@ -96,34 +96,42 @@ String simulator_processor(const String& var) {
         "car (fast frames at C0, others at 00, some until the end of the bus). Every row below stays "
         "individually switchable.</span></p>";
 
-    // Switch B (04.10.): vehicle age counter from the clock or smooth.
-    content += "<p><b>Vehicle age (0x350 bytes 1-3):</b> <label><input type='radio' name='agemode' id='agemode0' ";
-    content += RenaultTwingoGen1Battery::age_counter_smooth ? "" : "checked ";
-    content += "onclick=\"fetch('/editTwingoAgeMode?value=0')\"> clock (UTC), as before (default)</label> &nbsp; ";
-    content += "<label><input type='radio' name='agemode' id='agemode1' ";
-    content += RenaultTwingoGen1Battery::age_counter_smooth ? "checked " : "";
-    content += "onclick=\"fetch('/editTwingoAgeMode?value=1')\"> smooth minute counter</label> ";
-    content +=
-        "<span class='note'>- runtime only. Smooth: +1 per minute, never a jump (the car's counter never jumps), "
-        "pulled slowly towards the clock; not stored over a restart.</span></p>";
+    // Vehicle age (point 17): automatic from the pack reference, or a manual final value.
+    {
+      const auto& tg = datalayer_extended.twingoGen1;
+      content += "<p><b>Vehicle age (0x350 bytes 1-3, 0x523, 0x376):</b> ";
+      if (tg.age_source != 0) {
+        content += String(tg.age_last_sent) + " min (";
+        content +=
+            tg.age_source == 3 ? "manual" : (tg.age_source == 2 ? "automatic, raised from the pack" : "automatic");
+        content += ")";
+      } else {
+        content += "none yet (nothing is sent without an age)";
+      }
+      content +=
+          " <span class='note'>- automatic: reference " + String(tg.age_pack_value) + " min at Unix " +
+          String(tg.age_pack_unix) +
+          " counted +1 per minute by the clock, plus one day safety lead once; raised only when the pack reports "
+          "more than is sent. Without a valid clock (NTP) no age is sent. Persisted.</span></p>";
+    }
 
-    // Manual vehicle age (05.10.): own value in minutes, replaces clock and smooth counter while set.
+    // Manual vehicle age: own final value in minutes, replaces the automatic mode while set.
     content += "<p><b>Manual vehicle age:</b> <input type='number' id='ageManual' min='0' max='16777215' value='";
     content += RenaultTwingoGen1Battery::age_manual_active ? String(RenaultTwingoGen1Battery::age_manual_start_min)
-                                                           : String("3");
+                                                           : String("1314935");
     content += "' style='width:9em'> minutes <button onclick=\"ageManualSet()\">Set</button> ";
     content += "<button onclick=\"ageManualOff()\">Off</button> <span id='ageManualState'>";
     content += RenaultTwingoGen1Battery::age_manual_active ? "ACTIVE - started at the value shown, +1 per minute"
-                                                           : "off - clock or smooth counter is used";
+                                                           : "off - automatic mode";
     content +=
-        "</span> <span class='note'>- replaces the clock and the smooth counter in all 0x350 frames (steady, "
-        "shutdown, wake-up), runtime only. 24 bit: 0 to 16777215.</span></p>";
+        "</span> <span class='note'>- the typed value is final (no safety lead added), used in all age frames, "
+        "persisted. 24 bit: 0 to 16777215.</span></p>";
     content += "<script>function ageManualSet(){var v=document.getElementById('ageManual').value;";
     content += "fetch('/editTwingoAgeManual?value='+encodeURIComponent(v)).then(function(r){return r.text();})";
     content += ".then(function(t){document.getElementById('ageManualState').textContent=";
     content += "(t==='OK')?'ACTIVE - started at '+v+', +1 per minute':t;});}";
     content += "function ageManualOff(){fetch('/editTwingoAgeManual?value=off').then(function(){";
-    content += "document.getElementById('ageManualState').textContent='off - clock or smooth counter is used';});}";
+    content += "document.getElementById('ageManualState').textContent='off - automatic mode';});}";
     content += "</script>";
 
     content +=

@@ -8,6 +8,7 @@
 #include "../devboard/utils/logging.h"
 #include "../devboard/webserver/BatteryHtmlRenderer.h"
 #ifndef UNIT_TEST
+#include <Preferences.h>
 #include <WiFi.h>  // WiFi.status() for the NTP start
 #endif
 #include <time.h>
@@ -294,6 +295,7 @@ void RenaultTwingoGen1Battery::handle_extended_single_frame(uint16_t pid, const 
         }
         time_pid_raw[idx] = v;
         time_pid_len[idx] = n;
+        age_note_pack_read(millis());
       }
       break;
     // Display-only PIDs from the real "RBMS_MCPU_RL" dumps (28.09.): every one of them is stored as the raw
@@ -983,74 +985,139 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
   NVROLstateMachine = 0;
 }
 
-// Vehicle age (0x350 bytes 1-3), minutes since 15.02.2021 11:13:08 UTC - see the comment at the declaration.
-bool RenaultTwingoGen1Battery::age_counter_smooth = false;
+// Vehicle age (0x350 bytes 1-3, 0x523, 0x376), minutes - see the comment at the declaration and twingo::age_auto().
 bool RenaultTwingoGen1Battery::shutdown_like_car = false;
 bool RenaultTwingoGen1Battery::age_manual_active = false;
 uint32_t RenaultTwingoGen1Battery::age_manual_start_min = 0;
 unsigned long RenaultTwingoGen1Battery::age_manual_set_ms = 0;
+bool RenaultTwingoGen1Battery::age_manual_ms_valid = false;
+int64_t RenaultTwingoGen1Battery::age_manual_anchor_unix = 0;
 
-void RenaultTwingoGen1Battery::age_manual_set(uint32_t minutes) {
+void RenaultTwingoGen1Battery::age_load_from_nvm() {
+#ifndef UNIT_TEST
+  Preferences prefs;
+  if (!prefs.begin("batterySettings", true)) {
+    return;
+  }
+  auto& t = datalayer_extended.twingoGen1;
+  t.age_pack_value = prefs.getUInt("TWAGEPV", t.age_pack_value);
+  t.age_pack_unix = prefs.getUInt("TWAGEPT", t.age_pack_unix);
+  if (prefs.getBool("TWAGEMA", false)) {
+    age_manual_active = true;
+    age_manual_start_min = prefs.getUInt("TWAGEMV", 0);
+    age_manual_anchor_unix = (int64_t)prefs.getUInt("TWAGEMT", 0);
+    age_manual_ms_valid = false;  // counts by the clock after a restart
+  }
+  prefs.end();
+#endif
+}
+
+void RenaultTwingoGen1Battery::age_save_to_nvm() {
+#ifndef UNIT_TEST
+  Preferences prefs;
+  if (!prefs.begin("batterySettings", false)) {
+    return;
+  }
+  auto& t = datalayer_extended.twingoGen1;
+  prefs.putUInt("TWAGEPV", t.age_pack_value);
+  prefs.putUInt("TWAGEPT", t.age_pack_unix);
+  prefs.putBool("TWAGEMA", age_manual_active);
+  prefs.putUInt("TWAGEMV", age_manual_start_min);
+  prefs.putUInt("TWAGEMT", (uint32_t)age_manual_anchor_unix);
+  prefs.end();
+#endif
+}
+
+void RenaultTwingoGen1Battery::age_manual_set(uint32_t minutes, int64_t unix_s) {
   age_manual_start_min = (minutes > AGE_MANUAL_MAX) ? AGE_MANUAL_MAX : minutes;
   age_manual_set_ms = millis();
+  age_manual_ms_valid = true;
+  age_manual_anchor_unix = (unix_s >= twingo::UNIX_PLAUSIBLE_MIN) ? unix_s : 0;
   age_manual_active = true;
+  age_save_to_nvm();
 }
 
 void RenaultTwingoGen1Battery::age_manual_clear() {
   age_manual_active = false;
+  age_save_to_nvm();
 }
 
-// Vehicle age as 0x350 bytes 1-3 carry it: the manually entered value (age_manual_set(), +1 per full minute since
-// it was entered) or the clock value (see vehicle_age_clock_minutes()) or, with switch B, the
-// smooth minute counter. The smooth counter takes the clock value once, then adds exactly +1 per full minute of
-// run time. If the clock value is ahead, it adds one extra minute per minute (AGE_SLEW_MIN_PER_MIN) until it has
-// caught up; if the clock value is behind, it skips one step per minute instead (so it never goes backwards).
-uint32_t RenaultTwingoGen1Battery::vehicle_age_minutes(unsigned long nowMillis) {
+bool RenaultTwingoGen1Battery::unix_now_valid(int64_t& now_unix) {
+  time_t t = 0;
+  if (!get_unix_time(t) || (int64_t)t < twingo::UNIX_PLAUSIBLE_MIN) {
+    return false;
+  }
+  now_unix = (int64_t)t;
+  return true;
+}
+
+// Age as 0x350 bytes 1-3 carry it. Manual override: start value + full minutes (by the clock from the Unix time it
+// was typed at, otherwise by run time). Automatic: pack reference carried by the clock plus the safety lead, never
+// lower than what was already sent. Without a usable source: false, the caller sends no frame with an age.
+bool RenaultTwingoGen1Battery::vehicle_age_available(unsigned long nowMillis, uint32_t& minutes) {
+  auto& t = datalayer_extended.twingoGen1;
+  int64_t now_unix = 0;
+  const bool clock_ok = unix_now_valid(now_unix);
+  uint32_t v;
   if (age_manual_active) {
-    return age_manual_start_min + (uint32_t)((nowMillis - age_manual_set_ms) / 60000UL);
-  }
-  uint32_t clock_min = vehicle_age_clock_minutes(nowMillis);
-  if (!age_counter_smooth) {
-    age_smooth_started = false;  // switching it on again later starts again at the clock value
-    return clock_min;
-  }
-  if (!age_smooth_started) {
-    age_smooth_started = true;
-    age_smooth_start_ms = nowMillis;
-    age_smooth_value = clock_min;
-    age_smooth_minutes_done = 0;
-  }
-  uint32_t full_minutes = (uint32_t)((nowMillis - age_smooth_start_ms) / 60000UL);
-  while (age_smooth_minutes_done < full_minutes) {
-    age_smooth_minutes_done++;
-    uint32_t step = 1;
-    if (clock_min > age_smooth_value + 1) {
-      step += AGE_SLEW_MIN_PER_MIN;
-    } else if (clock_min + 1 < age_smooth_value) {
-      step -= (AGE_SLEW_MIN_PER_MIN < step) ? AGE_SLEW_MIN_PER_MIN : step;
+    if (clock_ok && age_manual_anchor_unix != 0) {
+      v = twingo::age_plain(age_manual_start_min, age_manual_anchor_unix, now_unix);
+      t.age_source = 3;
+    } else if (age_manual_ms_valid) {
+      v = twingo::age_clamp24((uint64_t)age_manual_start_min + (uint64_t)((nowMillis - age_manual_set_ms) / 60000UL));
+      t.age_source = 3;
+    } else {
+      return false;
     }
-    age_smooth_value += step;
+  } else {
+    if (!clock_ok) {
+      return false;
+    }
+    v = twingo::age_auto(t.age_pack_value, (int64_t)t.age_pack_unix, now_unix);
+    t.age_source = 1;
   }
-  return age_smooth_value;
+  if (v < t.age_last_sent && !age_manual_active) {
+    v = t.age_last_sent;  // never backwards in the automatic mode
+  }
+  t.age_last_sent = v;
+  minutes = v;
+  return true;
 }
 
-uint32_t RenaultTwingoGen1Battery::vehicle_age_clock_minutes(unsigned long nowMillis) {
-#ifdef TWINGO_TIME_FRAMES
-  time_t now_utc;
-  if (get_unix_time(now_utc) && (int64_t)now_utc >= (int64_t)VEHICLE_AGE_EPOCH_UTC) {
-    return (uint32_t)(((int64_t)now_utc - (int64_t)VEHICLE_AGE_EPOCH_UTC) / 60);
+// Called after 0x9261 / 0x91C1 were stored: if the pack holds more than we currently send, it becomes the new reference
+// (raised once, the safety lead is added again by age_auto). A pack that only stores what we sent never raises it.
+void RenaultTwingoGen1Battery::age_note_pack_read(unsigned long nowMillis) {
+  if (age_manual_active) {
+    return;
   }
-  return VEHICLE_AGE_FALLBACK_START_MIN + (uint32_t)((nowMillis - time_fallback_start_ms) / 60000UL);
-#else
-  return VEHICLE_AGE_FALLBACK_START_MIN + (uint32_t)(nowMillis / 60000UL);
-#endif
+  int64_t now_unix = 0;
+  if (!unix_now_valid(now_unix)) {
+    return;
+  }
+  uint32_t sent = 0;
+  if (!vehicle_age_available(nowMillis, sent)) {
+    return;
+  }
+  const uint32_t cand = twingo::age_pack_candidate(time_pid_raw[0], time_pid_len[0], time_pid_raw[1], time_pid_len[1]);
+  if (twingo::age_should_raise(cand, sent)) {
+    auto& t = datalayer_extended.twingoGen1;
+    t.age_pack_value = cand;
+    t.age_pack_unix = (uint32_t)now_unix;
+    t.age_source = 2;
+    age_save_to_nvm();
+  }
 }
 
-void RenaultTwingoGen1Battery::fill_vehicle_age_350(uint8_t* b123, unsigned long nowMillis) {
-  uint32_t m = vehicle_age_minutes(nowMillis) & 0xFFFFFFUL;
+bool RenaultTwingoGen1Battery::fill_vehicle_age_350(uint8_t* b123, unsigned long nowMillis) {
+  uint32_t m = 0;
+  if (!vehicle_age_available(nowMillis, m)) {
+    return false;
+  }
+  m &= 0xFFFFFFUL;
   b123[0] = (uint8_t)(m >> 16);
   b123[1] = (uint8_t)(m >> 8);
   b123[2] = (uint8_t)m;
+  return true;
 }
 
 // Switch of a row of the /simulator page (bit n of simulator_enabled_mask = sim_signals[n]). The I rows
@@ -1188,7 +1255,9 @@ bool RenaultTwingoGen1Battery::sim_row_allowed_now(const SimSignal& s) const {
 // One 0x350 frame with explicit bytes 5-7 (byte 4 is always 0x14, bytes 1-3 the vehicle age).
 void RenaultTwingoGen1Battery::send_350_frame(uint8_t byte0, uint8_t b5, uint8_t b6, uint8_t b7) {
   uint8_t age[3];
-  fill_vehicle_age_350(age, millis());
+  if (!fill_vehicle_age_350(age, millis())) {
+    return;  // no age known (no clock yet): no frame
+  }
   CAN_frame f = {
       .FD = false, .ext_ID = false, .DLC = 8, .ID = 0x350, .data = {byte0, age[0], age[1], age[2], 0x14, b5, b6, b7}};
   transmit_can_frame(&f);
@@ -2051,7 +2120,9 @@ void RenaultTwingoGen1Battery::send_run_350() {
   if (!sim_enabled(2)) {
     return;  // /simulator row 0x350 switched off
   }
-  fill_vehicle_age_350(&TWINGO_350_RUN.data.u8[1], millis());
+  if (!fill_vehicle_age_350(&TWINGO_350_RUN.data.u8[1], millis())) {
+    return;  // no age known (no clock yet): no frame
+  }
   TWINGO_350_RUN.data.u8[0] = steady_350_use_c3 ? 0xC3 : 0xC7;
   TWINGO_350_RUN.data.u8[5] = steady_350_use_c3 ? 0x14 : 0x98;
   TWINGO_350_RUN.data.u8[6] = steady_350_use_c3 ? 0x96 : 0x94;
@@ -3056,6 +3127,7 @@ void RenaultTwingoGen1Battery::setup(void) {  // Performs one time setup at star
   // power-on/reset, same framework function MG-GEN1-BATTERY.cpp and MEB-BATTERY.cpp already use around
   // their own BMS-reset moments (02.10. phantom BATTERY_OVERVOLTAGE investigation).
   ignore_can_errors_for(can_interface, EXT_425_BOOT_FILTER_TIMEOUT_MS);
+  age_load_from_nvm();
 
   // UDS: send requests/flow control to 0x79B, accept replies from the BMS on 0x7BB.
   setup_uds(0x79B, 0x7BB);

@@ -25,8 +25,16 @@ namespace {
 
 class TestTwingo : public RenaultTwingoGen1Battery {
  public:
-  bool unix_set = false;
-  time_t unix_now = 0;
+  bool unix_set = true;  // the vehicle age needs a valid clock: default = frozen at the seed reference
+  time_t unix_now = 1791319221;
+  TestTwingo() {  // the age state is global: every test starts from the seed, automatic mode, nothing sent yet
+    RenaultTwingoGen1Battery::age_manual_clear();
+    auto& t = datalayer_extended.twingoGen1;
+    t.age_pack_value = 1311344;
+    t.age_pack_unix = 1791319221;
+    t.age_last_sent = 0;
+    t.age_source = 0;
+  }
   bool network_ready() override { return false; }
   void start_ntp() override {}
   bool get_unix_time(time_t& now_utc) override {
@@ -44,13 +52,9 @@ class TestTwingo : public RenaultTwingoGen1Battery {
 
 // The two runtime switches and the simulator mask are global; every test puts them back (tests run in one process).
 struct Switches {
-  Switches(bool like_car, bool smooth = false) {
-    RenaultTwingoGen1Battery::shutdown_like_car = like_car;
-    RenaultTwingoGen1Battery::age_counter_smooth = smooth;
-  }
+  Switches(bool like_car) { RenaultTwingoGen1Battery::shutdown_like_car = like_car; }
   ~Switches() {
     RenaultTwingoGen1Battery::shutdown_like_car = false;
-    RenaultTwingoGen1Battery::age_counter_smooth = false;
     datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;
   }
 };
@@ -221,9 +225,8 @@ TEST(TwingoCarMode, RowSwitchesWorkAbove32Bits) {
   EXPECT_TRUE(RenaultTwingoGen1Battery::sim_row_enabled(9));  // the old bits are untouched
 }
 
-TEST(TwingoCarMode, BothSwitchesAreOffAtStart) {
+TEST(TwingoCarMode, TheSwitchIsOffAtStart) {
   EXPECT_FALSE(RenaultTwingoGen1Battery::shutdown_like_car);
-  EXPECT_FALSE(RenaultTwingoGen1Battery::age_counter_smooth);
 }
 
 // ---------------------------------------------------------------------------
@@ -711,89 +714,11 @@ TEST(TwingoCarMode, FixedRowsCarryTheStandstillValuesOfTheLog) {
 }
 
 // ---------------------------------------------------------------------------
-// Smooth vehicle age (switch B)
+// Helper for the vehicle age frames
 // ---------------------------------------------------------------------------
 
 namespace {
 uint32_t age_of(const CAN_frame& f) {
   return ((uint32_t)f.data.u8[1] << 16) | ((uint32_t)f.data.u8[2] << 8) | f.data.u8[3];
 }
-// Runs `ms` ms in 100 ms steps with a clock that advances like real time plus `offset_min` minutes; returns the
-// 0x350 ages in time order.
-std::vector<uint32_t> run_ages(TestTwingo& b, uint64_t& t, uint64_t ms, time_t base_unix, uint64_t t0,
-                               long offset_min) {
-  std::vector<uint32_t> ages;
-  for (uint64_t end = t + ms; t < end; t += 100) {
-    b.unix_now = base_unix + (time_t)((t - t0) / 1000) + offset_min * 60;
-    std::vector<Tx> log;
-    tick_log(b, t, log);
-    for (const Tx& x : with_id(log, 0x350)) {
-      ages.push_back(age_of(x.f));
-    }
-  }
-  return ages;
-}
 }  // namespace
-
-TEST(TwingoCarMode, SmoothAgeFollowsTheClockMinuteByMinute) {
-  Switches g(false, true);
-  TestTwingo b;
-  b.setup();
-  b.unix_set = true;
-  const time_t base = AGE_EPOCH + 2959882LL * 60 + 5;
-  uint64_t t = 1000;
-  auto ages = run_ages(b, t, 300000, base, 1000, 0);  // 5 minutes
-  ASSERT_FALSE(ages.empty());
-  EXPECT_EQ(ages.front(), 2959882u);
-  EXPECT_EQ(ages.back(), 2959882u + 4u) << "+1 per full minute of run time";
-  for (size_t i = 1; i < ages.size(); i++) {
-    EXPECT_LE(ages[i] - ages[i - 1], 1u) << "never a jump";
-    EXPECT_GE(ages[i], ages[i - 1]);
-  }
-}
-
-TEST(TwingoCarMode, SmoothAgeNeverJumpsWhenTheClockJumps) {
-  for (int smooth = 0; smooth < 2; smooth++) {
-    Switches g(false, smooth == 1);
-    TestTwingo b;
-    b.setup();
-    b.unix_set = true;
-    const time_t base = AGE_EPOCH + 2959882LL * 60 + 5;
-    uint64_t t = 1000;
-    auto before = run_ages(b, t, 130000, base, 1000, 0);    // 2 minutes with the clock running normally
-    auto after = run_ages(b, t, 240000, base, 1000, 1000);  // the clock now shows 1000 minutes more (NTP arrives)
-    ASSERT_FALSE(before.empty());
-    ASSERT_FALSE(after.empty());
-    uint32_t biggest_step = 0;
-    uint32_t prev = before.back();
-    for (uint32_t a : after) {
-      biggest_step = std::max(biggest_step, a > prev ? a - prev : 0u);
-      prev = a;
-    }
-    if (smooth) {
-      EXPECT_LE(biggest_step, 2u) << "smooth: at most +1 extra minute per minute, no jump";
-      // 4 more minutes of run time: at most two minutes per minute, so far less than the 1000 of the clock
-      EXPECT_LE(after.back() - before.back(), 4u * 2u);
-      EXPECT_GT(after.back(), before.back());
-    } else {
-      EXPECT_GE(biggest_step, 900u) << "as before: the counter follows the clock and jumps";
-    }
-  }
-}
-
-TEST(TwingoCarMode, SmoothAgeStartsAgainWhenSwitchedOffAndOn) {
-  Switches g(false, true);
-  TestTwingo b;
-  b.setup();
-  b.unix_set = true;
-  const time_t base = AGE_EPOCH + 2959882LL * 60 + 5;
-  uint64_t t = 1000;
-  auto a1 = run_ages(b, t, 70000, base, 1000, 0);
-  ASSERT_FALSE(a1.empty());
-  RenaultTwingoGen1Battery::age_counter_smooth = false;
-  auto a2 = run_ages(b, t, 20000, base, 1000, 500);  // clock mode: shows the clock (500 minutes more)
-  EXPECT_NEAR((double)a2.back(), 2959882.0 + 500.0 + 1.0, 2.0);
-  RenaultTwingoGen1Battery::age_counter_smooth = true;
-  auto a3 = run_ages(b, t, 2000, base, 1000, 500);  // smooth again: starts at the clock value
-  EXPECT_NEAR((double)a3.front(), 2959882.0 + 500.0 + 1.0, 2.0);
-}

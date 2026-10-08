@@ -838,16 +838,8 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
-  // Switch B (04.10.): vehicle age counter - 0 = clock (UTC, default), 1 = smooth minute counter. Runtime only.
-  def_route_with_auth("/editTwingoAgeMode", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    if (request->hasParam("value")) {
-      RenaultTwingoGen1Battery::age_counter_smooth = request->getParam("value")->value().toInt() != 0;
-    }
-    request->send(200, "text/plain", "OK");
-  });
-
-  // Manual vehicle age (05.10.): value=<minutes, decimal, 0..16777215> starts the counter there (+1 per minute),
-  // value=off (or empty) returns to the clock / smooth counter. Runtime only.
+  // Manual vehicle age: value=<minutes, decimal, 0..16777215> is the final value, counts +1 per minute from now on
+  // (persisted); value=off (or empty) returns to the automatic mode.
   def_route_with_auth("/editTwingoAgeManual", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (!request->hasParam("value")) {
       request->send(200, "text/plain", "missing value");
@@ -870,7 +862,10 @@ void init_webserver() {
       request->send(200, "text/plain", "too large (at most 16777215)");
       return;
     }
-    RenaultTwingoGen1Battery::age_manual_set((uint32_t)v.toInt());
+    {
+      time_t now_t = time(nullptr);
+      RenaultTwingoGen1Battery::age_manual_set((uint32_t)v.toInt(), now_t > 1700000000 ? (int64_t)now_t : 0);
+    }
     request->send(200, "text/plain", "OK");
   });
 

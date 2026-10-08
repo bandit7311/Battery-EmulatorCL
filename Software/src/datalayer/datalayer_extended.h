@@ -271,6 +271,15 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
   /** 0x155 frames dropped because they carried the invalid markers (current raw 0xFFF or SOC raw above 40000),
    *  see twingo::frame_155_valid (08.10.). Runtime only. */
   uint32_t frame_155_dropped;
+
+  /** Vehicle age (point 17, 08.10.), see twingo::age_auto. Pack reference = value and Unix time of the last time the
+   *  pack was seen holding that value (seed: 1311344 min at 06.10.2026 20:40:21 UTC, set in the constructor).
+   *  Persisted to NVM by the driver (keys TWAGEPV/TWAGEPT, manual TWAGEMA/TWAGEMV/TWAGEMT). */
+  uint32_t age_pack_value;
+  uint32_t age_pack_unix;
+  /** Last age that was sent (minutes, 0 = none yet) and its source: 0 none, 1 manual, 2 pack reference. Runtime. */
+  uint32_t age_last_sent;
+  uint8_t age_source;
 };
 
 struct DATALAYER_INFO_CELLPOWER {
@@ -1120,6 +1129,8 @@ class DataLayerExtended {
     twingoGen1.cellwatch_cell = 1;
     twingoGen1.simulator_enabled_mask = 0x000003FF;  // the 10 "I" signals on, see sim_signals[0..9]
     twingoGen1.dtc_ext_read_mask = 0x09;             // Active/Confirmed - memset(0) above would otherwise leave 0x00
+    twingoGen1.age_pack_value = 1311344;             // seed of the vehicle age, see twingo::AGE_SEED_*
+    twingoGen1.age_pack_unix = 1791319221;
   }
 };
 

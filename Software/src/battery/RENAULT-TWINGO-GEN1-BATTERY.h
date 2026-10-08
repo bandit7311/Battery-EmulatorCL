@@ -118,18 +118,24 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // logs of 02.10. and 04.10.): stage times and 0x350 bytes of the shutdown, the wake-up sequence, 0x214 also
   // while awake, and every row ends at the point given by its SimEnd value.
   static bool shutdown_like_car;
-  // Switch B (04.10., runtime only): false = vehicle age (0x350 bytes 1-3) from the clock (UTC) as before; true =
-  // smooth minute counter: +1 per minute of run time, never a jump, slowly pulled towards the clock.
-  static bool age_counter_smooth;
-  // Manual vehicle age (05.10., /simulator page, runtime only): when set, bytes 1-3 of every 0x350 (steady, shutdown
-  // and wake burst) start at the given number of minutes (0 .. 0xFFFFFF) and count +1 per full minute from then on.
-  // It has priority over the clock and the smooth counter. age_manual_clear() returns to the normal behaviour.
+  // Vehicle age (0x350 bytes 1-3, 0x523, 0x376; point 17, 08.10.): never the clock. Automatic mode: pack reference
+  // (value + Unix time, seed 1,311,344 min at 06.10.2026 20:40:21 UTC) carried forward at +1 per minute plus one
+  // day safety lead, raised when the pack is read holding more than we send (see twingo::age_auto and
+  // age_note_pack_read()). Persisted to the NVM. Without a valid clock (NTP) nothing is sent in this mode.
+  // Manual vehicle age (/simulator page): an explicit override that replaces the automatic mode: bytes 1-3 start at the
+  // given number of minutes (0 .. 0xFFFFFF) and count +1 per full minute from then on, no safety lead (the user types
+  // the final value). Persisted with its Unix time so it keeps counting over a restart. age_manual_clear() returns
+  // to the automatic mode.
   static const uint32_t AGE_MANUAL_MAX = 0xFFFFFFUL;
   static bool age_manual_active;
   static uint32_t age_manual_start_min;
   static unsigned long age_manual_set_ms;
-  static void age_manual_set(uint32_t minutes);  // millis() is the start of the counting
+  static bool age_manual_ms_valid;        // age_manual_set_ms belongs to this run (not loaded from the NVM)
+  static int64_t age_manual_anchor_unix;  // Unix time at which age_manual_start_min was valid, 0 = not yet known
+  static void age_manual_set(uint32_t minutes, int64_t unix_s = 0);  // unix_s 0 = unknown, millis() counts instead
   static void age_manual_clear();
+  static void age_load_from_nvm();  // no-op in the unit tests
+  static void age_save_to_nvm();    // no-op in the unit tests
 
   // Free request on the extended 29-bit protocol (03.10.), "More Battery Info" page: input field,
   // Query button, answer field. Read services are accepted (0x22 ReadDataByIdentifier, 0x19
@@ -308,29 +314,14 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // the wake-up (the end rules of 04.10.). In the mode "as before" the old rules stay in place.
   bool sim_row_allowed_now(const SimSignal& s) const;
 
-  // 0x350 bytes 1-3: 24-bit "vehicle age" in minutes. In the real vehicle it counts real minutes: both vehicle
-  // logs (02.10. 16:48 and 03.10. 00:35 local) give the same zero point, 15.02.2021 11:13:08 UTC (unix
-  // 1613387588, spread of the individual counter steps -9/+14 s, so about +-15 s). The LBC stores the value
-  // (DID $9261 "Absolute Time of Vehicle"). Computed from the NTP time; as long as no real time is available
-  // it starts at the value of the build date and counts minutes since boot (then it jumps once, as soon as
-  // NTP delivers the real time). Used by the normal 0x350 frame AND by the shutdown sequence / wake burst.
-  static const uint32_t VEHICLE_AGE_EPOCH_UTC = 1613387588UL;
-  static const uint32_t VEHICLE_AGE_FALLBACK_START_MIN = 2960506UL;  // 03.10.2026 09:00 UTC
-  uint32_t vehicle_age_minutes(unsigned long nowMillis);
-  void fill_vehicle_age_350(uint8_t* b123, unsigned long nowMillis);  // 3 bytes, high byte first
-
-  // Switch B "smooth minute counter" (04.10.): the car's counter never jumps (checked in both vehicle logs: every
-  // step is +1 minute). vehicle_age_clock_minutes() is the computation of before (UTC, or the build-date fallback
-  // counting from boot); the smooth value starts at that value once and then adds exactly +1 per full minute of
-  // run time (the silence of a sleep run included). If the clock value later differs, it is pulled by at most
-  // AGE_SLEW_MIN_PER_MIN extra minute per minute (towards the clock, never backwards, never a jump). Not stored in
-  // the NVM, so a restart begins again at the clock value.
-  uint32_t vehicle_age_clock_minutes(unsigned long nowMillis);
-  static const uint8_t AGE_SLEW_MIN_PER_MIN = 1;
-  bool age_smooth_started = false;
-  unsigned long age_smooth_start_ms = 0;
-  uint32_t age_smooth_value = 0;
-  uint32_t age_smooth_minutes_done = 0;
+  // 0x350 bytes 1-3: 24-bit "vehicle age" in minutes (the vehicle counts real minutes, zero point 15.02.2021 11:13:08
+  // UTC, spread +-15 s; the LBC stores the value as $9261 "Absolute Time of Vehicle"). Used by the normal 0x350 frame
+  // AND by the shutdown sequence / wake burst. vehicle_age_available() is false as long as no age can be given (no
+  // valid clock in the automatic mode); then no frame that carries the age is sent.
+  bool vehicle_age_available(unsigned long nowMillis, uint32_t& minutes);
+  bool fill_vehicle_age_350(uint8_t* b123, unsigned long nowMillis);  // 3 bytes, high byte first; false = no age yet
+  void age_note_pack_read(unsigned long nowMillis);                   // after 0x9261 / 0x91C1 were read
+  bool unix_now_valid(int64_t& now_unix);                             // clock set and plausible
 
 #ifdef TWINGO_TIME_FRAMES
   // Fixed date in 0x53B: 15.03.2025 was a Saturday (weekday 5 with Monday = 0), year bits = year - 2024.
