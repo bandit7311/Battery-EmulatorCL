@@ -324,3 +324,10 @@ Korrektur: `0x392` ist laut OVMS HVAC/Kabinentemperatur, nicht Relaisanzeige (Na
 - Das Log vom 02.10. (`364b56eb`, PuTTY 16:47) ist das UNGEFILTERTE: Es enthaelt die 16 schnellen IDs `0x090, 0x0C6, 0x12E, 0x17A, 0x17E, 0x186, 0x18A, 0x1B0, 0x1F6, 0x1F8, 0x211, 0x217, 0x242, 0x29A, 0x29C, 0x2B7`, die dem Log vom 04.10. (`5c3d7daf`, PuTTY 12:15, Filter aktiv) fehlen. Der Filter entfernt nur diese 16 IDs (Chat 0d5cef0c, Zeilen 8886, 9167, 9384, 9598).
 - `0x437`, `0x481`, `0x676`, `0x187`, `0x58A`, `0x622`, `0x523` fehlen auch im ungefilterten Log vom 02.10. und sind nicht unter den 16 gefilterten IDs. Das 02.10.-Log hatte Frameverluste (laut frueherem Chat ca. 70 %), aber ein 100-ms-Frame wie 0x437 haette bei 485 s Dauer trotzdem vorkommen muessen. Schluss: Diese Frames liegen nicht auf dem mitgeschnittenen Bus oder der Twingo sendet sie nicht.
 - Die fruehere Aussage "Filter oder Bus-Abschnitt" ist damit eingeschraenkt auf "Bus oder Twingo sendet sie nicht".
+
+## Nachtrag 11 (08.10.): 0x57F im Twingo - Aufbau (Strom und Spannung des Inverters)
+Frame `0x57F` (in der CAN-Liste HEVC_A28, 1000 ms), im Twingo 7 Byte, ca. 1 Frame/s. Die Felder liegen anders als in der Liste; Aufbau aus dem Log abgeleitet:
+- Inverter-HV-Spannung = untere 13 Bit von Byte 2-3 (also (Byte1 & 0x1F) * 256 + Byte2, mit 0-Zaehlung Byte0), 0,1 V pro Bit.
+- Inverter-Strom = (Byte0 * 8 + (Byte1 >> 5)) * 0,5 A - 400 A (11 Bit; Skalierung 0,5 A und Offset -400 A aus der Liste uebernommen, nicht unabhaengig bewiesen).
+- Pruefung im Fahrlog 02.10.: HV aus (Spannung < 5 V): Strom = 0,0 A; Stillstand mit HV: 0 bis 1,5 A; Fahrt: -30 bis +62,5 A; Korrelation mit 0x1FD Byte 6-7 (Motorleistung) r = +0,95 (nur bei HV an). 04.10. (nur Stillstand, 0x1FD gefiltert): 0 bis 1 A. Passt zu den +0,45 bis +1,7 A, die der Akku in den Auto-Dumps bei Zuendung an zeigt (900D).
+- Vorzeichen: positiv = Entladen/Antrieb (folgt der Motorleistung), negativ vermutlich Rekuperation (nicht belegt).
