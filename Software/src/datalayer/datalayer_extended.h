@@ -1127,9 +1127,11 @@ class DataLayerExtended {
     // correct via the memset(0) above; only the non-zero default needs setting here.
     twingoGen1.sleep_failsafe_minutes = 30;
     twingoGen1.cellwatch_cell = 1;
-    twingoGen1.simulator_enabled_mask = 0x000003FF;  // the 10 "I" signals on, see sim_signals[0..9]
-    twingoGen1.dtc_ext_read_mask = 0x09;             // Active/Confirmed - memset(0) above would otherwise leave 0x00
-    twingoGen1.age_pack_value = 1311344;             // seed of the vehicle age, see twingo::AGE_SEED_*
+    twingoGen1.simulator_enabled_mask =
+        0x00000387;  // working set (09.10.): 0x090, 0x242, 0x350, 0x69F, 0x53B, 0x214 on; the Zoe frames 0x19F, 0x426,
+                     // 0x436, 0x423 off (rows 3, 4, 5, 6). A mask saved in the NVM still wins.
+    twingoGen1.dtc_ext_read_mask = 0x09;  // Active/Confirmed - memset(0) above would otherwise leave 0x00
+    twingoGen1.age_pack_value = 1311344;  // seed of the vehicle age, see twingo::AGE_SEED_*
     twingoGen1.age_pack_unix = 1791319221;
   }
 };

@@ -732,7 +732,8 @@ void init_webserver() {
   // Twingo NVROL/Sleep settings ("More Battery Info" checkboxes/number field), persisted to NVM.
   def_route_with_auth("/editTwingoNvrolWriteValue", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (request->hasParam("value")) {
-      uint8_t value = (request->getParam("value")->value().toInt() != 0) ? 1 : 0;
+      long raw = request->getParam("value")->value().toInt();
+      uint8_t value = (raw == 128) ? 0x80 : ((raw != 0) ? 1 : 0);  // 0x00, 0x01 or 0x80
       datalayer_extended.twingoGen1.nvrol_temporisation_write_value = value;
       Preferences prefs;
       prefs.begin("batterySettings", false);
@@ -964,6 +965,14 @@ void init_webserver() {
           static_cast<RenaultTwingoGen1Battery*>(battery)->start_user_query(request->getParam("hex")->value().c_str());
     }
     request->send(200, "text/plain", msg);
+  });
+
+  // Point 8: read requests in the silence of a Sleep run (runtime only, off by default).
+  def_route_with_auth("/editTwingoSilenceDiag", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      RenaultTwingoGen1Battery::diag_in_silence = request->getParam("value")->value().toInt() != 0;
+    }
+    request->send(200, "text/plain", "OK");
   });
 
   // Target of the free request (point 12): value=0 DB (MCPU, default), value=1 DC (safety CPU). Runtime only.

@@ -159,6 +159,14 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // default), 1 = DC, the safety CPU (0x18DADCF1 / 0x18DAF1DC). Only the free request uses it; DTC reads and the cyclic
   // polling stay on the MCPU. The write service 0x2E is refused for DC.
   static uint8_t uq_target;
+  // Point 8 (switch, off by default, runtime only): read requests of the free request are also allowed in the true
+  // silence of a Sleep run. Only the read services 0x22 / 0x19 (with their session); no write. The silence is still
+  // silent as long as nothing is asked.
+  static bool diag_in_silence;
+  bool diag_silence_active() const {
+    return diag_in_silence && NVROLstateMachine == 5 && dtc_ext_state != DTC_EXT_IDLE;
+  }
+  uint8_t nvrol_written_value = 0xFF;  // 0x9281 value of the last write of a Sleep run, 0xFF = none yet
   static const uint32_t UQ_ID_REQ_DB = 0x18DADBF1;
   static const uint32_t UQ_ID_REQ_DC = 0x18DADCF1;
   static const uint32_t UQ_ID_RESP_DC = 0x18DAF1DC;

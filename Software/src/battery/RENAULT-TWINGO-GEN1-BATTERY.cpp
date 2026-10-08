@@ -702,6 +702,10 @@ void RenaultTwingoGen1Battery::start_powerdown(void) {
 // Enter the wake-up burst (state 8): 0x350 = C0 once, then C3 x10. Also starts the "how fast does the
 // BMS come back" timers, so they cover the whole wake-up, not just what happens after it.
 void RenaultTwingoGen1Battery::start_wake_burst(void) {
+  if (dtc_ext_state != DTC_EXT_IDLE) {  // a read request of the silence (point 8) is dropped when the wake-up begins
+    uq_restore_poll_template();
+    dtc_ext_state = DTC_EXT_IDLE;
+  }
   // True silence ends here (transmission resumes with the first burst frame), so this is when the
   // displayed "silent for" duration should stop counting - not once the burst itself has also finished.
   nvrol_silence_end_ms = millis();
@@ -782,6 +786,7 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
         strncpy(nvrol_log[2], "skipped (Sleep 0x9281=1)", sizeof(nvrol_log[2]) - 1);
         ZOE_POLL_18DADBF1.data = {0x04, 0x2E, 0x92, 0x81, datalayer_extended.twingoGen1.nvrol_temporisation_write_value,
                                   0xAA, 0xAA, 0xAA};
+        nvrol_written_value = datalayer_extended.twingoGen1.nvrol_temporisation_write_value;
         transmit_can_frame(&ZOE_POLL_18DADBF1);
         nvrol_awaiting_step = 3;
         startTimeNVROL = millis();
@@ -832,6 +837,7 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
         // configurable to 0x01 via "More Battery Info" (datalayer_extended.twingoGen1.nvrol_temporisation_write_value).
         ZOE_POLL_18DADBF1.data = {0x04, 0x2E, 0x92, 0x81, datalayer_extended.twingoGen1.nvrol_temporisation_write_value,
                                   0xAA, 0xAA, 0xAA};
+        nvrol_written_value = datalayer_extended.twingoGen1.nvrol_temporisation_write_value;
         transmit_can_frame(&ZOE_POLL_18DADBF1);
         nvrol_awaiting_step = 3;
 #ifdef EXTENDED_UDS_DEBUG
@@ -958,6 +964,9 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
   // communication - a fresh polling cycle is the natural "clean slate" point, same spirit as the
   // other per-wake resets below (bms_state_valid, bal_valid, temp filters).
   datalayer_battery->status.CAN_error_counter = 0;
+  // Point 7 (09.10.): the events raised by the silence and the wake-up (missing battery, CAN errors, ...) are
+  // acknowledged like the "clear all events" button of the events page does, as soon as the polling resumes.
+  reset_all_events();
   nvrol_silence_done = true;
   nvrol_last_mode = nvrol_mode;
   nvrol_mode = 0;
@@ -1586,6 +1595,16 @@ void RenaultTwingoGen1Battery::record_silence_frame(const CAN_frame& f) {
   rec->count++;
 }
 
+// Value of the last 0x9281 write as the label shows it: the byte really sent, not the setting of the page.
+static String write_value_text(uint8_t v) {
+  if (v == 0xFF) {
+    return String("(not written yet)");
+  }
+  char b[24];
+  snprintf(b, sizeof(b), "0x%02X%s", (unsigned)v, v == 0 ? " (activated)" : "");
+  return String(b);
+}
+
 // Temporisation (0x9281) as received: raw byte plus bit 0 and bit 7, no interpretation.
 static String temporisation_text(uint16_t v) {
   if (v >= 0x100) {
@@ -2009,7 +2028,7 @@ void RenaultTwingoGen1Battery::handle_incoming_can_frame(CAN_frame rx_frame) {
       if (wake_tracking && wake_first_uds < 0 && NVROLstateMachine != 5) {
         wake_first_uds = (int32_t)(millis() - wake_start_ms);  // first reply after Wake up
       }
-      if (UserRequestNVROLReset) {
+      if (UserRequestNVROLReset && !diag_silence_active()) {
         // While the NVROL sequence is running, responses are Session
         // Control/RoutineControl/WriteDataByIdentifier replies, not
         // ReadDataByIdentifier ones - handle_extended_reply() would
@@ -2247,7 +2266,7 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      true,
      "Zoe Gen1 only",
      "Zoe Gen1 frame from PR #2907 (labelled PEB inverter), rolling counter in byte 3. The Twingo vehicle never sends "
-     "it.",
+     "it. Off in the default set; no finding of its own yet.",
      SIM_END_LEGACY},
     {0x426,
      8,
@@ -2258,7 +2277,9 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      "0x426 (upstream PR #2907)",
      true,
      "Zoe Gen1 only",
-     "Zoe Gen1 frame from PR #2907 (labelled EVC power mux). The Twingo vehicle never sends it.",
+     "Zoe Gen1 frame from PR #2907 (labelled EVC power mux). The Twingo vehicle never sends it. Finding (bench): bytes "
+     "4-6 carry the mileage (km * 256, the pack showed exactly 19,400 km as $925F), and with this frame on the pack "
+     "sets E14381, E14281 and 1B0715. Off in the default set; mileage and byte 7 are editable below.",
      SIM_END_LEGACY},
     {0x436,
      8,
@@ -2269,7 +2290,8 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      "0x436 (upstream PR #2907)",
      true,
      "Zoe Gen1 only",
-     "Zoe Gen1 frame from PR #2907 (labelled EVC status, runtime clock). The Twingo vehicle never sends it.",
+     "Zoe Gen1 frame from PR #2907 (labelled EVC status, runtime clock). The Twingo vehicle never sends it. Finding: "
+     "bytes 2-3 are a minute counter (+1 every 60 s since the start of the emulator). Off in the default set.",
      SIM_END_LEGACY},
     {0x423,
      8,
@@ -2281,7 +2303,8 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      true,
      "Zoe Gen1 only",
      "Zoe Gen1 wake-up frame (code comment: the BMS answers diagnostics only while it receives it). The Twingo vehicle "
-     "never sends it and the LBC answered anyway.",
+     "never sends it. Finding: it wakes the pack (bytes 4 and 6 swap between B2 and 5D every 5 frames). Off in the "
+     "default set (0x387); switch it on when a test needs the wake-up.",
      SIM_END_LEGACY},
     {0x69F,
      8,
@@ -2987,6 +3010,9 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
     // True silence lasts until Wake up is pressed: on purpose the "battery alive" watchdog must not trip.
     datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;
     transmit_reset_nvrol_frames();
+    if (diag_in_silence && dtc_ext_state != DTC_EXT_IDLE) {
+      handle_dtc_ext(currentMillis);  // a read request started in the silence (point 8) runs on
+    }
     return;
   }
 #endif
@@ -3228,7 +3254,8 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
   // checkboxes - clicking one always forces the other off), plus the manual sleep failsafe window.
   // Persisted to NVM, same pattern as the BYD Atto3 auto-calibrate settings.
   {
-    bool write0 = (datalayer_extended.twingoGen1.nvrol_temporisation_write_value == 0);
+    const uint8_t wv = datalayer_extended.twingoGen1.nvrol_temporisation_write_value;
+    bool write0 = (wv == 0);
     bool prog = datalayer_extended.twingoGen1.nvrol_b009_use_programming_session;
     content +=
         "<h4>0x9281 write value (NVROL reset + Sleep 0x9281=1): "
@@ -3237,8 +3264,10 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content +=
         " 0x00 (activated) "
         "<input type='checkbox' id='twingoWrite01' onclick='twingoSetWriteValue(1)' ";
-    content += write0 ? ">" : "checked>";
-    content += " 0x01</h4>";
+    content += (wv == 1) ? "checked>" : ">";
+    content += " 0x01 <input type='checkbox' id='twingoWrite80' onclick='twingoSetWriteValue(128)' ";
+    content += (wv == 0x80) ? "checked>" : ">";
+    content += " 0x80</h4>";
 
     content +=
         "<h4>B009 diagnostic session: "
@@ -3275,6 +3304,13 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     // 0x22 and 0x19 and the write service 0x2E for a fixed list of identifiers are accepted (see
     // start_user_query()). The answer is polled from /twingoQueryResult.
     content +=
+        "<h4><input type='checkbox' id='twingoSilenceDiag' "
+        "onclick=\"fetch('/editTwingoSilenceDiag?value='+(this.checked?1:0))\" ";
+    content += diag_in_silence ? "checked>" : ">";
+    content +=
+        " Allow read requests in the silence of a Sleep run (off by default, runtime only; the silence is not "
+        "silent while a request is open; writes stay refused)</h4>";
+    content +=
         "<h4>Free request (0x22 / 0x19 read, 0x2E write): <select id='twingoQueryTarget' "
         "onchange=\"fetch('/twingoQueryTarget?value='+this.value)\"><option value='0'";
     content += uq_target == 0 ? " selected" : "";
@@ -3299,6 +3335,7 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "function twingoSetWriteValue(v){";
     content += "document.getElementById('twingoWrite00').checked=(v===0);";
     content += "document.getElementById('twingoWrite01').checked=(v===1);";
+    content += "document.getElementById('twingoWrite80').checked=(v===128);";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoNvrolWriteValue?value='+v,true);x.send();}";
     content += "function twingoSetB009Session(p){";
     content += "document.getElementById('twingoB009Ext').checked=(p===0);";
@@ -3333,7 +3370,7 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
              "NVROL Log - Routine B009: " << nvrol_log[1] << "<br>"
              "NVROL Log - Routine B009 results: " << nvrol_log[5] << "<br>"
              "NVROL Log - Session2: " << nvrol_log[2] << "<br>"
-             "NVROL Log - Write 9281=0 (activated): " << nvrol_log[3] << "<br>"
+             "NVROL Log - Write 9281=" << write_value_text(nvrol_written_value) << ": " << nvrol_log[3] << "<br>"
              "NVROL Log - Read back 0x9281: " << nvrol_log[4] << "<br>"
              "Temporisation right after the write (read back): " << temporisation_text(temporisation_readback) << "<br>"
              "<input type='checkbox' id='twingoDtcAllStatus' onclick='twingoSetDtcAllStatus(this.checked)' "
@@ -3448,6 +3485,7 @@ void RenaultTwingoGen1Battery::reset_DTC() {
 // protocol, one reply collector (03.10.). Only read services are accepted for the free request.
 // ---------------------------------------------------------------------------
 uint8_t RenaultTwingoGen1Battery::uq_target = 0;
+bool RenaultTwingoGen1Battery::diag_in_silence = false;
 
 void RenaultTwingoGen1Battery::uq_restore_poll_template() {
   ZOE_POLL_18DADBF1.ID = UQ_ID_REQ_DB;
@@ -3521,7 +3559,9 @@ void RenaultTwingoGen1Battery::uq_send_request() {
 }
 
 bool RenaultTwingoGen1Battery::uq_begin(uint8_t mode, const uint8_t* req, uint8_t len, bool needs_session) {
-  if (dtc_ext_state != DTC_EXT_IDLE || UserRequestNVROLReset || ext_isotp_in_progress || len == 0 || len > 7) {
+  const bool silence_ok = diag_in_silence && NVROLstateMachine == 5 && req[0] != 0x2E;
+  if (dtc_ext_state != DTC_EXT_IDLE || (UserRequestNVROLReset && !silence_ok) || ext_isotp_in_progress || len == 0 ||
+      len > 7) {
     return false;
   }
   uq_mode = mode;

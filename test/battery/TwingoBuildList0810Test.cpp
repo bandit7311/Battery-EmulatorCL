@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -9,6 +10,7 @@
 #include "../../Software/src/battery/RENAULT-TWINGO-GEN1-LOGIC.h"
 #include "../../Software/src/datalayer/datalayer.h"
 #include "../../Software/src/datalayer/datalayer_extended.h"
+#include "../../Software/src/devboard/utils/events.h"
 
 #include "Arduino.h"
 
@@ -484,4 +486,127 @@ TEST(TwingoBuild0810, FreeRequestToDcUsesTheSafetyCpuIds) {
       EXPECT_NE(f.ID, 0x18DADCF1u);
     }
   }
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Points 4 to 8
+TEST(TwingoBuild0810, DefaultMaskIsTheWorkingSet0x387) {
+  std::unique_ptr<DataLayerExtended> d(new DataLayerExtended());
+  EXPECT_EQ(d->twingoGen1.simulator_enabled_mask, 0x387ULL);
+  // on: 0x090, 0x242, 0x350, 0x69F, 0x53B, 0x214; off: the four Zoe frames
+  for (uint32_t id : {0x090u, 0x242u, 0x350u, 0x69Fu, 0x53Bu, 0x214u}) {
+    EXPECT_TRUE(d->twingoGen1.simulator_enabled_mask & (1ULL << row_of(id))) << std::hex << id;
+  }
+  for (uint32_t id : {0x19Fu, 0x426u, 0x436u, 0x423u}) {
+    EXPECT_FALSE(d->twingoGen1.simulator_enabled_mask & (1ULL << row_of(id))) << std::hex << id;
+  }
+}
+
+TEST(TwingoBuild0810, ZoeRowDescriptionsCarryTheFindings) {
+  auto info = [](uint32_t id) {
+    return std::string(RenaultTwingoGen1Battery::sim_signals[row_of(id)].info);
+  };
+  EXPECT_NE(info(0x426).find("mileage"), std::string::npos);
+  EXPECT_NE(info(0x426).find("E14381"), std::string::npos);
+  EXPECT_NE(info(0x426).find("1B0715"), std::string::npos);
+  EXPECT_NE(info(0x423).find("wakes"), std::string::npos);
+  EXPECT_NE(info(0x436).find("minute counter"), std::string::npos);
+}
+
+namespace {
+// Runs a "Sleep 0x9281=1" run (no reset routine) and returns the frames sent on the MCPU request ID.
+std::vector<CAN_frame> sleep_temporisation_frames(TestTwingo& b, uint64_t& t, uint64_t ms) {
+  std::vector<CAN_frame> out;
+  for (uint64_t e = t + ms; t < e; t += 10) {
+    set_millis64(t);
+    clear_transmitted_frames();
+    b.transmit_can((unsigned long)t);
+    for (const CAN_frame& f : get_transmitted_frames()) {
+      out.push_back(f);
+    }
+  }
+  return out;
+}
+}  // namespace
+
+TEST(TwingoBuild0810, Write9281CanBe0x80AndTheLabelShowsTheSentValue) {
+  struct Guard {
+    ~Guard() { datalayer_extended.twingoGen1.nvrol_temporisation_write_value = 0; }
+  } guard;
+  for (uint8_t v : {0x00, 0x01, 0x80}) {
+    datalayer_extended.twingoGen1.nvrol_temporisation_write_value = v;
+    TestTwingo b;
+    b.setup();
+    uint64_t t = 1000;
+    sleep_temporisation_frames(b, t, 700);
+    b.request_sleep_temporisation();
+    auto frames = sleep_temporisation_frames(b, t, 6000);
+    bool seen = false;
+    for (const CAN_frame& f : frames) {
+      if (f.ext_ID && f.ID == 0x18DADBF1 && f.data.u8[1] == 0x2E && f.data.u8[2] == 0x92 && f.data.u8[3] == 0x81) {
+        EXPECT_EQ(f.data.u8[4], v);
+        seen = true;
+      }
+    }
+    EXPECT_TRUE(seen) << "value " << (int)v;
+    char want[40];
+    snprintf(want, sizeof(want), "Write 9281=0x%02X", v);
+    EXPECT_NE(std::string(b.get_uds_info_html().c_str()).find(want), std::string::npos) << want;
+  }
+}
+
+TEST(TwingoBuild0810, EventsAreAcknowledgedWhenThePollingResumes) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  sleep_temporisation_frames(b, t, 700);
+  b.request_sleep_temporisation();
+  sleep_temporisation_frames(b, t, 150000);  // write, shutdown sequence (about 135 s), then the silence
+  EXPECT_TRUE(sleep_temporisation_frames(b, t, 500).empty());
+  set_event(EVENT_CAN_BATTERY_MISSING, 0);  // raised during the silence
+  EXPECT_EQ(get_event_pointer(EVENT_CAN_BATTERY_MISSING)->state, EVENT_STATE_ACTIVE);
+  b.request_wake_up();
+  sleep_temporisation_frames(b, t, 8000);  // wake-up burst, then the polling resumes
+  EXPECT_EQ(get_event_pointer(EVENT_CAN_BATTERY_MISSING)->state, EVENT_STATE_INACTIVE);
+}
+
+TEST(TwingoBuild0810, ReadRequestsInTheSilenceOnlyWithTheSwitch) {
+  struct Guard {
+    ~Guard() { RenaultTwingoGen1Battery::diag_in_silence = false; }
+  } guard;
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  sleep_temporisation_frames(b, t, 700);
+  b.request_sleep_temporisation();
+  sleep_temporisation_frames(b, t, 150000);  // write, shutdown sequence (about 135 s), then the silence
+  // the silence: nothing is on the bus any more
+  EXPECT_TRUE(sleep_temporisation_frames(b, t, 500).empty());
+  // switch off (default): refused
+  EXPECT_FALSE(RenaultTwingoGen1Battery::diag_in_silence);
+  EXPECT_STRNE(b.start_user_query("22 92 61"), "OK");
+  EXPECT_TRUE(sleep_temporisation_frames(b, t, 300).empty());
+  // switch on: the read goes out, the answer is shown, writes stay refused
+  RenaultTwingoGen1Battery::diag_in_silence = true;
+  EXPECT_STRNE(b.start_user_query("2E 92 61 00 00 03"), "OK");
+  clear_transmitted_frames();
+  ASSERT_STREQ(b.start_user_query("22 92 61"), "OK");
+  bool seen = false;
+  for (const CAN_frame& f : get_transmitted_frames()) {  // a read goes out at once
+    if (f.ext_ID && f.ID == 0x18DADBF1 && f.data.u8[1] == 0x22 && f.data.u8[2] == 0x92 && f.data.u8[3] == 0x61) {
+      seen = true;
+    }
+  }
+  EXPECT_TRUE(seen);
+  CAN_frame r = {};
+  r.ext_ID = true;
+  r.DLC = 8;
+  r.ID = 0x18DAF1DB;
+  const uint8_t data[8] = {0x06, 0x62, 0x92, 0x61, 0x14, 0x02, 0x70, 0xAA};
+  memcpy(r.data.u8, data, 8);
+  b.handle_incoming_can_frame(r);
+  EXPECT_NE(std::string(b.user_query_result()).find("62 92 61 14 02 70"), std::string::npos) << b.user_query_result();
+  // and it is silent again afterwards
+  sleep_temporisation_frames(b, t, 1000);
+  EXPECT_TRUE(sleep_temporisation_frames(b, t, 500).empty());
 }
