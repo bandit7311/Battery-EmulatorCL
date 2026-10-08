@@ -96,8 +96,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
     SimEnd end_stage;         // see SimEnd
   };
   // 28 rows of 02.10./03.10. + 7 rows of 04.10. (0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657) + 4 rows of 08.10.
-  // (0x57F, 0x599, 0x62D, 0x523) + 0x5D7 + Zoe Gen2 frames 0x373/0x375/0x376 (09.10.), all off by default
-  static const uint8_t SIM_SIGNAL_COUNT = 43;
+  // (0x57F, 0x599, 0x62D, 0x523) + 0x5D7 + Zoe Gen2 frames 0x373/0x375/0x376 + 0x0EE/0x5F8/0x6BF (09.10.), all off by default
+  static const uint8_t SIM_SIGNAL_COUNT = 46;
   static const SimSignal sim_signals[SIM_SIGNAL_COUNT];
 
   // Row switches (bit i = sim_signals[i]). 64 bit wide since 04.10.: rows 32-34 do not fit into 32 bits.
@@ -336,6 +336,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // 0x29A / 0x0C6 (rows 28 and 30): rolling counter and checksum byte, see send_simulator_signals().
   uint8_t sim_0c6_counter = 0;  // index 0-15 into A0, A2 ... BE
   uint8_t sim_29a_counter = 0;  // 0-15
+  uint8_t sim_0ee_counter = 0;  // 0-15, byte 6 of 0x0EE
   uint8_t sim_373_counter = 0;  // 0-9, bytes 2-3 swap every 5 frames
   uint8_t sim_5d7_counter = 0;  // 0-31, byte 6 = C0 + 2 * counter
 

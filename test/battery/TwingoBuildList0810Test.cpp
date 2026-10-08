@@ -408,10 +408,10 @@ TEST(TwingoBuild0810, ZoeRowsSendTheirFramesAndAreOffByDefault) {
   b.setup();
   auto f373 = collect(b, 0x373, 1000, 2200);
   ASSERT_GE(f373.size(), 11u);
-  EXPECT_EQ(hex_of(f373[0].data.u8, 8), "C1 40 5D B2 00 01 FF E3");
-  EXPECT_EQ(hex_of(f373[4].data.u8, 8), "C1 40 5D B2 00 01 FF E3");
-  EXPECT_EQ(hex_of(f373[5].data.u8, 8), "C1 40 B2 5D 00 01 FF E3");  // swapped after 5 frames
-  EXPECT_EQ(hex_of(f373[10].data.u8, 8), "C1 40 5D B2 00 01 FF E3");
+  EXPECT_EQ(hex_of(f373[0].data.u8, 8), "C1 80 B2 5D 00 01 FF E3");  // 80 = vehicle unlocked
+  EXPECT_EQ(hex_of(f373[4].data.u8, 8), "C1 80 B2 5D 00 01 FF E3");
+  EXPECT_EQ(hex_of(f373[5].data.u8, 8), "C1 80 5D B2 00 01 FF E3");  // swapped after 5 frames
+  EXPECT_EQ(hex_of(f373[10].data.u8, 8), "C1 80 B2 5D 00 01 FF E3");
   auto f375 = collect(b, 0x375, 2200, 2500);
   ASSERT_FALSE(f375.empty());
   EXPECT_EQ(hex_of(f375[0].data.u8, 8), "02 29 00 BF FE 64 00 FF");
@@ -619,4 +619,54 @@ TEST(TwingoBuild0810, QueryPageHasTheDirectButtonsTheTargetAndTheSilenceSwitch) 
                            "DC (safety CPU)", "twingoSilenceDiag", "twingoWrite80", "localStorage"}) {
     EXPECT_NE(html.find(want), std::string::npos) << want;
   }
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// 0x0EE, 0x5F8, 0x6BF (Zoe Gen2 driver)
+namespace {
+uint8_t crc8_j1850_start0(const uint8_t* d, int n) {  // independent bitwise check of the table version
+  uint8_t crc = 0;
+  for (int i = 0; i < n; i++) {
+    crc ^= d[i];
+    for (int b = 0; b < 8; b++) {
+      crc = (crc & 0x80) ? (uint8_t)((crc << 1) ^ 0x1D) : (uint8_t)(crc << 1);
+    }
+  }
+  return crc;
+}
+}  // namespace
+
+TEST(TwingoBuild0810, ZoeExtraRowsAreOffAndSendTheDriverContents) {
+  OdoGuard guard;
+  for (uint32_t id : {0x0EEu, 0x5F8u, 0x6BFu}) {
+    const int row = row_of(id);
+    ASSERT_GE(row, 0) << std::hex << id;
+    EXPECT_FALSE(RenaultTwingoGen1Battery::sim_row_enabled(row));
+  }
+  EXPECT_EQ(RenaultTwingoGen1Battery::sim_signals[row_of(0x0EE)].interval_ms, 10);
+  EXPECT_EQ(RenaultTwingoGen1Battery::sim_signals[row_of(0x5F8)].dlc, 4);
+  EXPECT_EQ(RenaultTwingoGen1Battery::sim_signals[row_of(0x6BF)].dlc, 3);
+  datalayer_extended.twingoGen1.simulator_enabled_mask =
+      0x3FFULL | (1ULL << row_of(0x0EE)) | (1ULL << row_of(0x5F8)) | (1ULL << row_of(0x6BF));
+  TestTwingo b;
+  b.setup();
+  auto f0ee = collect(b, 0x0EE, 1000, 1400);
+  ASSERT_GE(f0ee.size(), 20u);
+  for (size_t i = 0; i < f0ee.size(); i++) {
+    const uint8_t* d = f0ee[i].data.u8;
+    EXPECT_EQ(d[0], 0x32);
+    EXPECT_EQ(d[1], 0x03);
+    EXPECT_EQ(d[2], 0x20);
+    EXPECT_EQ(d[3], 0xAA);
+    EXPECT_EQ(d[6], (i & 0x0F)) << "counter at frame " << i;
+    EXPECT_EQ(d[7], (uint8_t)(crc8_j1850_start0(d, 7) ^ 0xAC)) << "crc at frame " << i;
+  }
+  auto f5f8 = collect(b, 0x5F8, 1400, 2600);
+  ASSERT_FALSE(f5f8.empty());
+  EXPECT_EQ(f5f8[0].DLC, 4);
+  EXPECT_EQ(hex_of(f5f8[0].data.u8, 4), "16 44 90 8F");
+  auto f6bf = collect(b, 0x6BF, 2600, 3800);
+  ASSERT_FALSE(f6bf.empty());
+  EXPECT_EQ(f6bf[0].DLC, 3);
+  EXPECT_EQ(hex_of(f6bf[0].data.u8, 3), "00 00 00");
 }

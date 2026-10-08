@@ -2702,15 +2702,15 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
     // material: in the Zoe the LBC seems to take its time from these HEVC frames.
     {0x373,
      8,
-     {0xC1, 0x40, 0x5D, 0xB2, 0x00, 0x01, 0xFF, 0xE3},
+     {0xC1, 0x80, 0xB2, 0x5D, 0x00, 0x01, 0xFF, 0xE3},
      100,
      'A',
      false,
      "0x373",
      true,
      "HEVC (Zoe Gen2 driver)",
-     "HEVC wake-up/sleep frame of the Zoe Gen2 driver: bytes 2-3 swap between 5D B2 and B2 5D every 5 frames. Not in "
-     "the Twingo vehicle log; test whether the pack reacts.",
+     "HEVC wake-up/sleep frame of the Zoe Gen2 driver: byte 1 80 = vehicle unlocked (40 would be locked), bytes 2-3 "
+     "are B2 5D for 5 frames, then 5D B2 for 5 frames. Not in the Twingo vehicle log; test whether the pack reacts.",
      SIM_END_BUS},
     {0x375,
      8,
@@ -2734,6 +2734,42 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      "HEVC (Zoe Gen2 driver)",
      "Time frame of the Zoe Gen2 driver: the minutes (here our vehicle age, as in 0x350) as three base-255 digits "
      "(year, hour, minute), sent twice. Not sent without an age. Not in the Twingo vehicle log.",
+     SIM_END_BUS},
+    {0x0EE,
+     8,
+     {0x32, 0x03, 0x20, 0xAA, 0x00, 0x00, 0x00, 0x00},
+     10,
+     'A',
+     false,
+     "0x0EE",
+     true,
+     "EVC (Zoe Gen2 driver)",
+     "\"Pedal position\" of the Zoe Gen2 driver, every 10 ms: 32 03 20 AA 00 00, byte 6 counter 0-15, byte 7 CRC-8 "
+     "J1850 (start 0) over bytes 0-6 XOR AC. Not in the Twingo vehicle log.",
+     SIM_END_BUS},
+    {0x5F8,
+     4,
+     {0x16, 0x44, 0x90, 0x8F, 0, 0, 0, 0},
+     1000,
+     'A',
+     false,
+     "0x5F8",
+     true,
+     "HEVC (Zoe Gen2 driver)",
+     "Vehicle ID of the Zoe Gen2 driver, constant 16 44 90 8F. 0x69F carries a different vehicle ID: do not switch "
+     "both on together. Not in the Twingo vehicle log.",
+     SIM_END_BUS},
+    {0x6BF,
+     3,
+     {0x00, 0x00, 0x00, 0, 0, 0, 0, 0},
+     1000,
+     'A',
+     false,
+     "0x6BF",
+     true,
+     "HEVC (Zoe Gen2 driver)",
+     "\"Total Boost Time\" of the Zoe Gen2 driver, all zero. The MCPU has a value \"Total boost time from HEVC to "
+     "BMS saved at powerlatch\" that may belong to it (guess, from the name). Not in the Twingo vehicle log.",
      SIM_END_BUS},
 };
 
@@ -2934,10 +2970,18 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
           }
         }
       }
+    } else if (sim_signals[i].id == 0x0EE) {
+      f.data.u8[6] = sim_0ee_counter;
+      sim_0ee_counter = (uint8_t)((sim_0ee_counter + 1) & 0x0F);
+      uint8_t crc = 0;  // CRC-8 J1850 with start value 0 over bytes 0-6, XOR 0xAC (Zoe Gen2 driver)
+      for (uint8_t j = 0; j < 7; j++) {
+        crc = crc8_table_SAE_J1850_ZER0[(crc ^ f.data.u8[j]) & 0xFF];
+      }
+      f.data.u8[7] = (uint8_t)(crc ^ 0xAC);
     } else if (sim_signals[i].id == 0x373) {
       if ((sim_373_counter / 5) % 2 == 1) {
-        f.data.u8[2] = 0xB2;
-        f.data.u8[3] = 0x5D;
+        f.data.u8[2] = 0x5D;
+        f.data.u8[3] = 0xB2;
       }
       sim_373_counter = (uint8_t)((sim_373_counter + 1) % 10);
     } else if (sim_signals[i].id == 0x376) {
@@ -3298,7 +3342,7 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
 
     content +=
         "<h4><button onclick=\"window.open('/simulator','_blank')\">Open CAN Signal Simulator page</button>"
-        " - 43 individually toggleable cyclic signals</h4>";
+        " - 46 individually toggleable cyclic signals</h4>";
 
     // Free request (03.10., write added 05.10.): input field, Query button and answer field. The read services
     // 0x22 and 0x19 and the write service 0x2E for a fixed list of identifiers are accepted (see
