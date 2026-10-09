@@ -342,3 +342,12 @@ Folgen fuer den Nachbau:
 - **Aufgezeichnete Werte je Zustand senden:** `0x423` (B7), `0x426`, `0x436`, `0x435`, `0x428`, `0x42F`, `0x1C7`, `0x69F`, `0x0ED`, `0x4F7`.
 - **Unklar:** `0x500`, `0x1A1`, `0x419`, `0x157` (B0/B3).
 - Bekannt aus dem Code: `0x090`, `0x242`, `0x18A` tragen Zaehler und CRC-8 J1850 (Polynom `0x1D`), `RENAULT-TWINGO-GEN1-BATTERY.h`.
+
+### 17.1 Zweiter Durchgang: breitere Pruefsummen-Suche (10.10.)
+Suche: alle 127 ungeraden 8-Bit-Polynome, mit und ohne Spiegelung (Startwert faellt in das Ausgangs-XOR), vier Bereiche (alle anderen Bytes, Bytes davor, danach+davor, rueckwaerts), dazu Summe und XOR der anderen Bytes plus Konstante; jedes Byte als Pruefbyte; Stichprobe 160 verschiedene Frames je ID; Schwelle 97 %.
+- **Positivkontrolle:** `0x0EC` Byte 2 wird gefunden (Polynom `0x1D`, XOR `0xBE`, 100 %). Das Suchverfahren funktioniert.
+- **Kein Treffer:** `0x423`, `0x157`, `0x1A1`, `0x419`, `0x500` (8-Bit-Pruefsummen dieser Familien).
+- **Gemessen, `0x423` Byte 7:** Frames mit identischen uebrigen sieben Bytes tragen teils unterschiedliche Byte 7 (24 von 61 Gruppen mit Widerspruch). Byte 7 ist also **keine Pruefsumme der anderen Bytes**, sondern traegt eigene Information (z. B. langsamer Zaehler oder Messwert). Gleiches gilt fuer `0x423` B1 (28 von 128 Gruppen) und `0x419` (alle variablen Bytes mit Widerspruechen).
+- `0x19F` B3 (Zaehler +5) widerspricht sich innerhalb gleicher Restbytes, passend zu einem Zaehler; B0/B1/B2/B5 tragen sonst keine Widersprueche (meist eindeutige Frames, daher wenig aussagekraeftig).
+- **Offen / nicht getestet:** 4-Bit-Pruefsummen im selben Byte wie ein Zaehler (z. B. `0x157` B1 unteres Nibble), E2E-Profile mit Data-ID je Zaehlerstand, Bit-Ebene.
+- **Folge:** `0x423` kann mit aufgezeichneten Werten je Zustand gesendet werden; ob Byte 7 dabei stoert, zeigt nur der Test am Akku.
