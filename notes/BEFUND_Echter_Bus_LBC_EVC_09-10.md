@@ -237,3 +237,14 @@ Quelle: `429c72f7-batteryemulator_vs_ovms_250926.md` (Chat vom 25.09.-28.09.2026
 ### 11.5 Stand der Lifetime-Zaehler (Nutzer, 09.10.)
 - Nutzer: `0x9245/0x9247` (und die uebrigen Zaehler aus 11.2) stehen seit dem NVROL-Reset (23./24.09.) weiterhin auf 0. Vor dem Reset am 23.09.: 99 Zyklen, 1026,59 kWh geladen, 1178,56 kWh entladen, 204,18 kWh regeneriert.
 - Auch `9261` / `91C1` speichern am Bench seit Wochen keine neuen Zeitwerte (bench bleibt bei 9261 = 91C1 = `14 02 70`, siehe BEFUND_SCPU_0436_Bench_08-10.md). **Annahme (nicht belegt):** gleiche Ursache, der LBC rechnet/speichert ohne gueltige Zeitbasis nicht.
+
+## 12. Logger-Filter (USB-CAN-Log), Presets aus dem Chat vom 09.10.
+
+Quelle: Chat-Export `cc935ef3-batteryemulator_vs_ovms_0310262.md` (identisch mit dem Export vom 04.10. bis auf den Schluss vom 09.10., 20:28 Uhr).
+
+- Einstellung: Settings, Feld **"CAN USB log filter (hex IDs)"**. Wirkt **erst nach Neustart** des Moduls; "sofort beim Speichern anwenden" ist als K1 auf der Bauliste und nicht gebaut. Ein `!` am Anfang bedeutet "alles ausser".
+- **Lauf 1** (Mitschnitt 22aaf176 und die Logs seit 04.10.): `!90,C6,12E,17A,17E,186,18A,1B0,1F6,1F8,211,217,242,29A,29C,2B7`
+- **Lauf 2** (nur die 16 schnellen IDs, `0x350`, `0x214`, alle 29-Bit-IDs, Diagnosebereich; ca. 1.360 Frames/s): `90,C6,12E,17A,17E,186,18A,1B0,1F6,1F8,211,217,242,29A,29C,2B7,350,214,ext,700-7FF`
+- **Kurzliste** (wenig Last, ca. 154 Frames/s): `ext,350,214,53B,69F,42E,5D7,5DE,646,4C2,700-7FF`
+- Empfehlung fuer den Bench-Mitschnitt am Akku: **kein Filter** (Feld leer), damit auch die Akku-Frames sichtbar sind, die Lauf 1 ausblendet. Logger-Verluste: im Auto-Log 91 Marker, 240.577 Frames (ca. 27 %); am Bench bei weniger Verkehr erwartet weniger (Annahme).
+- Der Chat vermerkt, dass die Uebergabe-Datei fuer ein anderes Konto nicht fertig geliefert wurde.
