@@ -24,6 +24,21 @@ Je Schritt **30 s warten**; notieren: kommen `0x155`, `0x424`, `0x425`, Zellfram
 
 Wenn 2a nicht weckt, in 2b-2d feststellen, welches dazukommende Frame den Broadcast ausloest. Weckt keiner dieser Saetze, erst dann Teil 3a (Fahrzeug-CAN-Zeilen als Wecker).
 
+## 2e. Danach die bisher unbekannten EVC-Frames nach und nach (erst nach dem Umbau, Bauliste 1b)
+Nutzer 10.10.: frisch anfangen und die Frames nach und nach zuschalten; `0x428` und `0x435` kommen auf dem echten Bus vom EVC-Teil, wir hatten bisher nichts damit zu tun (nicht im Code, nicht in der Simulator-Liste). Reihenfolge (jeweils zusaetzlich zu den fuenf, je 30 s warten, `9259`, `9279`, `9261`, `91C1`, `925C`, `91CF` lesen). Inhalt je Zustand aus dem Auto-Mitschnitt 22aaf176:
+
+| Schritt | Frame | Takt | Verhalten im Auto (gemessen) |
+|---|---|---|---|
+| 2e | `0x435` | 100 ms | `FF FF 1D EB 33 FC 00 00` beim Wecken, danach B2 `1D/1E`, B3 `EB`->`0B`, B5 `FC`->`00` (aendert sich beim Wecken und bei Tuer auf) |
+| 2f | `0x428` | 100 ms | `00 00 00 00 00 06 00 00`, beim Start kurz `... 07 C0 00` |
+| 2g | `0x42F` | 100 ms | `00 20 FF 80 0F B0`, beim Start kurz alles `00` |
+| 2h | `0x4F7` | 100 ms | `00 1C/1D 08 00 [B4] 40 06 F0`, B4 aendert sich bei Zuendung 1 (`B0`->`90`) |
+| 2i | `0x419` | 100 ms | 6 Byte, Werte schwanken je Zustand (unklar, ob vom EVC) |
+| 2j | `0x0ED` | 10 ms | 3 Byte, B1 `FF`->`CC` bei GO |
+| 2k | `0x500` | 100 ms | 5 Byte, ab ca. 15 s nach Zuendung 1 |
+| 2l | `0x511` | 100 ms | 7 Byte, B0 `04` (Ruhe) / `00` (Zuendung 3, Fahrt) |
+| 2m | `0x1C7`, `0x157`, `0x1A1`, `0x0EC` | 10 ms | schnelle Frames, Inhalt aus dem Mitschnitt |
+
 ## 3. Zusatz: Fahrzeug-CAN-Zeilen (kommen im Auto nicht zum Akku)
 Basis: der Satz aus Teil 2, der den Akku weckt (oder alle fuenf). Je Gruppe 30 s warten, dieselben Werte lesen, notieren was sich aendert (`9259`, `9279`, `9261`, `91C1`, `925C`, `91CF`).
 
