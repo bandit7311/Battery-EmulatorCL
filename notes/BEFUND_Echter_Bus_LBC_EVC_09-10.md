@@ -351,3 +351,10 @@ Suche: alle 127 ungeraden 8-Bit-Polynome, mit und ohne Spiegelung (Startwert fae
 - `0x19F` B3 (Zaehler +5) widerspricht sich innerhalb gleicher Restbytes, passend zu einem Zaehler; B0/B1/B2/B5 tragen sonst keine Widersprueche (meist eindeutige Frames, daher wenig aussagekraeftig).
 - **Offen / nicht getestet:** 4-Bit-Pruefsummen im selben Byte wie ein Zaehler (z. B. `0x157` B1 unteres Nibble), E2E-Profile mit Data-ID je Zaehlerstand, Bit-Ebene.
 - **Folge:** `0x423` kann mit aufgezeichneten Werten je Zustand gesendet werden; ob Byte 7 dabei stoert, zeigt nur der Test am Akku.
+
+
+## 18. Zweite Berichtigung: Mitschnitt 22aaf176 war ungefiltert (Nutzer, 10.10.)
+- **Nutzer:** Beim Mitschnitt auf dem BMS<>EVC-Bus im echten Fahrzeug (22aaf176, 09.10.) war **kein Filter** aktiv.
+- **Folge:** Abschnitt 15 ("16 IDs unbekannt, weil gefiltert") wird hinfaellig. Die 52 IDs des Mitschnitts sind dann der gesamte Inhalt des Busses in dieser Sitzung; `0x090`, `0x242`, `0x0C6`, `0x12E`, `0x17A`, `0x17E`, `0x186`, `0x18A`, `0x1B0`, `0x1F6`, `0x1F8`, `0x211`, `0x217`, `0x29A`, `0x29C`, `0x2B7` sowie `0x350`, `0x53B`, `0x214` laufen dort **nicht**. Die 17 EVC-seitigen IDs (Abschnitt 17) sind fuer diese Sitzung vollstaendig.
+- **Widerspruch, offen:** Am 09.10. hatte der Nutzer geschrieben, ab 04.10. nur noch mit Filter `!90,C6,...` aufgezeichnet zu haben; die Datei laesst sich nicht pruefen (keine der 16 IDs im Log, ob gefiltert oder nicht). Plausibilitaet: Lograte ca. 830 Frames/s + 27 % Verlust, das passt zu ca. 1.100 Frames/s ohne die 16 schnellen IDs; mit ihnen waere die Bus-Last deutlich hoeher. Das spricht fuer die Nutzeraussage, beweist sie nicht.
+- Bleibt: Die Sitzung zeigt nur Wecken, Zuendung, Fahrt, Abschliessen, Schlafen (kein Laden, keine Fehler); bis zu 27 % der Frames fehlen.
