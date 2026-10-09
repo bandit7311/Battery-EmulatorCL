@@ -3,6 +3,23 @@
 Stand 09.10.2026. Gebaut wird erst nach ausdruecklichem "bauen".
 Basis-Branch fuer Code: claude/twingo-hv-modell-und-alter (HEAD e3988cb).
 
+## PRIORITAET 1b (Nutzer, 10.10.): Modus "wie im Fahrzeug" und zweigeteilte Simulator-Liste
+Vorgabe: Auch die 12 weiteren EVC-Frames des echten BMS<>EVC-Busses aufnehmen. Neuer Code auf **neuem Branch ab e3988cb** (z. B. `twingo-echter-bus-modus`); `claude/twingo-hv-modell-und-alter` bleibt als Rueckfall unveraendert.
+
+**Block 1 "ALLE SIMULATIONSWERTE wie im FAHRZEUG"** (echtes Format und echter Takt, nach Takt gruppiert; Takt gemessen im Mitschnitt 22aaf176):
+- 10 ms: `0x19F`, `0x0EC`, `0x0ED`, `0x157`, `0x1A1`, `0x1C7`
+- 100 ms: `0x423`, `0x426`, `0x436`, `0x419`, `0x428`, `0x42F`, `0x435`, `0x4F7`, `0x500`, `0x511`
+- 1 s: `0x69F`
+- 20 ms, 200 ms, 500 ms, 3 s: auf der EVC-Seite dieses Busses keine Frames (3-s-Frames sind Akku-Frames, die senden wir nicht). Gruppen bleiben als leere Ueberschriften bzw. entfallen (zu klaeren).
+- Zustandsauswahl (zu, wach, Zuendung 1, Zuendung 3, GO, Fahrt, aus), Alter-Feld (`0x436` B1-B3), km-Feld (`0x426` B4-B5), Inhalt je Zustand aus dem Auto-Mitschnitt.
+
+**Block 2 "simulator alt"** (die heutigen 46 Zeilen unveraendert, nach Takt gruppiert: 10 / 20 / 100 / 200 / 500 / 1 s / 3 s).
+
+**Offene Punkte vor dem Bau:**
+- Gehoeren in Block 1 auch Fahrzeug-CAN-Zeilen (mit echtem Format aus den Fahrzeug-Logs) oder nur der BMS<>EVC-Bus? (Annahme: nur BMS<>EVC.)
+- Last: sechs 10-ms-Frames = ca. 600 Frames/s. Fruehere Wake-Fehler (CAN NATIVE BUS ERROR) kamen bei 0x090/0x242 gleichzeitig mit dem Wake-Burst; die schnellen Frames erst nach dem Wake-Burst starten (Fix-later-Punkt aus dem Chat vom 29.09.).
+- Nicht bauen ohne ausdrueckliches "bauen".
+
 ## PRIORITAET 1 (Nutzer, 10.10.): Markierung "echter BMS<>EVC-Bus" in der Simulator-Liste
 Vorgabe: Der Traffic auf dem BMS<>EVC-CAN reicht. In der Simulator-Liste muss pro Zeile sichtbar sein, ob das Frame dort wirklich vorkommt (Quelle: Mitschnitt 22aaf176, Abschnitt 3/9.2 in BEFUND_Echter_Bus_LBC_EVC_09-10.md).
 - **ja (5 Zeilen):** `0x423`, `0x426`, `0x436`, `0x19F`, `0x69F` (bei `0x423/0x426/0x436/0x19F` Zusatz "Format weicht ab").
