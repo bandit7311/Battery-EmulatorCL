@@ -233,3 +233,7 @@ Quelle: `429c72f7-batteryemulator_vs_ovms_250926.md` (Chat vom 25.09.-28.09.2026
 ### 11.4 Folge fuer die offenen Fragen
 - Die Logs 24.07./05.08. (kein Broadcast mit Zoe-Gen2-Satz) und 25.09. (Broadcast mit Zoe-Gen1-Satz) stimmen mit dem Chat ueberein, in dem der Zoe-Gen2-Satz nur fuer Zeit/Status gedacht war.
 - **Offen:** Nutzer-Frage, ob eine gueltige Uhrzeit fuer Balancing und Zaehler noetig ist; Chat-Befund: Balancing laeuft nachweislich auch ohne gesendete Zeit (Block 85-96 aktiv).
+
+### 11.5 Stand der Lifetime-Zaehler (Nutzer, 09.10.)
+- Nutzer: `0x9245/0x9247` (und die uebrigen Zaehler aus 11.2) stehen seit dem NVROL-Reset (23./24.09.) weiterhin auf 0. Vor dem Reset am 23.09.: 99 Zyklen, 1026,59 kWh geladen, 1178,56 kWh entladen, 204,18 kWh regeneriert.
+- Auch `9261` / `91C1` speichern am Bench seit Wochen keine neuen Zeitwerte (bench bleibt bei 9261 = 91C1 = `14 02 70`, siehe BEFUND_SCPU_0436_Bench_08-10.md). **Annahme (nicht belegt):** gleiche Ursache, der LBC rechnet/speichert ohne gueltige Zeitbasis nicht.
