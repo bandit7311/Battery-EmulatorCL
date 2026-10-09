@@ -45,3 +45,11 @@ Nutzer-Idee: Wenn wir den richtigen emulierten Wert senden, uebernimmt der Akku 
 1. `0x426` mit **steigenden Kilometern** in den Zustaenden Zuendung/Fahrt senden; pruefen, ob `91CF` mitzaehlt.
 2. `0x436` im echten Format (`80 [Alter] 00 00`) senden; pruefen, ob `9261`/`91C1` in der MCPU anlaufen.
 3. Zum Vergleich weiter `925F` und `9261` der SCPU mitlesen (diese folgen bereits).
+
+## Werte, die zu diesem Bench-Akku passen (Vorschlag fuer die Voreinstellung der Felder, 10.10.)
+
+Rechnung (nachgerechnet am 10.10.):
+- **km:** Pack-Laufleistung `91CF` = 6.844 km (`0x1ABC`), unveraendert zwischen 24.07. und 05.08. Der Akku wurde laut Nutzer mit wenigen km gekauft. **Annahme:** Lief der Pack seit neu im selben Spenderfahrzeug, entspricht 6.844 km dem Kilometerstand des Spenderfahrzeugs. `0x426` setzt `925F` (Fahrzeugstrecke), nicht `91CF`; `91CF` zaehlt der Akku selbst (am 01.10. trotz 19.400 km in `925F` = 0). Vorschlag: Voreinstellung des km-Feldes (`0x426`, bisher 19.400) auf **6.844** (weiter einstellbar). Der Nutzer wollte frueher 19.400 km am Bench behalten; Entscheidung offen.
+- **Zeit (`91C1`, Pack-Zeit seit erstem Einschalten):** 912.981 min am 24.07. Bei natuerlicher Fortsetzung ergibt das 1.019.541 min am 06.10. und 1.025.301 min am 10.10. (78 Tage x 1.440 min seit dem 24.07.), **falls** der Zaehler in Kalenderzeit weiterlaeuft; zaehlt er nur Betriebszeit, liegt der Wert darunter. Offen.
+- **Auffaellig (gemessen):** Am 06.10. stand `9261` = `91C1` = 1.311.344 min, also **291.803 min (rund 203 Tage) ueber** der natuerlichen Fortsetzung (1.019.541). Das passt nicht zu einem reinen Weiterzaehlen; moeglicher Zusammenhang mit dem Wert, den unser Emulator an den Akku schickte (Hypothese, nicht belegt: die Bytes `14 02 70` entsprechen Byte 1-3 unseres alten `0x436`-Zaehlers `86 14 02 70 ...`). Die bisherige Regel (Alter 1.314.935 = 1.311.344 + Zeit + 1 Tag, "nicht unter der Packzeit") beruht auf diesem Wert.
+- **`9261` (Fahrzeugzeit):** fuer diesen Akku vor dem Reset nicht gelesen, kein passender Wert bekannt.
