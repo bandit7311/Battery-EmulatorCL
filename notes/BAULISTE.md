@@ -63,6 +63,7 @@ Vorgabe: Der Traffic auf dem BMS<>EVC-CAN reicht. In der Simulator-Liste muss pr
 17. Absender-Marker auf Basis der Bench-Mitschnitte (BEFUND_Echter_Bus_LBC_EVC_09-10.md Abschnitt 10.2): Akku sendet 0x155, 0x0C5, 0x1C9, 0x424, 0x425, 0x43A, 0x445, 0x464, 0x588, 0x4AE, 0x4AF, 0x659, 0x6BE, 0x5A1...0x5F7, 0x5DD.
 
 ## Offen beim Nutzer
+- **Mitschnitt im Auto am BMS<>EVC-Bus mit Filter "Lauf 2"** (`90,C6,12E,17A,17E,186,18A,1B0,1F6,1F8,211,217,242,29A,29C,2B7,350,214,ext,700-7FF`): klaert, ob die 16 gefilterten IDs (0x090, 0x242, ...) dort laufen. Der einzige ungefilterte Mitschnitt (02.10., 364b56eb) ist Fahrzeug-CAN (enthaelt alle 16 IDs, aber 0x155/0x424/0x425/0x423/0x426/0x436 = 0) und beantwortet es nicht.
 - Bench-Mitschnitt mit Logger (RX und TX) in vier Schritten (0x423 ohne/mit/allein, nur 0x350; Abschnitt 10.3)
 - Pin-Belegung am LBC-Stecker (CAN H/L), damit die Aderfarben aus dem Schaltplan zugeordnet werden koennen.
 
