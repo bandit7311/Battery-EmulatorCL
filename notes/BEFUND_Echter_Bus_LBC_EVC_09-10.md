@@ -54,7 +54,7 @@ Daraus (**Schluss**): `0x426` B2 ist der Zustand (`02` zu, `06` offen/geweckt, `
 | `0x1C7` | 60.688 | 2 / 2 / `=00` / 2 / 2 / `=00` |
 | `0x1C9` | 60.694 | 64 / 64 |
 | `0x69F` | 607 | `46 13 88 6F` (alle 2,5 s) |
-| `0x500` | 1.928 | 5 Bytes, nur ab Stufe 3 bis Zündung aus |
+| `0x500` | 1.928 | 5 Bytes, ab 114 s (ca. 15 s nach Zündung Stufe 1) bis Zündung aus |
 | `0x6BE`, `0x511`, `0x4F7`, `0x42F`, `0x419`, `0x428` | | siehe Log |
 
 Akku-seitig (**Annahme**, nach Formaten): `0x155`, `0x424`, `0x425`, `0x43A`, `0x445`, `0x464`, `0x588`, `0x5A1` bis `0x5F7`, `0x659`, `0x4AE`, `0x4AF`.
@@ -99,3 +99,39 @@ Zeiten = Zeitstempel im Log (Sekunden). Kennzeichnung: **gemessen** / **Schluss*
 - Wohl vom Akku (**Annahme**): 0x419, 0x43A, 0x464, 0x588, 0x659.
 - Nur im Zoe-Gen2-Code, nicht im Twingo-Code: 0x4AE, 0x4AF, 0x5A1, 0x5AC, 0x5AD, 0x5B4, 0x5B5, 0x5B7, 0x5C9, 0x5CB, 0x5CC, 0x5D6, 0x5D9, 0x5DD, 0x5EA, 0x5EC, 0x5ED, 0x5F0, 0x5F1, 0x5F2, 0x5F4, 0x5F7.
 - **Gemessen:** Beim Wecken kommen zuerst 0x0EC (+0,05 s) und 0x423 (+0,11 s), ca. 0,17 s nach Zyklusstart alle uebrigen Frames.
+
+## 7. Nachtrag 09.10. (Abend): Zellspannungen, Ladelog, Logger-Marker, Gemini
+
+### 7.1 Berichtigungen zu frueheren Abschnitten
+- `0x500` beginnt bei 114 s, ca. 15 s nach Zuendung Stufe 1 (99 s), nicht erst bei Stufe 3 (Abschnitt 2 und 3 oben, Tabelle korrigiert).
+- Die langsamen Frames (`0x4AE`, `0x4AF`, `0x659`, `0x5A1...0x5F7`, `0x5DD`) kommen im Median alle ca. 3 s, nicht alle ~7 s.
+- **Fehlende Frames, exakt:** Der Logger schreibt Marker `[N CAN frames not printed]` (`comm_can.cpp:505-520`, Puffer voll). Log 22aaf176: 91 Marker, zusammen **240.577** nicht gedruckte Frames, gedruckt 642.256 -> ca. 27 % fehlen. Logs 02.10./04.10.: 21 bzw. 36 Marker. Die Schaetzung "16.800" betraf nur `0x155`.
+- Die Logs vom 02.10./04.10. und das Ladelog (Fahrzeug-CAN) enthalten die langsamen Akku-Frames sehr wohl (`0x5A1`, `0x5DD`, `0x4AF`, `0x599`, `0x658`), aber nicht die schnellen (`0x155`, `0x424`, `0x425`, `0x445`).
+
+### 7.2 Zellspannungen aus den Broadcast-Frames (gemessen)
+- 19 Frames `0x5A1, 0x5AC, 0x5AD, 0x5B4, 0x5B5, 0x5B7, 0x5C9, 0x5CB, 0x5CC, 0x5D6, 0x5D9, 0x5EA, 0x5EC, 0x5ED, 0x5F0, 0x5F1, 0x5F2, 0x5F4, 0x5F7` je 5 Zellen + `0x5DD` 1 Zelle = **96 Zellen**.
+- Je Frame: Z1 = `(B0<<4)|(B1>>4)`, Z2 = `((B1&0F)<<8)|B2`, Z3 = `(B3<<4)|(B4>>4)`, Z4 = `((B4&0F)<<8)|B5`, Z5 = `(B6<<4)|(B7>>4)`; B7 Low-Nibble immer `F`. `0x5DD`: `(B0<<4)|(B1>>4)`.
+- **Spannung in mV = Rohwert + 2000** (1 mV/Bit).
+- Pruefung: 196 Zyklen, Max/Min der 96 Zellen gegen `0x425` (10-mV-Raster): Max -1 mV (122x), Min -9 mV (97x) / +1 mV (33x), passt zu abgerundeten 10 mV. Faktor 1 mV/Bit nur schwach unabhaengig geprueft (Zellspreizung im Log nur wenige mV).
+- **Annahme:** Zuordnung Reihenfolge der IDs -> Zellnummer nicht geprueft.
+- Beispiele: 100 s (Zuendung 1) min 3537 / max 3540 / Mittel 3539 mV, Summe 339,7 V; 250 s (Fahrt) 3527 / 3531 / 3531 mV, 339,0 V.
+- Die unteren Nibbles in B1/B2 sind Zellwerte, keine Statusbits (fruehere Vermutung "Dreiergruppen" widerrufen).
+- Folge: Zellspannungen brauchen keine UDS-Abfrage, sie kommen als Broadcast.
+
+### 7.3 Ladelog (Fahrzeug-CAN, BusMaster, 12.12.2025 / 10:43-10:49)
+- 126 IDs, kein `0x155/0x424/0x425/0x426/0x436/0x423`.
+- Mit ca. 4 s Takt (92-95 Frames): `0x4AF`, `0x504`, `0x599`, `0x5A1...0x5F7`, `0x5DD`, `0x5BD`, `0x5C6`, `0x5CE`, `0x632`, `0x658`, `0x665`, `0x66F`, `0x6A4`, `0x6A6`, `0x6A7`, `0x6A9`, `0x6AA`, `0x6B5`, `0x6F3...0x6F7`, `0x6FB`. **Schluss (nicht belegt):** Gleichtakt mit den Zellframes -> wohl ebenfalls vom Akku.
+
+### 7.4 Gemini-Antwort geprueft (09.10.)
+Widersprueche zum Code/Log:
+1. `0x155` nennt Gemini EVC; im Code vom Akku (`RENAULT-TWINGO-GEN1-BATTERY.cpp:1963`).
+2. `0x423`/`0x426` nennt Gemini LBC; der Emulator (EVC-Rolle) sendet sie an den Akku (`RENAULT-TWINGO-GEN1-BATTERY.h:290-318`).
+3. `0x424` = Charge limits/Temperaturen/SOH und `0x425` = Zellspannungen/kWh (Code `:1984`, `:2028`), nicht SOC/HV-Spannung bzw. Power Limits.
+4. `0x436` nennt Gemini LBC; gemessen Fahrzeugalter vom EVC.
+Rest (Bedeutung `0x157`, `0x1A1`, ... ) ohne Fundstelle -> Annahme. Fazit: nicht hilfreich fuer die offenen IDs.
+
+### 7.5 Absender der Frames am Bench bestimmen
+- Mit "alle Zeilen aus" sendet der Akku nichts (Nutzer). Standardmaske `0x387` = `0x090`, `0x242`, `0x350`, `0x69F`, `0x53B`, `0x214` (Kommentar `datalayer_extended.h:1130`: `0x423/0x19F/0x426/0x436` aus).
+- `0x423` als Weckframe: Code-Kommentar `RENAULT-TWINGO-GEN1-BATTERY.cpp:3133` (aus Zoe-Code geerbt, nicht gemessen); im Echt-Log kommt `0x423` 0,11 s nach Zyklusstart als erstes EVC-Frame. MERKZETTEL_Zeitwerte_33BE.md:275-276: Satz mit `0x423` funktionierte, Notwendigkeit nicht bewiesen. **Offen:** Kommuniziert der Akku mit nur `0x423` (ohne `0x090/0x242/0x350`)?
+- Test vor Ort: (1) Standard ohne `0x423`; (2) `0x090/0x242/0x350` + `0x423`; (3) nur `0x423`; je Kommunikation (Zellspannungen, Status) notieren.
+- **Logger:** `print_can_frame()` protokolliert RX und TX (`comm_can.cpp:317`, `:544`); Kanal RX = Schnittstelle*2, TX = Schnittstelle*2+1 (`RX4` = `CAN_ADDON_MCP2515`). Am Bench mit USB-Logging (`CANLOGUSB`) sind alle RX-Zeilen Akku-Frames, alle TX-Zeilen unsere. Damit ist der Absender messbar.
