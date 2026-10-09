@@ -78,3 +78,72 @@ SCPU `9261` ("Abs time since first ignition", `Wxx_cm_abs_time_vhc`), Ziel DC (`
 - Wie kommt die MCPU zu `9259` = 05?
 - Messung im Auto: Frames in der Abschaltfolge, `9259`, `9261`, `91C1`, `9262` vorher/nachher.
 - 0x436 dauerhaft machen (Wert persistent, vorbelegt mit Fahrzeugalter).
+
+---
+
+# Nachtrag 08./09.10.2026
+
+Kennzeichnung wie oben: **gemessen**, **Schluss**, **Annahme**.
+
+## 9. SCPU-Fehlerspeicher und Löschen (gemessen)
+
+- SCPU `19 02 09`: `59 02 FF E1 43 81 68 1B B1 08 28` = **E14381** (Status `68`) und **1BB108** (Status `28`).
+  - E14381 = "CAN from EVC/HEVC", Fehlertyp 0x81 "invalid serial data received" (steht in MCPU- und SCPU-Definition).
+  - 1BB108 = "Safety CPU/Slave Communication" (`slv_com_2_bus`), Typ 0x08 "Bus Signal / Message Failures".
+  - Status nach ISO-Tabelle (Schluss): beide bestätigt, seit dem Löschen fehlgeschlagen, aktuell nicht fehlerhaft.
+- MCPU `19 02 09`: `59 02 FF` ohne Eintrag.
+- `14 FF FF FF` auf der SCPU (neuer Knopf "Erase DTC SCPU", Antwort `54`): danach `no DTC`.
+- Später kam **1BB108 (`28`) allein wieder**, E14381 nicht. Auslöser unbekannt (Schlafläufe, Aufwachen, Zeilen an/aus seit dem Löschen).
+
+## 10. `9259` und `925C` (gemessen)
+
+Auto-Dumps (13 Stück, 04.11.2025 und 06.10.2026): `9259` = `05` mit `925C` = `01` (MCPU und SCPU, Fahrbetrieb), `9259` = `04` mit `925C` = `02` (MCPU, Zündung aus). Nur diese zwei Kombinationen.
+
+Bench:
+| Lage | MCPU `9259` / `925C` | SCPU `9259` / `925C` |
+|---|---|---|
+| Anfang, normale Frames | `04` / `01` | `04` / `01` |
+| mit HV-Zeilen, Sleep-Läufe | `04` / `03` | `04` / `00` |
+| **alle Zeilen aus (Test "All rows off")** | **`00`** | **`06`** |
+| Zeilen wieder an ("Rows back") | `04` | `04` |
+| alles an außer 0x426 | `04` / `03` | `04` / `01` |
+| alles wieder aus | – | `925C` bleibt `01` |
+
+- **Gemessen:** `9259` folgt den Frames (ohne Frames `00` bzw. `06`, mit Frames `04`). `925C` springt durch Zeilen oder Schlafläufe um und geht beim Ausschalten **nicht** von selbst zurück (rastet ein).
+- **Annahme:** `00`/`06` bedeuten "keine Fahrzeugkommunikation". `05` am Bench nie erreicht.
+- `00`, `03` und die Kombination `04`/`01` gibt es im Auto nicht.
+
+## 11. `9281` = `0x80` (gemessen)
+
+- Schreiben von `9281` = `0x80` ohne Security Access: `6E 92 81`, Rücklesen `0x80` (bit7 = 1). Bedeutung unbekannt (Definition kennt nur 0/1). `9261` verlangte dagegen Security Access (NRC 0x33).
+
+## 12. Minutenzähler in den Fahrlogs (gemessen)
+
+Suche über alle Frames, jedes 1-3-Byte-Fenster, das sich um +1 ändert:
+- Logs 02.10., 04.10.: nur `0x350` Bytes 1-3 (+1 pro Minute, mittlerer Abstand 61,7 s bzw. 63,7 s).
+- Ladelog 20.11.2025 (375 s): `0x350` (`2516093` bis `…099`) und `0x53B` Byte 1 (Minute der Uhr, `AC` um 10:43, `B0` um 10:44; = Minute × 4). Die Uhr ist bei uns schon im Emulator (`0x53B`).
+- Im Ladelog sendet das Auto `0x53B` in den ersten ~65 s ungültig (`F8 FC FF FF 00 07`), danach `50 B0 06 44 B0 E4`. Unser fester Frame trägt das Datum 15.03.2025 (`50 AC 06 4B 30 7D`).
+- Die MCPU/SCPU-Definitionen enthalten **kein** Kalenderdatum. Zeitwerte: `9261`, `91C1`, `9264` (Total boost time from HEVC saved at powerlatch), `926B` (Abstime at transition start). Alle Minutenzähler.
+
+## 13. Tests mit dem Abschalten (gemessen)
+
+Alle ohne Wirkung auf MCPU `9261`/`91C1` (bleibt `14 02 70`):
+- Sleep-Läufe mit 0x436 auf 1.311.345, 1.311.364 (durch die ganze Abschaltfolge), `9281` = `0x00` und `0x80`.
+- "All rows off at once" (alle Frames inkl. 0x350 plötzlich weg), danach "Rows back".
+- Die SCPU folgt 0x436 unmittelbar (nach "Rows back" wieder auf den laufenden Wert).
+
+## 14. Hinweis zum Ursprung von `14 02 70` (Schluss)
+
+- `14 02 70` = 0x436-Byte 1 `14` + Minutenzähler 0x0270 (624 min Laufzeit). Kein fester Frame in Code oder Git-Geschichte trägt `14 02 70`.
+- Bench-Akku ist ein anderes Stück als der Auto-Akku (`F187` `293A00812R` gegen `293A09578R`, `9282` `T2028724 66PCA…` gegen `T2129902 01PDA…`). Auto-Akku: `9261` − `91C1` = 784.382 min konstant.
+
+## 15. Schaltplan (Steuerung Elektrofahrzeug, 09.11.2024) - Farben der Verbindung Antriebsbatterie (938) - EVC
+
+Gelesen aus der PDF (600 dpi Ausschnitt), **nicht** am Fahrzeug geprüft. Der Plan nennt die Leitungen nicht "CAN H/L".
+
+- Bauteil 938 = "Antriebsbatterie", dreimal gezeichnet (drei Steckverbinder). 977 = Batteriekühlflüssigkeitspumpe, 645 = UCH, 129 = Programmschalter Automatikgetriebe.
+- **Oberer 938-Steckverbinder** (Pins 12 und 6, mit Verdrillungssymbol und Schirm "GR"): Pin 6 **braun** (`55AP-MA`, läuft über R212 A8 weiter, EVC Pin E2 `55AP-VE`), Pin 12 **grün**.
+- **Mittlerer 938** (Pins 2, 6, 11): `2ADD-BA` (hellgrau/weiß), `2ADE-MA` (braun), `2ADF-GR` (grau) zum EVC (N1, C3, F3).
+- **Unterer 938** (Pins 5, 3): `2AC-BE` (blau) und `2AD-GR` (grau) zum EVC (Q2, P3).
+- Die Leitungen `55BJ` und `55BH` (grün/blau, EVC Q4/D2) gehören zur Kühlmittelpumpe 977 (Pins 4 und 2), nicht zur Batterie.
+- **Offen:** Welche Pins des LBC die CAN-Leitungen sind, geht aus dem Plan nicht eindeutig hervor.
