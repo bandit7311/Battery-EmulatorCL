@@ -321,3 +321,24 @@ Bekannt (MERKZETTEL_Zeitwerte_33BE.md Z. 126/284, BEFUND_SCPU_0436_Bench_08-10.m
 - **Schluss (nicht bewiesen):** Der Fehler "invalid serial data" kann am **Inhalt** (B2/B3) haengen, nicht am Frame an sich. Test (a) aus KONZEPT_HV_Modell Z. 111 ("0x426 an mit km = 0") wurde nie gemacht; der Inhalt von B1-B3 ist in der Simulator-Seite bisher nicht einstellbar (nur km und Byte 7).
 - **Vorschlag fuer den ersten Test im Modus "echter Bus":** `0x426` im Ruhezustand wie im Auto, z. B. `00 00 06 01 [km] 00 40` (wach, Tuer offen) oder `00 00 02 01 ...` (zu); dazu `0x19F` mit 10 ms. Erwartung: E14381 bleibt aus. Nicht belegt; es koennen auch fehlende Begleitframes (`0x435`, `0x0ED`, `0x1A1`) im Spiel sein.
 - Welche CPU den Fehler setzt, ist offen: E14381 steht in MCPU- und SCPU-Definition; der Fehlertext deutet auf die SCPU (Funktion LBC2).
+
+## 17. Zaehler und Pruefsummen der 17 EVC-seitigen Frames (10.10., erste Untersuchung, Mitschnitt 22aaf176)
+
+Methode: Skript `an.py`-Stil im Scratchpad. Pruefsumme: CRC-8 (MSB zuerst, ohne Spiegelung), Polynom `0x1D` oder `0x2F`, Startwert `0x00` oder `0xFF`, ueber "alle anderen Bytes" oder "alle Bytes davor", mit konstantem Ausgangs-XOR; jedes Byte der Frames als moegliches CRC-Byte. Zaehler: je Nibble konstanter Schritt mod 16, je Byte konstanter Schritt mod 256. **Grenze:** Nicht abgedeckt sind andere CRC-Familien (z. B. E2E-Profile mit Data-ID je Zaehlerstand) und Pruefsummen ueber Teilbereiche. Bei (fast) konstanten Frames ist jeder Treffer wertlos.
+
+| Frame | Ergebnis | Sicherheit |
+|---|---|---|
+| `0x0EC` (3 Byte) | **B1 hoeheres Nibble = Zaehler +1**; **B2 = CRC-8, Polynom `0x1D`, Start `0x00`, Ausgangs-XOR `0xBE` ueber B0, B1** (100 % von 57.317 Frames) | gemessen |
+| `0x19F` | **B3 niedriges Nibble = Zaehler +5 mod 16** (100 %); `B7` immer `FE`; keine Pruefsumme gefunden (B0/B1 und B5 aendern sich nur in Zuendung/Fahrt) | gemessen (Zaehler); CRC offen |
+| `0x157` | **B1 hoeheres Nibble = Zaehler +5** (100 %); B0, B3 mit 256 Werten (langsam veraenderlich, 88 % unveraendert zum Vorgaenger); keine Pruefsumme gefunden (beste Quote 4 %) | Zaehler gemessen; CRC offen |
+| `0x511` (7 Byte) | B0 `04`/`00` = Zustand; **B1-B6 sind sechs unabhaengige Zaehler mit festem Schritt mod 256**: B1 +63, B2 +201, B3 +185, B4 +107, B5 +13, B6 +227 (je 98 % der Frames); keine Pruefsumme gefunden | gemessen (Schritte); Startwert/Sinn offen |
+| `0x500` (5 Byte) | B1-B4 zufaellig wirkend (256 Werte, kein Schritt, kein CRC gefunden), erscheint ab ca. 15 s nach Zuendung 1 | offen |
+| `0x1A1`, `0x419` | Messsignale (viele Werte, ueberwiegend unveraendert zum Vorgaenger), kein Zaehler, kein CRC gefunden | offen |
+| `0x4F7` | weniger als 8 Werte je Byte, kein Zaehler | konstant je Zustand |
+| `0x423`, `0x426`, `0x436`, `0x435`, `0x428`, `0x42F`, `0x1C7`, `0x69F`, `0x0ED` | pro Zustand konstant bzw. nur wenige Werte; **kein Zaehler**. `0x423` B7 (`D6`, `E9`, `E8`, `CC`, `BB`) aendert sich mit dem Zustand und wechselnden B4/B6 (`5D`/`B2`); mit den getesteten CRC-Familien nicht erklaerbar (beste Quote 56 %) | `0x423` B7 offen |
+
+Folgen fuer den Nachbau:
+- **Mit Formel erzeugbar:** `0x0EC` (Zaehler + CRC), `0x19F` (Zaehler +5), `0x157` (Zaehler +5, restliche Bytes unbekannt), `0x511` (sechs Zaehler mit festen Schritten, Startwerte frei).
+- **Aufgezeichnete Werte je Zustand senden:** `0x423` (B7), `0x426`, `0x436`, `0x435`, `0x428`, `0x42F`, `0x1C7`, `0x69F`, `0x0ED`, `0x4F7`.
+- **Unklar:** `0x500`, `0x1A1`, `0x419`, `0x157` (B0/B3).
+- Bekannt aus dem Code: `0x090`, `0x242`, `0x18A` tragen Zaehler und CRC-8 J1850 (Polynom `0x1D`), `RENAULT-TWINGO-GEN1-BATTERY.h`.
