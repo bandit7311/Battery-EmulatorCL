@@ -3,6 +3,13 @@
 Stand 09.10.2026. Gebaut wird erst nach ausdruecklichem "bauen".
 Basis-Branch fuer Code: claude/twingo-hv-modell-und-alter (HEAD e3988cb).
 
+## PRIORITAET 1 (Nutzer, 10.10.): Markierung "echter BMS<>EVC-Bus" in der Simulator-Liste
+Vorgabe: Der Traffic auf dem BMS<>EVC-CAN reicht. In der Simulator-Liste muss pro Zeile sichtbar sein, ob das Frame dort wirklich vorkommt (Quelle: Mitschnitt 22aaf176, Abschnitt 3/9.2 in BEFUND_Echter_Bus_LBC_EVC_09-10.md).
+- **ja (5 Zeilen):** `0x423`, `0x426`, `0x436`, `0x19F`, `0x69F` (bei `0x423/0x426/0x436/0x19F` Zusatz "Format weicht ab").
+- **nein (41 Zeilen):** alle uebrigen (Fahrzeug-CAN), darunter `0x350`, `0x090`, `0x242`, `0x53B`, `0x214`.
+- Zusatz: Spalte "Absender" (Akku/EVC/Fahrzeug) und "auch auf Fahrzeug-CAN".
+- Nicht bauen ohne ausdrueckliches "bauen".
+
 ## A. Anzeige / Simulator-Liste
 1. Neue Spalte "Echter LBC/EVC-Bus" in /simulator (ja / nein / neu).
    - Grundlage: Mitschnitt 22aaf176 (Bus zwischen Akku und EVC, ohne unseren Eingriff).
