@@ -40,6 +40,12 @@ Vorgabe: Auch die 12 weiteren EVC-Frames des echten BMS<>EVC-Busses aufnehmen. N
 - Last: sechs 10-ms-Frames = ca. 600 Frames/s. Fruehere Wake-Fehler (CAN NATIVE BUS ERROR) kamen bei 0x090/0x242 gleichzeitig mit dem Wake-Burst; die schnellen Frames erst nach dem Wake-Burst starten (Fix-later-Punkt aus dem Chat vom 29.09.).
 - Nicht bauen ohne ausdrueckliches "bauen".
 
+## ENTSCHEIDUNG Voreinstellungen (Nutzer, 10.10.): nur Packwerte dieses Akkus
+- **km (Feld fuer `0x426`, Bytes 4-5):** Voreinstellung **6.844 km** (Pack-Laufleistung `91CF` vor dem Reset). Die bisherigen 19.400 km entfallen als Voreinstellung (Nutzer: stammen vermutlich vom Akku im Auto).
+- **Alter (`0x436` Bytes 1-3, Feld "Manual vehicle age"):** Voreinstellung **1.025.301 min** (Pack-Zeit `91C1` = 912.981 am 24.07. + 78 Tage x 1.440 min bis 10.10.2026), danach +1 pro Minute ab dem Setzen. **Ohne** zusaetzlichen Sicherheitstag (die bisherigen 1.314.935 aus 1.311.344 + Zeit + 1 Tag entfallen). Die Regel "Uhrwert nie senden" bleibt.
+- **Risiko (Hinweis):** Der Akku hielt am 06.10. 1.311.344 min (`9261`/`91C1`), der neue Vorgabewert liegt rund 286.000 min darunter; moeglich, dass der Akku einen kleineren Wert als den gespeicherten nicht uebernimmt. Zeigt der Test.
+- Beide Werte bleiben im Feld einstellbar.
+
 ## NEU (Nutzer, 10.10.): Spalte "Erstmals gesehen" in der Simulator-Tabelle
 - Spalte neben der LED, Wert = Zeitpunkt des ersten Empfangs einer Nachricht mit dieser ID. Vorschlag: **Hauptzeit relativ in Sekunden (`T+12,43 s`)** aus `millis()` (monoton, ohne WLAN/NTP, gleiche Zeitbasis wie das Log `(84.55) RX4 ...`), Bezug **T+0 = letzter Druck auf "Alle Zeilen aus"** (Entscheidung Nutzer 10.10.: Zeit nur dort auf 0, kein eigener Knopf; loescht dabei alle "Erstmals gesehen"). **Zusatz** als Tooltip/zweite Zeile: Uhrzeit per NTP (`hh:mm:ss`), nur wenn die Uhr gestellt ist (der Treiber hat dafuer schon `get_unix_time()`), und die Roh-`millis()` fuer den Abgleich mit dem Log. Optional billig dazu: "zuletzt gesehen" und Anzahl.
 - **Zeitleiste oben (Nutzer 10.10.):** feststehende Leiste mit der **aktuellen Zeit** `Jetzt: T+142,7 s` (zusaetzlich Uhr per NTP, falls gestellt) und **"Letzte Aktion"** (Zeit und Art, z. B. `T+98,2 s - 0x423 an`); aktualisiert sich per kleinem Abruf alle 1 s. Damit laesst sich beim Zuschalten oder Knopfdruck erkennen, was neu dazukam: Zeilen, deren "Erstmals gesehen" juenger als 15 s ist (Entscheidung Nutzer 10.10.), werden hellgelb hervorgehoben. Skizze: `Skizze_Simulator_Seite_v6.html`.
