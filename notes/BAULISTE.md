@@ -40,6 +40,11 @@ Vorgabe: Auch die 12 weiteren EVC-Frames des echten BMS<>EVC-Busses aufnehmen. N
 - Last: sechs 10-ms-Frames = ca. 600 Frames/s. Fruehere Wake-Fehler (CAN NATIVE BUS ERROR) kamen bei 0x090/0x242 gleichzeitig mit dem Wake-Burst; die schnellen Frames erst nach dem Wake-Burst starten (Fix-later-Punkt aus dem Chat vom 29.09.).
 - Nicht bauen ohne ausdrueckliches "bauen".
 
+## NEU (Nutzer, 10.10.): Spalte "Erstmals gesehen" in der Simulator-Tabelle
+- Spalte neben der LED, Wert = Zeitpunkt des ersten Empfangs einer Nachricht mit dieser ID. Vorschlag: **Hauptzeit relativ in Sekunden (`T+12,43 s`)** aus `millis()` (monoton, ohne WLAN/NTP, gleiche Zeitbasis wie das Log `(84.55) RX4 ...`), Bezug **T+0 = letzter Druck auf "Alle Zeilen aus" oder neuer Knopf "Zeit 0 setzen"** (loescht dabei alle "Erstmals gesehen"). **Zusatz** als Tooltip/zweite Zeile: Uhrzeit per NTP (`hh:mm:ss`), nur wenn die Uhr gestellt ist (der Treiber hat dafuer schon `get_unix_time()`), und die Roh-`millis()` fuer den Abgleich mit dem Log. Optional billig dazu: "zuletzt gesehen" und Anzahl.
+- Genauigkeit: Zeitstempel im Empfangsteil des Treibers genommen; 10-ms-Frames sind damit auf wenige ms genau (Task-Latenz).
+- Skizze: `Skizze_Simulator_Seite_v4.html` (Scratchpad). Nicht bauen ohne ausdrueckliches "bauen".
+
 ## NEU (Nutzer, 10.10.): Zellspannungen aus den Broadcast-Frames auswerten
 - Der Akku sendet am Bench alle 96 Zellen im Broadcast (`0x5A1...0x5F7`, `0x5DD`, alle 3 s, ein Burst dauert 100 ms; gemessen in den Logs 25.09., 28.09., 01.10.). Der Treiber wertet sie bisher nicht aus (kein `case` in `RENAULT-TWINGO-GEN1-BATTERY.cpp`); die Zellwerte kommen aus der UDS-Abfrage (`TWINGO_EXTENDED_CELL_POLLING`).
 - Dekodierung: je Frame 5 Zellen, 12 Bit, mV = Roh + 2000; Zellnummer nach Renault-Datenbank (`0x5F7` = Zelle 1-5 ... `0x5A1` = 91-95, `0x5DD` = 96; `0x5EC` ersetzt `0x5D7`, Annahme); Platzhalter beim Wecken (`FF...`, `00 ... 0F`) ausfiltern.
