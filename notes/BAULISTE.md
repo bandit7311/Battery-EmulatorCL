@@ -20,7 +20,7 @@ Vorgabe: Auch die 12 weiteren EVC-Frames des echten BMS<>EVC-Busses aufnehmen. N
 - 20 ms, 200 ms, 500 ms, 3 s: auf der EVC-Seite dieses Busses keine Frames (3-s-Frames sind Akku-Frames, die senden wir nicht). Gruppen bleiben als leere Ueberschriften bzw. entfallen (zu klaeren).
 - Zustandsauswahl (zu, wach, Zuendung 1, Zuendung 3, GO, Fahrt, aus), Alter-Feld (`0x436` B1-B3), km-Feld (`0x426` B4-B5), Inhalt je Zustand aus dem Auto-Mitschnitt.
 
-**Block 2 "simulator alt"** (die heutigen 46 Zeilen unveraendert, nach Takt gruppiert: 10 / 20 / 100 / 200 / 500 / 1 s / 3 s).
+**Block 2 "simulator alt"**: die heutigen Zeilen **ohne** die fuenf BMS<>EVC-Frames (`0x423`, `0x426`, `0x436`, `0x19F`, `0x69F`), also 41 Zeilen, nach Takt gruppiert (10 / 20 / 100 / 200 / 500 / 1 s / 3 s). Entscheidung Nutzer 10.10.: Alle Frames, die auf dem BMS<>EVC-Bus laufen, stehen **nur noch in Block 1**, nie doppelt. Das alte Zoe-Format der fuenf bleibt hoechstens als Umschalter innerhalb von Block 1 (Vorschlag, noch zu bestaetigen). Beim Bau beachten: Der in der NVM gespeicherte Zeilen-Schalter (64-Bit-Maske, Bit = Zeilenindex) darf durch das Herausnehmen der fuenf Zeilen nicht verrutschen; Standardmaske 0x387 aendert sich (Bit 7 = `0x69F` wandert in Block 1).
 
 **Entschieden (Nutzer, 10.10.):** Block 1 enthaelt nur den BMS<>EVC-Bus. Die Fahrzeug-CAN-Zeilen gehoeren in Block 2 "simulator alt", dort **mit echtem Format**, so dass man sie wirklich einschalten kann. 10-ms-Frames erst nach dem Wake-Burst ist in Ordnung.
 
