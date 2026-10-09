@@ -248,3 +248,23 @@ Quelle: Chat-Export `cc935ef3-batteryemulator_vs_ovms_0310262.md` (identisch mit
 - **Kurzliste** (wenig Last, ca. 154 Frames/s): `ext,350,214,53B,69F,42E,5D7,5DE,646,4C2,700-7FF`
 - Empfehlung fuer den Bench-Mitschnitt am Akku: **kein Filter** (Feld leer), damit auch die Akku-Frames sichtbar sind, die Lauf 1 ausblendet. Logger-Verluste: im Auto-Log 91 Marker, 240.577 Frames (ca. 27 %); am Bench bei weniger Verkehr erwartet weniger (Annahme).
 - Der Chat vermerkt, dass die Uebergabe-Datei fuer ein anderes Konto nicht fertig geliefert wurde.
+
+## 13. Weitere Chat-Exporte (09.10.): Zusammenhang der Bench-Logs, Schlaf-Reihenfolge, Zeit-PIDs
+
+Quellen: `cb57ee6f-batteryemulator_vs_ovms_280926.md` (28.-29.09., 5.862 Zeilen), `e81bfb50-batteryemulator_vs_ovms_290926.md` (29.09.), `0eb6ef37-batteryemulator_vs_ovms_011026.md` (01.-02.10., 7.008 Zeilen; nur Schluss und Stichworte gelesen). Kennzeichnung: **Chat** = steht im Chat, von mir nicht neu geprueft.
+
+### 13.1 Herkunft der Bench-Logs (Berichtigung zu Abschnitt 10)
+- **Chat (28.09., 09:32):** `canlog_00-04-48.zip` ist ein **Lauf des Zoe-Gen2-Treibers** (kein Twingo-Treiber): TX `0x0EE` (2.757), `0x373`, `0x375`, `0x376`, `0x5F8`, `0x6BF`, 137 UDS-Anfragen; RX nur 64 UDS-Antworten, keine Broadcast-Frames. Das Zeitfeld `0x376` zeigte nur den Treiber-Startwert (24.04.2025), nicht die echte Zeit. Kein `0x350`, kein `0x53B`.
+- **Chat:** In diesem Lauf antwortete `91C1` mit `0D EE 55` = 912.981 min (634 Tage); `9261` ohne Antwort. Nach dem NVROL-Reset stehen `9261` und `91C1` auf 0 (Chat 28.-29.09., Anzeige "More Battery Info").
+- **Chat (29.09. 01:05):** `91C1` heisst im Werkstatt-Dump "Pack Time Life (since 1st power-up)", 1:1 Minuten; `9261` ist "Absolute Time of Vehicle", eine eigene dritte Zeitgroesse. Im selben Dump ist `0x9281` mit `00` "temporisation is activated" (die NVROL-Sequenz schrieb vorher `01`; am 28.09. auf `00` geaendert).
+- Die Dumps (`...RBMS_MCPU...txt`) sind `DataWrite`-Makros (Service 0x2E) fuer fast jede DID; Chat: damit sind die Felder beschreibbar.
+
+### 13.2 Schlafablauf am Bench und Reihenfolge der Akku-Frames (Chat 29.09., Anhang 14:07)
+- Ablauf: "Sleep 0x9281" (Session 1 OK, B009 uebersprungen, Write 9281=0 OK, Read-back `00`), dann nichts mehr senden; Akku **still ab ca. T+138 s**; der Chat meldet "super geklappt", Aufwachen mit "Wake up" funktioniert.
+- **Gemessen (Anhang):** Letzte Frames je ID: Zellframes `0x5A1...0x5F7`, `0x5DD`, `0x659`, `0x4AE`, `0x4AF` bei T+136,7-136,8 s; `0x6BE` bei T+137,7 s; `0x424`, `0x425`, `0x43A` bei T+137,9 s; `0x445`, `0x464`, `0x588`, `0x0C5`, `0x1C9`, `0x155` zuletzt bei T+138,0 s. Die langsamen Frames enden also zuerst, die schnellen zuletzt.
+- Gleiche Anzeige: Zeit `9261` = 0, Pack-Zeit `91C1` = 0, `925F` (Fahrzeug-km) = 19.400 km, `91CF` (Pack-km) = 0, Zaehler/Zyklen = 0, Balancing-Zaehler `80000000`, BMS-State nur Nullen, SOC 70,14 %, Pack 374,8 V.
+
+### 13.3 To-do/Nice-to-have aus dem Chat (29.09., nur vorgemerkt)
+- Deye: kurz 100 % SOC nach dem Aufwachen (soll nicht, auch kein 0 % melden); Events "CAN NATIVE BUS ERROR" nach dem Wiederanlauf automatisch quittieren; Fix-later: `0x090/0x242` erst nach dem vollstaendigen Wake-Burst starten.
+- Nice-to-have: Hardware-Taster mit Sleep inkl. `0x9281` ohne Wiederanlauf; SSD1306-Statusfeld "Shutdown requested / Sleep requested / Battery sleeping - Turn off now!!".
+- Chat 01.-02.10.: `C3` als Dauerwert im Betrieb fraglich (Ladelog zeigt `C0`); Rolling-Counter in `0x18A` (Byte 7, Schritt `0x10`) ist im Emulator vorhanden.
