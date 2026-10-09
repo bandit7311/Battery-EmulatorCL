@@ -135,3 +135,26 @@ Rest (Bedeutung `0x157`, `0x1A1`, ... ) ohne Fundstelle -> Annahme. Fazit: nicht
 - `0x423` als Weckframe: Code-Kommentar `RENAULT-TWINGO-GEN1-BATTERY.cpp:3133` (aus Zoe-Code geerbt, nicht gemessen); im Echt-Log kommt `0x423` 0,11 s nach Zyklusstart als erstes EVC-Frame. MERKZETTEL_Zeitwerte_33BE.md:275-276: Satz mit `0x423` funktionierte, Notwendigkeit nicht bewiesen. **Offen:** Kommuniziert der Akku mit nur `0x423` (ohne `0x090/0x242/0x350`)?
 - Test vor Ort: (1) Standard ohne `0x423`; (2) `0x090/0x242/0x350` + `0x423`; (3) nur `0x423`; je Kommunikation (Zellspannungen, Status) notieren.
 - **Logger:** `print_can_frame()` protokolliert RX und TX (`comm_can.cpp:317`, `:544`); Kanal RX = Schnittstelle*2, TX = Schnittstelle*2+1 (`RX4` = `CAN_ADDON_MCP2515`). Am Bench mit USB-Logging (`CANLOGUSB`) sind alle RX-Zeilen Akku-Frames, alle TX-Zeilen unsere. Damit ist der Absender messbar.
+
+## 8. Renault-CAN-Datenbank (09.10., Datei `ca9a909f-CAN_MESSAGE_SET_C1A_Q4_2017_ALL_MESSAGE_LIST_OFFICIAL_01_12_2017…xml`)
+
+Die Datei ist die offizielle Renault-Nachrichtenliste (DDT2000, Plattform C1A, Projekte x10Ph2/xFBPh2/..., 500 kbit/s). Pro Frame: Name mit Absender-Praefix (`BMS_`, `HEVC_`, `BCM_`, ...), ID (`SentBytes`), Zykluszeit (`Comment`), Signale mit Startbyte/Bit. Es ist die Datenbank des **Fahrzeug-CAN**; die schnellen Frames des Akku-Busses (0x155, 0x423-0x426, 0x436, 0x445, ...) stehen nicht darin.
+
+### 8.1 Zellspannungen: Dekodierung durch die Datenbank bestaetigt
+- `HVB_CellNNVoltage`: 12 Bit, Schritt 0,001 V, Offset 2 V = Rohwert + 2000 mV. Layout z. B. `BMS_A10` (0x5F7): Zelle 1 = Startbyte 1, Zelle 2 = Byte 2 ab Bit 4, Zelle 3 = Byte 4, Zelle 4 = Byte 5 ab Bit 4, Zelle 5 = Byte 7. Deckt sich mit der gemessenen Dekodierung (Abschnitt 7.2).
+- **Berichtigung der Zellnummern:** nicht aufsteigend mit der ID. Es gilt `BMS_A10` = Zellen 1-5, `A11` = 6-10, ... `A28` = 91-95, `A29` = Zelle 96, also:
+  0x5F7=A10 (Z1-5), 0x5F4=A11, 0x5F2=A12, 0x5F1=A13, 0x5F0=A14, 0x5ED=A15, 0x5EA=A16, 0x5D9=A17, (0x5D7=A18), 0x5D6=A19, 0x5CC=A20, 0x5CB=A21, 0x5C9=A22, 0x5B7=A23, 0x5B5=A24, 0x5B4=A25, 0x5AC=A26, 0x5AD=A27, 0x5A1=A28 (Z91-95), 0x5DD=A29 (Z96).
+- Auf dem Akku-Bus kommt statt `0x5D7` (A18) der Frame `0x5EC`. **Annahme (durch Ausschluss):** `0x5EC` ersetzt A18 (Zellen 36-40); das gleiche 0x5D7 belegt der Twingo-Emulator als Kilometerframe.
+- `BMS_A30` (0x5DC) = 8 Temperaturfuehler (`HVB_ProbeTemp01-08`); auf dem Akku-Bus nicht vorhanden.
+
+### 8.2 Absender der Frames (Datenbank, 3000-ms-Gruppe)
+- Akku (`BMS_`): 0x5A1..0x5F7, 0x5DD, 0x5DC.
+- **Nicht** Akku, obwohl im selben 3-s-Takt (Berichtigung zu 7.3): 0x599 `HEVC_R32` und 0x632 `HEVC_A36` (EVC), 0x6A4 `BCM_R12`, 0x6F3 `IVI_R8`, 0x5BD `IVI_UserSetPref_A4`, 0x5C6 `UserSetPref_CANHS_R_02`.
+- 0x69F `VehicleID_CANHS_R_01`, 1000 ms, Signal `VehicleID` (bestaetigt die Fahrzeug-ID-Funktion).
+- `HEVC_WakeUpFrame` = **0x62B** (2 Byte, Signal `HEVC_WakeUp_Signal`). In den drei Logs (22aaf176, 364b56eb, 5c3d7daf) kommt 0x62B nicht vor.
+- Nicht in der Datenbank: 0x0C5, 0x0EC, 0x0ED, 0x155, 0x157, 0x19F, 0x1A1, 0x1C7, 0x419, 0x423-0x426, 0x428, 0x42F, 0x435, 0x436, 0x43A, 0x445, 0x464, 0x4AE, 0x4AF, 0x4F7, 0x500, 0x511, 0x588, 0x658, 0x659, 0x6BE, 0x504, 0x5CE, 0x665, 0x66F, 0x6B5.
+- 0x1C9 steht als `EPS_R5` (10 ms, 4 Signale, EPS = Lenkung). Auf dem Akku-Bus hat 0x1C9 DLC 2; ob es dasselbe Frame ist, ist **nicht** geklaert.
+
+### 8.3 Weitere Quellen geprueft
+- OVMS Zoe Ph2 (`vehicle_renaultzoe_ph2.zip`): liest nur Fahrzeug-CAN (`HEVC_*`, `BCM_*`, `METER_*`, ...) und UDS-Kennungen vom LBC (u. a. 9005, 9002, 9003, 9243, 9245, 9247, 9210, 9015, 9018, 91C8, 9131-913C, Zellen 9021-9083). Keine unserer offenen Akku-Bus-IDs; auch keine 9259, 925C, 9261, 91C1.
+- Battery Emulator: Zoe Gen1 dekodiert 0x155/0x424/0x425/0x445; Zoe Gen2 listet 0x4AE, 0x4AF, 0x5A1-0x5F7 nur als ignorierte Frames. Die Namen "PEB Inverter" (0x19F), "EVC Power Mux" (0x426), "EVC Status" (0x436) stammen aus dem Upstream-Code (PR #2907), nicht aus Messung.
