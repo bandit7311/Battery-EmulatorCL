@@ -118,7 +118,7 @@ Zeiten = Zeitstempel im Log (Sekunden). Kennzeichnung: **gemessen** / **Schluss*
 - Die unteren Nibbles in B1/B2 sind Zellwerte, keine Statusbits (fruehere Vermutung "Dreiergruppen" widerrufen).
 - Folge: Zellspannungen brauchen keine UDS-Abfrage, sie kommen als Broadcast.
 
-### 7.3 Ladelog (Fahrzeug-CAN, BusMaster, 12.12.2025 / 10:43-10:49)
+### 7.3 Ladelog (Fahrzeug-CAN, BusMaster, Start 20.11.2025, Ladevorgang 10:43-10:49)
 - 126 IDs, kein `0x155/0x424/0x425/0x426/0x436/0x423`.
 - Mit ca. 4 s Takt (92-95 Frames): `0x4AF`, `0x504`, `0x599`, `0x5A1...0x5F7`, `0x5DD`, `0x5BD`, `0x5C6`, `0x5CE`, `0x632`, `0x658`, `0x665`, `0x66F`, `0x6A4`, `0x6A6`, `0x6A7`, `0x6A9`, `0x6AA`, `0x6B5`, `0x6F3...0x6F7`, `0x6FB`. **Schluss (nicht belegt):** Gleichtakt mit den Zellframes -> wohl ebenfalls vom Akku.
 
