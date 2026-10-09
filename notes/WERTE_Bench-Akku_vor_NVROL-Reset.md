@@ -24,3 +24,24 @@ Zweck: Die Werte stehen nur noch in Logs, im Akku selbst sind sie seit dem NVROL
 ## Offen
 - Ob und wie sich die Werte zurueckschreiben lassen: Werkstatt-Dumps sind Schreibmakros (Service 0x2E). `2E 9261` scheiterte mit NRC 0x33 (Security Access). Fuer `91CF` und die Zaehler nicht geprueft. Kein Seed/Key-Raten; nur mit Nutzer vor Ort und ausdruecklichem Go.
 - Verlauf von `91C1`/`9261` vor dem Reset (mehrere Lesungen) liegt nicht vor.
+
+## Muss man die Werte zurueckschreiben? Was der Akku selbst uebernimmt (Stand 09.10.)
+
+Nutzer-Idee: Wenn wir den richtigen emulierten Wert senden, uebernimmt der Akku ihn selbst. Einordnung nach Belegen:
+
+### Wird uebernommen (gemessen)
+- **Fahrzeug-km `925F`:** 19.400,00 km am 01.10. = 16 Bit `4B C8` aus unserem Standard-`0x426` (Log `cbd10d87-canlog_0d00h04m17s`).
+- **SCPU-Zeit `9261`:** Quelle sind die Bytes 1-3 von `0x436` (BEFUND_SCPU_0436_Bench_08-10.md).
+
+### Wird bisher nicht uebernommen (gemessen)
+- **Pack-km `91CF`:** am 01.10. = 0, obwohl `925F` = 19.400 km. **Vermutung (nicht belegt):** zaehlt Fahrstrecke (Zuwachs) und braucht einen Fahrzustand, den wir nie senden.
+- **MCPU-Zeit `9261`/`91C1`:** seit Wochen unveraendert `14 02 70`. Ob dieser Wert aus unserem `0x436` (Bytes `14 ...`, Zaehler `0x0270`) stammt, ist Hypothese. Die MCPU nimmt aktuell nichts Neues auf.
+- **`91C1` (Pack-Zeit seit erstem Einschalten):** kein Beleg, dass er von aussen kommt (wirkt wie interner Zaehler).
+
+### Misst der Akku selbst (Schluss, nicht gemessen)
+- Zyklen, Energien (geladen/entladen/regeneriert), Balancing-Zaehler: kein Frame bekannt, der sie vorgibt. Sie beginnen bei 0 neu zu zaehlen, sobald die Zeitbasis passt; die Werte aus der Tabelle oben kommen davon nicht zurueck.
+
+### Tests (nichts gebaut, Bauliste B)
+1. `0x426` mit **steigenden Kilometern** in den Zustaenden Zuendung/Fahrt senden; pruefen, ob `91CF` mitzaehlt.
+2. `0x436` im echten Format (`80 [Alter] 00 00`) senden; pruefen, ob `9261`/`91C1` in der MCPU anlaufen.
+3. Zum Vergleich weiter `925F` und `9261` der SCPU mitlesen (diese folgen bereits).
