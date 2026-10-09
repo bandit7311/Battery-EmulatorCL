@@ -158,3 +158,23 @@ Die Datei ist die offizielle Renault-Nachrichtenliste (DDT2000, Plattform C1A, P
 ### 8.3 Weitere Quellen geprueft
 - OVMS Zoe Ph2 (`vehicle_renaultzoe_ph2.zip`): liest nur Fahrzeug-CAN (`HEVC_*`, `BCM_*`, `METER_*`, ...) und UDS-Kennungen vom LBC (u. a. 9005, 9002, 9003, 9243, 9245, 9247, 9210, 9015, 9018, 91C8, 9131-913C, Zellen 9021-9083). Keine unserer offenen Akku-Bus-IDs; auch keine 9259, 925C, 9261, 91C1.
 - Battery Emulator: Zoe Gen1 dekodiert 0x155/0x424/0x425/0x445; Zoe Gen2 listet 0x4AE, 0x4AF, 0x5A1-0x5F7 nur als ignorierte Frames. Die Namen "PEB Inverter" (0x19F), "EVC Power Mux" (0x426), "EVC Status" (0x436) stammen aus dem Upstream-Code (PR #2907), nicht aus Messung.
+
+## 9. Wer sendet 0x423? Vergleich der beiden Busse (09.10., abends)
+
+### 9.1 0x423 (nicht in der Renault-Datenbank; **Schluss**, nicht bewiesen: sendet das EVC)
+1. **Gemessen:** Aenderungen folgen den Aktionen im Auto wie bei 0x426 (Verriegeln, Zuendung 1, Stufe 3: B0 `07->0B`, Zuendung aus: `0B->07`), siehe Abschnitt 2.
+2. **Gemessen:** In den Zyklen 1-3 erscheint 0x423 0,02-0,11 s nach Zyklusstart, die Akku-Frames (0x155, 0x424, 0x425) erst ca. 0,17 s; davor nur 0x0EC (Abschnitt 6.5). In den Zyklen 4 und 5 sind die Akku-Frames zuerst da (Akku schon wach), 0x423 folgt bei +0,09 s.
+3. **Gemessen:** Erstes 0x423 jedes Zyklus `30 7F FF FF FF E0 FF FF` (Startwerte "nichts berechnet"), danach `33 ...`, dann `07 1E FF FD B2 80 B2 BB`. Ein durchgereichtes Frame haette keinen Startzustand.
+4. **Gemessen:** B4 und B6 wechseln zwischen `5D` und `B2`; das macht auch unser Emulator (aus dem Zoe-Gen1-Treiber, `RENAULT-TWINGO-GEN1-BATTERY.cpp:3136-3142`). Gleiche Frame-Art wie bei der Zoe.
+5. **Offen:** Welches Geraet auf dem Akku-Bus tatsaechlich sendet (EVC oder anderer Teilnehmer).
+
+### 9.2 Vergleich Akku-Bus (22aaf176) mit allen Fahrzeug-CAN-Logs (02.10., 04.10., Ladelog)
+- **Gemessen:** 52 IDs auf dem Akku-Bus, davon **26 auch auf dem Fahrzeug-CAN**: `0x4AF`, `0x500`, `0x511`, `0x5A1, 0x5AC, 0x5AD, 0x5B4, 0x5B5, 0x5B7, 0x5C9, 0x5CB, 0x5CC, 0x5D6, 0x5D9, 0x5DD, 0x5EA, 0x5EC, 0x5ED, 0x5F0, 0x5F1, 0x5F2, 0x5F4, 0x5F7`, `0x69F`, `0x18DADBF1`, `0x18DAF1DB`.
+- **Nur auf dem Akku-Bus (24 IDs):** `0x0C5`, `0x0EC`, `0x0ED`, `0x155`, `0x157`, `0x19F`, `0x1A1`, `0x1C7`, `0x1C9`, `0x419`, `0x423`, `0x424`, `0x425`, `0x426`, `0x428`, `0x42F`, `0x435`, `0x436`, `0x43A`, `0x445`, `0x464`, `0x4AE`, `0x4F7`, `0x588`, `0x659`, `0x6BE`.
+- **Gemessen:** 0x69F ist auf beiden Bussen identisch (`46 13 88 6F`); laut Datenbank `VehicleID_CANHS_R_01` (Fahrzeug-Frame). 0x511 hat auf beiden Bussen dasselbe Format (7 Byte, B0 `04`, danach Zaehlerwerte). Richtung bei 0x511 und 0x500 unbekannt.
+- **Schluss (Lesart, nicht bewiesen):** Das EVC vermittelt zwischen den Bussen: Zellframes (`BMS_`) vom Akku-Bus in den Fahrzeug-CAN, Fahrzeug-ID vom Fahrzeug-CAN zum Akku; alles Uebrige bleibt auf seinem Bus. 41 der 46 Zeilen der Simulatorliste sind reine Fahrzeug-CAN-Frames.
+
+### 9.3 Broadcast statt UDS
+- Als Broadcast verfuegbar (gemessen): 96 Zellspannungen, 0x155 (Strom, SOC), 0x424 (Limits, Temperaturen, SOH), 0x425 (Zellminimum/-maximum).
+- Zeit und Zustand (9261, 91C1, 9259, 925C) kommen nach heutigem Wissen nicht als Broadcast; das Fahrzeugalter geht in Gegenrichtung (0x436, EVC -> Akku).
+- **Offen:** Ob der Akku auf *irgendein* Frame hin sendet. Der Standardsatz (`0x090`, `0x242`, `0x350`, `0x53B`, `0x214`, `0x69F`) besteht fast nur aus Fahrzeug-CAN-Frames; was davon noetig ist, klaert der Test in drei Schritten (Abschnitt 7.5).
