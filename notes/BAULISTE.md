@@ -15,8 +15,11 @@ Vorgabe: Auch die 12 weiteren EVC-Frames des echten BMS<>EVC-Busses aufnehmen. N
 
 **Block 2 "simulator alt"** (die heutigen 46 Zeilen unveraendert, nach Takt gruppiert: 10 / 20 / 100 / 200 / 500 / 1 s / 3 s).
 
+**Entschieden (Nutzer, 10.10.):** Block 1 enthaelt nur den BMS<>EVC-Bus. Die Fahrzeug-CAN-Zeilen gehoeren in Block 2 "simulator alt", dort **mit echtem Format**, so dass man sie wirklich einschalten kann. 10-ms-Frames erst nach dem Wake-Burst ist in Ordnung.
+
+**Markierung der Fahrzeug-CAN-Zeilen (Berichtigung):** Der Mitschnitt 22aaf176 wurde mit dem Filter `!90,C6,12E,17A,17E,186,18A,1B0,1F6,1F8,211,217,242,29A,29C,2B7` aufgenommen (keine dieser 16 IDs im Log). Fuer diese 16 Zeilen (`0x090`, `0x0C6`, `0x12E`, `0x17A`, `0x17E`, `0x186`, `0x18A`, `0x1B0`, `0x1F6`, `0x1F8`, `0x211`, `0x217`, `0x242`, `0x29A`, `0x29C`, `0x2B7`) ist die Markierung "BMS<>EVC-Bus" daher **"unbekannt (im Mitschnitt gefiltert)"**, nicht "nein". Ob `0x090`/`0x242` vom Akku kommen: im Bench-Log 25.09. (Akku allein, ungefiltert) sendet der Akku keine dieser 16 IDs.
+
 **Offene Punkte vor dem Bau:**
-- Gehoeren in Block 1 auch Fahrzeug-CAN-Zeilen (mit echtem Format aus den Fahrzeug-Logs) oder nur der BMS<>EVC-Bus? (Annahme: nur BMS<>EVC.)
 - Last: sechs 10-ms-Frames = ca. 600 Frames/s. Fruehere Wake-Fehler (CAN NATIVE BUS ERROR) kamen bei 0x090/0x242 gleichzeitig mit dem Wake-Burst; die schnellen Frames erst nach dem Wake-Burst starten (Fix-later-Punkt aus dem Chat vom 29.09.).
 - Nicht bauen ohne ausdrueckliches "bauen".
 
