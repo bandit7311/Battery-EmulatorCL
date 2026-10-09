@@ -268,3 +268,20 @@ Quellen: `cb57ee6f-batteryemulator_vs_ovms_280926.md` (28.-29.09., 5.862 Zeilen)
 - Deye: kurz 100 % SOC nach dem Aufwachen (soll nicht, auch kein 0 % melden); Events "CAN NATIVE BUS ERROR" nach dem Wiederanlauf automatisch quittieren; Fix-later: `0x090/0x242` erst nach dem vollstaendigen Wake-Burst starten.
 - Nice-to-have: Hardware-Taster mit Sleep inkl. `0x9281` ohne Wiederanlauf; SSD1306-Statusfeld "Shutdown requested / Sleep requested / Battery sleeping - Turn off now!!".
 - Chat 01.-02.10.: `C3` als Dauerwert im Betrieb fraglich (Ladelog zeigt `C0`); Rolling-Counter in `0x18A` (Byte 7, Schritt `0x10`) ist im Emulator vorhanden.
+
+## 14. Weitere Bench-Logs (hochgeladen 09.10.): `ae4634dd-canlog_xx`, `67b50fd6-canlog_chronologisch_alle`, `d6887ad6-canlog_newbattemusw`, `cbd10d87-canlog_0d00h04m17s`
+
+Format wie in Abschnitt 10 (Emulator-Log, `TX1`/`RX0`, Bursts je Datei, Frame-Zahlen sind keine Raten). Datumsangaben = Zip-Eintraege bzw. Dateinamen; Jahr nicht in den Dateien.
+
+| Log | Zeit | Gesendet (TX) | Akku-Broadcast | `9261` / `91C1` |
+|---|---|---|---|---|
+| `canlog_xx` (12 Dateien, 33 s) und `canlog_chronologisch_alle` (dieselbe Sitzung, zusammengefuegt) | Zip 01.08., Dateinamen 14:44-14:45, Emulator-Laufzeit ca. 86,7 h | **nur `0x423`** (`07 1D 00 02 5D 80 5D C8`) und `0x79B` (UDS-Poll 11 Bit); kein 29-Bit-UDS | **ja, voll**: `0x155`, `0x0C5`, `0x1C9`, `0x424`, `0x425`, `0x43A`, `0x445`, `0x464`, `0x588`, `0x4AE`, `0x4AF`, `0x659`, `0x6BE`, alle Zellframes | nicht gelesen |
+| `canlog_newbattemusw` (52 Dateien, 94 s) | Zip 28.09. 16:25, Laufzeit 48-50 min | `0x19F`, `0x423`, `0x426`, `0x436`, `0x69F`, **`0x350`, `0x53B`**, `0x79B`, Pylon-Frames (`0x4210...`, `0x7310...`), UDS | ja, voll | `9261` = `00 00 00` (einmal gelesen); `9262/9263/9252` = `80 00 00 00`; `9210` = `00 00` |
+| `canlog_0d00h04m17s` (21 Dateien, 200 s) | Zip 01.10. 14:48-15:30 | `0x090` (10 ms), `0x242`, `0x350`, `0x423`, `0x19F`, `0x426`, `0x436`, `0x53B`, `0x69F`, `0x79B`, Pylon, UDS | ja, voll | `9261` = 0, `91C1` = 0, `9245/9247` = 0, `9281` = `00`, `9270` = NRC `12`, `925F` = `00 1D 9A 20`, `91CF` = `80 00 00 00`, Balancing-Zaehler `80000000` |
+
+### 14.1 Befunde
+- **Gemessen:** Mit **nur `0x423`** (plus `0x79B`) sendet der Akku Broadcast durchgehend (Log `canlog_xx`). Das Log beginnt mitten im Betrieb (Laufzeit 86,7 h), zeigt also nicht den Wecken-Moment: **0x423 reicht zum Wachhalten des Broadcasts**; ob es auch aus der Stille weckt, ist damit nicht gezeigt.
+- Zusammen mit Abschnitt 10.3 gibt es jetzt zwei einzelne Sendesaetze, nach denen der Akku Broadcast sendet: nur `0x423` (Log) und nur `0x350` (Code-Kommentar `:1964-1966`, `0x155` mit Ungueltig-Werten); der Zoe-Gen2-Satz (`0x0EE`, `0x373`, ...) loest keinen Broadcast aus (Abschnitt 10.1). Der Vier-Schritte-Test (Abschnitt 10.3) bleibt fuer "aus der Stille wecken".
+- **Gemessen:** `9261` und `91C1` stehen am 28.09. und am 01.10. auf 0, obwohl `0x350` und `0x53B` (28.09., 01.10.) sowie `0x436` gesendet wurden. In keinem dieser Logs hat `9261`/`91C1` einen Wert ungleich 0.
+- **Gemessen:** `925F` = `0x1D9A20` = 1.940.000 -> 19.400,00 km = `0x4BC8` (16 Bit) aus unserem Standard-`0x426` (`00 60 01 00 4B C8 00 40`). Bestaetigt, dass der Akku die km aus `0x426` uebernimmt (wie im Auto, Abschnitt 1).
+- `9006` = `00 05 FA 60` (391,8 V, falls 0,001 V/Bit - Skalierung nicht geprueft), `9011` = `31 88` (12 V).
