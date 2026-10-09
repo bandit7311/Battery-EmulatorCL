@@ -358,3 +358,24 @@ Suche: alle 127 ungeraden 8-Bit-Polynome, mit und ohne Spiegelung (Startwert fae
 - **Folge:** Abschnitt 15 ("16 IDs unbekannt, weil gefiltert") wird hinfaellig. Die 52 IDs des Mitschnitts sind dann der gesamte Inhalt des Busses in dieser Sitzung; `0x090`, `0x242`, `0x0C6`, `0x12E`, `0x17A`, `0x17E`, `0x186`, `0x18A`, `0x1B0`, `0x1F6`, `0x1F8`, `0x211`, `0x217`, `0x29A`, `0x29C`, `0x2B7` sowie `0x350`, `0x53B`, `0x214` laufen dort **nicht**. Die 17 EVC-seitigen IDs (Abschnitt 17) sind fuer diese Sitzung vollstaendig.
 - **Widerspruch, offen:** Am 09.10. hatte der Nutzer geschrieben, ab 04.10. nur noch mit Filter `!90,C6,...` aufgezeichnet zu haben; die Datei laesst sich nicht pruefen (keine der 16 IDs im Log, ob gefiltert oder nicht). Plausibilitaet: Lograte ca. 830 Frames/s + 27 % Verlust, das passt zu ca. 1.100 Frames/s ohne die 16 schnellen IDs; mit ihnen waere die Bus-Last deutlich hoeher. Das spricht fuer die Nutzeraussage, beweist sie nicht.
 - Bleibt: Die Sitzung zeigt nur Wecken, Zuendung, Fahrt, Abschliessen, Schlafen (kein Laden, keine Fehler); bis zu 27 % der Frames fehlen.
+
+## 19. Welche per UDS abgefragten Werte liegen schon als Broadcast vor? (10.10.)
+
+Methode: Die Anzeige "More Battery Info" vom 29.09. (14:07, Chat-Anhang, Export 290926) zeigt UDS-Werte und die letzten Frames je ID aus demselben Lauf (Akku am Bench, Pack bei SOC ca. 70 %). Vergleich Zahl fuer Zahl (nachgerechnet am 10.10.).
+
+| UDS-Wert (Anzeige 29.09.) | Broadcast | Rechnung | Ergebnis |
+|---|---|---|---|
+| `9002` USOC 68,41 % | `0x155` B4-B5 (`6A E2`) | 27.362 x 0,0025 = 68,405 % | **gleich** (gemessen) |
+| `900D` Strom (Anzeige) | `0x155` B1 (unteres Nibble) + B2 (`D0`) | Roh 2.000 x 0,25 - 500 = 0,0 A | gleiche Quelle, Treiber nutzt den Broadcast schon |
+| `9018` Max Charge Power 15,37 kW | `0x155` B0 (`33`) | 51 x 300 W = 15,3 kW | **nahe** (15,30 gegen 15,37), nicht exakt |
+| `900E` Max Generated Power 43 kW | `0x424` B2 (`56`) | 86 x 500 W = 43,0 kW | **gleich** (gemessen) |
+| `900F` Max Available Power 72 kW | `0x424` B3 (`90`) | 144 x 500 W = 72,0 kW | **gleich** (gemessen) |
+| `9003` SOH 100,0 % | `0x424` B5 (`64`) | 100 % | **gleich** (gemessen) |
+| `9007` Zelle A 3,912 V / `9009` Zelle B 3,888 V | `0x425` B4-B7 (Max/Min, 10-mV-Raster) | 3.910 / 3.890 mV | **gleich** innerhalb 10 mV |
+| `9021...9083` 96 Zellen | `0x5A1...0x5F7`, `0x5DD` | siehe Abschnitt 7.2 / 8.1 | alle 96, alle 3 s |
+| `9006` Pack-Spannung (Summe) 374,813 V | Summe der 96 Zellen aus den Zellframes | berechenbar | kein eigenes Frame (`0x42E` kommt auf dem Bus nicht vor) |
+| `9131...9138` 8 Pack-Temperaturen | `0x424` B4/B7 nur Min/Max (bei Anzeige je 20 C) | -40 C Offset | **nur Min/Max** als Broadcast |
+
+Nicht als Broadcast gefunden (nur UDS): `9001` interner SOC, `91B9`/`91BA` SOC min/max, `9011` 12-V-Versorgung (`31 88` = 12,39 V), Energien `9243`/`9245`/`9247`, Zyklen `9210`, Balancing-Zaehler `924F...9252`, `9262`, `9263`, Balancing-Schalter `912B`, BMS-Zustand `9270`, `9281`, Zeit `9261`/`91C1`, Kilometer `91CF`/`925F`, Fahrzeug-ID `925E` (kommt dagegen als `0x69F` B1-B3 vom EVC an den Akku).
+Unbekannte Akku-Frames mit evtl. weiterem Inhalt: `0x0C5`, `0x1C9`, `0x43A`, `0x464`, `0x588` (Zaehler/CRC-artig), `0x6BE` (Bytes 63 von 138 Aenderungen), `0x4AE`, `0x4AF`, `0x659` (konstant). Nicht untersucht.
+Folge fuer den Treiber: Aus dem Broadcast koennten ohne UDS kommen: SOC, Strom, Ladeleistung, die Limits (`900E`, `900F`), SOH, Zellmin/-max, alle 96 Zellen (und daraus die Pack-Spannung), Temperatur-Min/Max. Die Zeit-, Zaehler- und Balancing-Werte bleiben UDS.
