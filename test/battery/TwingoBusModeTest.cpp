@@ -532,3 +532,52 @@ TEST(TwingoBusPage, Block1ShowsThirtyRowsAndBlock2FortyOne) {
   EXPECT_EQ(in1, 30);
   EXPECT_EQ(in2, 41);
 }
+
+// ---------------------------------------------------------------------------
+// Wake-up form of 0x0EC / 0x0ED (car log 22aaf176, identical in all three sessions)
+// ---------------------------------------------------------------------------
+
+TEST(TwingoWakeForm, Frame0ECStartsWithSixFramesOf10ThenTheStateValue) {
+  const twingo_bus::FrameDef* def = twingo_bus::find_frame(0x0EC);
+  ASSERT_NE(def, nullptr);
+  const char* real[8] = {"10 01 17", "10 11 DA", "10 21 90", "10 31 5D", "10 41 04", "10 51 C9", "1C 61 F4", "1C 71 39"};
+  for (uint32_t seq = 0; seq < 8; seq++) {
+    uint8_t out[8];
+    twingo_bus::build_frame(*def, twingo_bus::BUS_WACH, seq, 0, 0, out);
+    EXPECT_EQ(hex_of(out, 3), real[seq]) << seq;
+  }
+}
+
+TEST(TwingoWakeForm, Frame0EDStartsWith10xA3FF00And21xA3FF80) {
+  const twingo_bus::FrameDef* def = twingo_bus::find_frame(0x0ED);
+  ASSERT_NE(def, nullptr);
+  for (uint32_t seq = 0; seq < 40; seq++) {
+    uint8_t out[8];
+    twingo_bus::build_frame(*def, twingo_bus::BUS_WACH, seq, 0, 0, out);
+    const char* want = seq < 10 ? "A3 FF 00" : seq < 31 ? "A3 FF 80" : "63 FF 80";
+    EXPECT_EQ(hex_of(out, 3), want) << seq;
+  }
+}
+
+TEST(TwingoWakeForm, SwitchingTheRowOffAndOnStartsANewSession) {
+  BusTwingo b;
+  b.setup();
+  only_rows({0x0EC});
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 200, 1, log);
+  auto f = with_id(log, 0x0EC);
+  ASSERT_GT(f.size(), 10u);
+  EXPECT_EQ(f[0].f.data.u8[0], 0x10);
+  EXPECT_EQ(f[5].f.data.u8[0], 0x10);
+  EXPECT_EQ(f[6].f.data.u8[0], 0x1C);
+  only_rows({});
+  run(b, t, 50, 1, log);
+  only_rows({0x0EC});
+  log.clear();
+  run(b, t, 100, 1, log);
+  f = with_id(log, 0x0EC);
+  ASSERT_GT(f.size(), 6u);
+  EXPECT_EQ(hex_of(f[0].f.data.u8, 2), "10 01");
+  EXPECT_EQ(f[6].f.data.u8[0], 0x1C);
+}

@@ -3058,7 +3058,7 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      "not sent by the battery alone (bench log 25.09.)",
      "Byte 1 high nibble = counter (+1 per frame), byte 2 = CRC-8 (poly 0x1D, start 0, final XOR 0xBE) "
      "over bytes 0-1 (100 percent of 57,317 frames of the car log). Meaning unknown. First frame at wake-up in "
-     "the car.",
+     "the car. Wake-up form: the first 6 frames after the row is switched on carry byte 0 = 10, like in the car.",
      SIM_END_BUS},
     {0x0ED,
      3,
@@ -3070,7 +3070,8 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      true,
      "not sent by the battery alone (bench log 25.09.)",
      "Byte 1 changes FF -> CC with the GO switch in the car, meaning otherwise unknown. In the car log of "
-     "the LBC<>EVC bus.",
+     "the LBC<>EVC bus. Wake-up form after the row is switched on: 10 x A3 FF 00, then 21 x A3 FF 80, "
+     "then the value of the state.",
      SIM_END_BUS},
     {0x419,
      6,
@@ -3354,6 +3355,12 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
     if (!sim_row_enabled(i)) {
       if (sim_signals[i].id == 0x1F8) {
         sim_1f8_running = false;  // switched off: starts with the FA phase again when it is switched on
+      }
+      if (sim_signals[i].tag == 'R') {
+        const twingo_bus::FrameDef* off_def = twingo_bus::find_frame((uint16_t)sim_signals[i].id);
+        if (off_def != nullptr) {
+          bus_seq[off_def - twingo_bus::FRAMES] = 0;  // switched on again = a new session: 0x0EC / 0x0ED start with the wake-up form
+        }
       }
       continue;
     }

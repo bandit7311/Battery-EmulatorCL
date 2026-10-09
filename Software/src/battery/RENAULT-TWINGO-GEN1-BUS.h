@@ -33,8 +33,14 @@ enum BusState : uint8_t {
   BUS_STATE_COUNT = 7
 };
 
+// Frames of the wake-up form at the start of a session (identical in all three sessions of the car log 22aaf176).
+inline constexpr uint32_t WAKE_0EC_FRAMES = 6;
+inline constexpr uint32_t WAKE_0ED_FRAMES_A = 10;
+inline constexpr uint32_t WAKE_0ED_FRAMES_B = 21;
+
 enum FrameKind : uint8_t {
   K_PLAIN = 0,
+  K_0ED = 9,  // like K_PLAIN, but with the wake-up form at the start (see build_frame)
   K_19F = 1,
   K_157 = 2,
   K_0EC = 3,
@@ -133,7 +139,7 @@ inline constexpr FrameDef FRAMES[FRAME_COUNT] = {  // one instance for all trans
         {{0x27, 0x71, 0x76, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x27, 0x71, 0x76, 0x00, 0x00, 0x00, 0x00, 0x00}},  // fahrt
         {{0x1C, 0x12, 0x8A, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x1C, 0x12, 0x8A, 0x00, 0x00, 0x00, 0x00, 0x00}},  // aus
     }},
-    {0x0ED, 3, 10, K_PLAIN, false, {
+    {0x0ED, 3, 10, K_0ED, false, {
         {{0x60, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x60, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00}},  // zu
         {{0x63, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x63, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00}},  // wach
         {{0x64, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00}, {0x64, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00}},  // zuendung1
@@ -386,8 +392,22 @@ inline void build_frame(const FrameDef& d, uint8_t state, uint32_t seq, uint32_t
       out[1] = (uint8_t)((out[1] & 0x0F) | (((5U * seq) & 0x0F) << 4));
       break;
     case K_0EC:
+      if (seq < WAKE_0EC_FRAMES) {
+        out[0] = 0x10;  // wake-up form: the first 6 frames of every session in the car log (10 01 17 ... 10 51 C9)
+      }
       out[1] = (uint8_t)((out[1] & 0x0F) | ((seq & 0x0F) << 4));
       out[2] = (uint8_t)(crc8(out, 2, 0x1D) ^ 0xBE);
+      break;
+    case K_0ED:
+      if (seq < WAKE_0ED_FRAMES_A) {
+        out[0] = 0xA3;  // wake-up form in the car log: 10 x A3 FF 00, then 21 x A3 FF 80, then the state value
+        out[1] = 0xFF;
+        out[2] = 0x00;
+      } else if (seq < WAKE_0ED_FRAMES_A + WAKE_0ED_FRAMES_B) {
+        out[0] = 0xA3;
+        out[1] = 0xFF;
+        out[2] = 0x80;
+      }
       break;
     case K_511: {
       static const uint8_t START[6] = {0x3A, 0x15, 0xC1, 0xF9, 0x53, 0x97};
