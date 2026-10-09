@@ -10,36 +10,36 @@ Nur mit vorhandenen Haken auf `/simulator`, Logger und Lesen. **Nichts bauen, ni
 ## 1. Stille herstellen
 - "All rows off" druecken. Notieren: Sekunden bis keine Akku-Frames mehr kommen (Logger/Anzeige "BMS silent"). Wenn der Akku schon still ist: Zeitpunkt notieren.
 
-## 2. Aufwecken: welches Frame reicht?
-Je Schritt **30 s warten**; notieren: kommen `0x155`, `0x424`, `0x425`, Zellframes? Nach wie vielen Sekunden? Erste UDS-Antwort nach? Danach (soweit der Akku antwortet) `9259`, `9279`, `9261`, `91C1` lesen.
+## 2. Aufwecken: nur Frames, die auf dem echten BMS-EVC-Bus vorkommen
+Grundsatz (Nutzer, 09.10.): `0x350` und die anderen Fahrzeug-CAN-Zeilen kommen auf dem Bus zwischen Akku und EVC **nicht** vor (gemessen, Mitschnitt 22aaf176). Die Hauptkette nimmt deshalb nur die fuenf Zeilen, die auch dort laufen: `0x423`, `0x426`, `0x436`, `0x19F`, `0x69F`. Fahrzeug-CAN-Zeilen kommen erst danach als Zusatz (Teil 3).
+
+Je Schritt **30 s warten**; notieren: kommen `0x155`, `0x424`, `0x425`, Zellframes? Nach wie vielen Sekunden? Erste UDS-Antwort nach? Danach (soweit der Akku antwortet) `9259`, `9279`, `9261`, `91C1` lesen. Zwischen den Schritten immer erst "All rows off" und warten, bis der Akku still ist.
 
 | Schritt | Haken (alles andere aus) | Broadcast? | nach s | `9259` | `9279` | `9261` | `91C1` |
 |---|---|---|---|---|---|---|---|
 | 2a | nur `0x423` | | | | | | |
-| 2b | alles aus (Stille), dann nur `0x350` | | | | | | |
-| 2c | alles aus (Stille), dann `0x423` + `0x350` | | | | | | |
-| 2d | alles aus (Stille), dann `0x090` + `0x242` + `0x350` + `0x53B` + `0x214` + `0x69F` (Standardsatz) | | | | | | |
+| 2b | `0x423` + `0x69F` | | | | | | |
+| 2c | `0x423` + `0x426` + `0x436` | | | | | | |
+| 2d | `0x423` + `0x426` + `0x436` + `0x19F` + `0x69F` (alle fuenf) | | | | | | |
 
-Zwischen den Schritten immer erst "All rows off" und warten, bis der Akku still ist.
+Wenn 2a nicht weckt, in 2b-2d feststellen, welches dazukommende Frame den Broadcast ausloest. Weckt keiner dieser Saetze, erst dann Teil 3a (Fahrzeug-CAN-Zeilen als Wecker).
 
-## 3. Zeilen nach und nach dazuschalten (auf Basis des Satzes, der den Akku weckt)
-Je Gruppe 30 s warten, dann dieselben Werte lesen und notieren, was sich aendert (`9259`, `9279`, `9261`, `91C1`, `925C`, `91CF`).
+## 3. Zusatz: Fahrzeug-CAN-Zeilen (kommen im Auto nicht zum Akku)
+Basis: der Satz aus Teil 2, der den Akku weckt (oder alle fuenf). Je Gruppe 30 s warten, dieselben Werte lesen, notieren was sich aendert (`9259`, `9279`, `9261`, `91C1`, `925C`, `91CF`).
 
-| Schritt | Dazu | Erwartung/Bemerkung |
+| Schritt | Dazu | Bemerkung |
 |---|---|---|
-| 3a | `0x426`, `0x436` (aktuelle Zoe-Form) | `925F` soll 19.400 km zeigen |
-| 3b | `0x19F` | |
-| 3c | `0x69F` | Fahrzeug-ID `13 88 6F` |
-| 3d | `0x350`, `0x53B`, `0x214` | Alter erst gesetzt (Punkt 0.2) |
-| 3e | `0x090`, `0x242` | |
-| 3f | EVC-Zeilen `0x18A`, `0x1F8`, `0x42E`, `0x427`, `0x432`, `0x650`, `0x1FD` | |
-| 3g | alle uebrigen Zeilen | |
+| 3a | alles aus (Stille), dann **nur `0x350`** | Frage: weckt es, obwohl es auf dem Akku-Bus nicht vorkommt? (Code-Kommentar `:1964-1966`: `0x155` mit Ungueltig-Werten) |
+| 3b | + `0x53B`, `0x214` | Alter vorher gesetzt (Punkt 0.2) |
+| 3c | + `0x090`, `0x242` | |
+| 3d | + EVC-Zeilen `0x18A`, `0x1F8`, `0x42E`, `0x427`, `0x432`, `0x650`, `0x1FD` | |
+| 3e | + alle uebrigen Zeilen | |
 
 Springt `9259` auf `05` oder zaehlt `9279` / bewegt sich `9261`/`91C1`: letzte Gruppe wieder halbieren, bis die eine Zeile feststeht.
 
 ## 4. Sleep-Lauf (mit Schreibwert `0x00 activated`)
 1. Vorher lesen: `9261`, `91C1`, `9275`, `9279`, `9259`.
-2. "Sleep 0x9281" (Schreibwert 0x00), durchlaufen bis zum Aufwachen; 12 V dran lassen. Rueckleswert `9281` = `00` notieren.
+2. "Sleep 0x9281" (Schreibwert 0x00), durchlaufen bis zum Aufwachen; 12 V dran lassen. **Hinweis:** Die Sleep-Folge im Code sendet eigene `0x350`-/`0x214`-Frames (C3, C2, C0, 00), obwohl diese auf dem echten Bus nicht vorkommen; ohne Umbau nicht abschaltbar. Rueckleswert `9281` = `00` notieren.
 3. Dieselben Werte nachher lesen, `9275`/`9276` und die Missionsliste komplett.
 
 ## 5. Mitschnitt auswerten (macht Claude)
