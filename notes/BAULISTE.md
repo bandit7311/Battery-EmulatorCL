@@ -3,6 +3,16 @@
 Stand 09.10.2026. Gebaut wird erst nach ausdruecklichem "bauen".
 Basis-Branch fuer Code: claude/twingo-hv-modell-und-alter (HEAD e3988cb).
 
+## BAUUMFANG "echter Bus" (Zusammenfassung, Stand 10.10., wartet auf ausdrueckliches "bauen")
+Neuer Branch ab `e3988cb` (z. B. `twingo-echter-bus-modus`); `claude/twingo-hv-modell-und-alter` bleibt unveraendert als Rueckfall.
+1. **Block 1 "ALLE SIMULATIONSWERTE wie im FAHRZEUG"** (nur BMS<>EVC-Bus, nach Takt gruppiert 10 ms / 20 ms / 100 ms / 200 ms / 500 ms / 1 s / 3 s): `0x19F`, `0x0EC`, `0x0ED`, `0x157`, `0x1A1`, `0x1C7` (10 ms), `0x423`, `0x426`, `0x436`, `0x419`, `0x428`, `0x42F`, `0x435`, `0x4F7`, `0x500`, `0x511` (100 ms), `0x69F` (1 s). Echtes Format und echter Takt, Inhalt je Zustand aus dem Mitschnitt 22aaf176; 10-ms-Frames erst nach dem Wake-Burst.
+2. **Globaler Schalter** "Format der BMS<>EVC-Frames: Fahrzeug (Standard) / Zoe alt" fuer die fuenf Zoe-Form-Frames (`0x423`, `0x426`, `0x436`, `0x19F`, `0x69F`) gemeinsam (Nutzer 10.10.).
+3. **Zustandsauswahl** (zu, wach, Zuendung 1, Zuendung 3, GO, Fahrt, aus), Alter-Feld fuer `0x436` (B1-B3), km-Feld fuer `0x426` (B4-B5).
+4. **Block 2 "simulator alt"**: die uebrigen 41 Zeilen mit echtem Format, nach Takt gruppiert; die fuenf BMS<>EVC-Zeilen dort **ausgeblendet** (Index unveraendert, kein Verrutschen der NVM-Maske); neue Zeilen hinten (Index 46-57).
+5. **Spalte BMS<>EVC-Bus** (ja / nein / unbekannt (gefiltert) / neu) und Absender.
+6. **Empfangs-LED** je Zeile (gruen = von aussen empfangen, grau = nicht), Abschnitt "Weitere empfangene IDs", Aktualisierung ohne Neuladen.
+7. Tests, clang-format, Lieferung zum Flashen. Nicht Teil: Aenderung der Sleep-/Wake-Folge.
+
 ## PRIORITAET 1c (Nutzer, 10.10.): Empfangs-LED in der Simulator-Liste
 - Neue Spalte **zwischen Haken und ID**: LED **gruen** = Frame mit dieser ID wird gerade empfangen (also von aussen, vom Akku), **grau** = nichts empfangen. Zweck: ausschliessen, dass wir ein Frame emulieren muessen, das der Akku ohnehin selbst sendet.
 - Gilt fuer alle Zeilen beider Bloecke (inkl. der zwoelf neuen EVC-Frames). Eigene Sendungen zaehlen nicht (die Empfangsliste der Logs enthaelt nie unsere TX-IDs, z. B. kein RX `0x423`/`0x19F` im Log 25.09.).
