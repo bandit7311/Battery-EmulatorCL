@@ -243,6 +243,20 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
    *  new ones off - matches the planning session. Persisted to NVM like evc_heartbeat_enabled.
    *  64 bit wide since 04.10. (35 rows): NVM key TWINGOSIMMASK holds bits 0-31 as before, TWINGOSIMHI bits 32+. */
   uint64_t simulator_enabled_mask;  // non-zero default set explicitly in the constructor below (memset(0))
+  /** Bits 64-127 of the row switches (128 rows since 10.10., 71 used): NVM keys TWINGOSIMHI2 (bits 64-95) and
+   *  TWINGOSIMHI3 (bits 96-127), default 0 = off. */
+  uint64_t simulator_enabled_mask_hi;
+
+  /** Bus mode "like the vehicle" (10.10.): state of the car that the frames of /simulator block 1 are sent in
+   *  (0 closed, 1 awake, 2 ignition 1, 3 ignition 3, 4 GO, 5 driving, 6 ignition off, see RENAULT-TWINGO-GEN1-BUS.h).
+   *  NVM key TWBUSSTATE. */
+  uint8_t bus_state;
+  /** true = the five Zoe-form frames (0x423, 0x426, 0x436, 0x19F, 0x69F) in the old Zoe form (all 100 ms), false = in the
+   *  format of the real LBC<>EVC bus (default). NVM key TWBUSFMT. */
+  bool bus_format_zoe_old;
+  /** Source of the 96 cell voltages: false = UDS poll (as before), true = the broadcast frames 0x5A1..0x5F7/0x5DD.
+   *  NVM key TWCELLSRC. */
+  bool cell_source_broadcast;
 
   /** EXPERIMENTAL (02.10.): when 0x55D is enabled on /simulator, send an unsourced static
    *  "drive/discharge active" byte pattern instead of the real-log steady-state content. Off by
@@ -1127,12 +1141,13 @@ class DataLayerExtended {
     // correct via the memset(0) above; only the non-zero default needs setting here.
     twingoGen1.sleep_failsafe_minutes = 30;
     twingoGen1.cellwatch_cell = 1;
+    twingoGen1.bus_state = 1;  // awake (door open)
     twingoGen1.simulator_enabled_mask =
         0x00000387;  // working set (09.10.): 0x090, 0x242, 0x350, 0x69F, 0x53B, 0x214 on; the Zoe frames 0x19F, 0x426,
                      // 0x436, 0x423 off (rows 3, 4, 5, 6). A mask saved in the NVM still wins.
     twingoGen1.dtc_ext_read_mask = 0x09;  // Active/Confirmed - memset(0) above would otherwise leave 0x00
-    twingoGen1.age_pack_value = 1311344;  // seed of the vehicle age, see twingo::AGE_SEED_*
-    twingoGen1.age_pack_unix = 1791319221;
+    twingoGen1.age_pack_value = 1025301;  // seed of the vehicle age, see twingo::AGE_SEED_*
+    twingoGen1.age_pack_unix = 1791590400;
   }
 };
 

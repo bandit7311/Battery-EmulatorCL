@@ -29,15 +29,16 @@ class TestTwingo : public RenaultTwingoGen1Battery {
   TestTwingo() {  // the age state is global: every test starts from the seed
     RenaultTwingoGen1Battery::age_manual_clear();
     auto& t = datalayer_extended.twingoGen1;
-    t.age_pack_value = 1311344;
-    t.age_pack_unix = 1791319221;
+    t.age_pack_value = 1025301;
+    t.age_pack_unix = 1791590400;
     t.age_last_sent = 0;
     t.age_source = 0;
+    t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
   }
   bool network_ready() override { return false; }
   void start_ntp() override {}
   bool get_unix_time(time_t& t) override {
-    t = 1791319221;  // the seed reference: age 1,312,784
+    t = 1791590400;  // the seed reference: age 1,312,784
     return true;
   }
   bool get_wall_clock_seconds_of_day(uint32_t& secs) override {
@@ -275,7 +276,7 @@ TEST(TwingoBuild0810, HvRowsFollowTheStagesWithoutAWakeUp) {
   EXPECT_EQ(f1f[1].data.u8[0], 0x45);
   EXPECT_EQ(f1f[1].data.u8[5], 0xA0);
   ASSERT_GE(f52.size(), 1u);
-  EXPECT_EQ(hex_of(f52[0].data.u8, 3), "14 08 10");  // 1,312,784 min = the vehicle age
+  EXPECT_EQ(hex_of(f52[0].data.u8, 3), "0F A5 15");  // 1,312,784 min = the vehicle age
   datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;
 }
 
@@ -384,8 +385,8 @@ TEST(TwingoBuild0810, Frame426KilometresAndByte7AreEditable) {
 // Point 16: Zoe Gen2 frames 0x373 / 0x375 / 0x376
 TEST(TwingoBuild0810, Frame376CarriesTheAgeAsBase255Digits) {
   uint8_t d[8];
-  twingo::frame_376(1312784, d);  // 20 * 65025 + 48 * 255 + 44
-  EXPECT_EQ(hex_of(d, 8), "14 30 2C 14 30 2C 0A 00");
+  twingo::frame_376(1025301, d);  // 15 * 65025 + 195 * 255 + 201
+  EXPECT_EQ(hex_of(d, 8), "0F C3 C9 0F C3 C9 0A 00");
   twingo::frame_376(0, d);
   EXPECT_EQ(hex_of(d, 8), "00 00 00 00 00 00 0A 00");
   twingo::frame_376(254, d);
@@ -417,7 +418,7 @@ TEST(TwingoBuild0810, ZoeRowsSendTheirFramesAndAreOffByDefault) {
   EXPECT_EQ(hex_of(f375[0].data.u8, 8), "02 29 00 BF FE 64 00 FF");
   auto f376 = collect(b, 0x376, 2500, 2800);
   ASSERT_FALSE(f376.empty());
-  EXPECT_EQ(hex_of(f376[0].data.u8, 8), "14 30 2C 14 30 2C 0A 00");  // the age 1,312,784 of the seed
+  EXPECT_EQ(hex_of(f376[0].data.u8, 8), "0F C3 C9 0F C3 C9 0A 00");  // the age 1,312,784 of the seed
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -947,7 +948,7 @@ TEST(TwingoBuild0810, Time436CanFollowTheVehicleAge) {
   auto f = collect(b, 0x436, 1000, 1300);
   ASSERT_FALSE(f.empty());
   const uint32_t v = (f.back().data.u8[1] << 16) | (f.back().data.u8[2] << 8) | f.back().data.u8[3];
-  EXPECT_EQ(v, 1312784u);  // the age of the seed at the frozen test clock, the same as 0x350
+  EXPECT_EQ(v, 1025301u);  // the age of the seed at the frozen test clock, the same as 0x350
   b.time_436_follow_set(false);
   auto g = collect(b, 0x436, 1300, 1600);
   ASSERT_FALSE(g.empty());

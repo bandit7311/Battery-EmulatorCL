@@ -26,14 +26,15 @@ namespace {
 class TestTwingo : public RenaultTwingoGen1Battery {
  public:
   bool unix_set = true;  // the vehicle age needs a valid clock: default = frozen at the seed reference
-  time_t unix_now = 1791319221;
+  time_t unix_now = 1791590400;
   TestTwingo() {  // the age state is global: every test starts from the seed, automatic mode, nothing sent yet
     RenaultTwingoGen1Battery::age_manual_clear();
     auto& t = datalayer_extended.twingoGen1;
-    t.age_pack_value = 1311344;
-    t.age_pack_unix = 1791319221;
+    t.age_pack_value = 1025301;
+    t.age_pack_unix = 1791590400;
     t.age_last_sent = 0;
     t.age_source = 0;
+    t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
   }
   bool network_ready() override { return false; }
   void start_ntp() override {}
@@ -179,7 +180,7 @@ uint8_t sum_complement(const std::vector<uint8_t>& d) {
 // ---------------------------------------------------------------------------
 
 TEST(TwingoCarMode, TableHas35RowsAndTheSevenNewOnesAreAtTheEnd) {
-  ASSERT_EQ((int)RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT, 46);
+  ASSERT_EQ((int)RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT, 71);
   const uint32_t expected[7] = {0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657};
   for (int i = 0; i < 7; i++) {
     const auto& s = RenaultTwingoGen1Battery::sim_signals[28 + i];

@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include "../datalayer/datalayer.h"
+#include "RENAULT-TWINGO-GEN1-BUS.h"
 #include "RENAULT-TWINGO-GEN1-LOGIC.h"
 #include "UdsCanBattery.h"
 
@@ -97,7 +98,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   };
   // 28 rows of 02.10./03.10. + 7 rows of 04.10. (0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657) + 4 rows of 08.10.
   // (0x57F, 0x599, 0x62D, 0x523) + 0x5D7 + Zoe Gen2 frames 0x373/0x375/0x376 + 0x0EE/0x5F8/0x6BF (09.10.), all off by default
-  static const uint8_t SIM_SIGNAL_COUNT = 46;
+  static const uint8_t SIM_SIGNAL_COUNT = 71;  // 46 + 25 rows 'R' (10.10., frames of the LBC<>EVC bus)
   static const SimSignal sim_signals[SIM_SIGNAL_COUNT];
 
   // Row switches (bit i = sim_signals[i]). 64 bit wide since 04.10.: rows 32-34 do not fit into 32 bits.
@@ -156,7 +157,31 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // All rows off at once / back (point 19, 09.10.), runtime only (not stored in the NVM): the sudden end of every frame,
   // as it happened at the first non-zero 9261 of the bench pack on 06.10.
   static uint64_t sim_mask_saved;
+  static uint64_t sim_mask_saved_hi;
   static bool sim_mask_saved_valid;
+  // --- Reception tracking for /simulator (10.10.): when was a frame with an ID first / last seen (own transmissions
+  // are never received, so this shows what comes from outside = from the battery). Times in ms of millis(); T+0 is
+  // rx_t0_ms, set by "All rows off". 0 = never seen. ---
+  struct RxSeen {
+    uint32_t first_ms;
+    uint32_t last_ms;
+    uint32_t count;
+  };
+  static const uint8_t RX_CELL_ID_COUNT = 20;  // the 20 cell frames (cell order: 0x5F7 = cells 1-5 ... 0x5DD = cell 96)
+  static const uint16_t RX_CELL_IDS[RX_CELL_ID_COUNT];
+  static const uint8_t RX_OTHER_MAX = 48;  // other 11-bit IDs that are heard but belong to no row
+  static RxSeen rx_row[SIM_SIGNAL_COUNT];
+  static RxSeen rx_cell[RX_CELL_ID_COUNT];
+  static uint16_t rx_other_id[RX_OTHER_MAX];
+  static RxSeen rx_other[RX_OTHER_MAX];
+  static uint8_t rx_other_count;
+  static uint32_t rx_t0_ms;
+  static uint32_t rx_action_ms;
+  static char rx_action_text[48];
+  static void rx_note(uint32_t id, uint32_t now_ms);  // called for every received 11-bit frame
+  static void rx_reset(uint32_t now_ms);              // T+0: clears all "first seen" values
+  static void note_action(const char* text);          // "last action" of the time bar (time + text)
+  static String rx_status_json(uint32_t now_ms);      // for /twingoRxStatus (times in ms relative to T+0)
   static void sim_all_off();
   static void sim_restore();
   void time_436_set(uint32_t minutes);
@@ -333,6 +358,12 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static const uint8_t SIM_1F8_FADE_STEPS = 10;
 
   unsigned long sim_last_send_ms[SIM_SIGNAL_COUNT] = {0};
+  // Bus mode "like the vehicle" (10.10.): frame counters (index = position in twingo_bus::FRAMES) and cycle timers of
+  // the five Zoe-form frames when they are sent in the format of the real bus.
+  uint32_t bus_seq[twingo_bus::FRAME_COUNT] = {0};
+  unsigned long bus_last_ms[4] = {0};  // 0x19F (10 ms), 0x423, 0x426, 0x436 (100 ms)
+  void send_bus_vehicle_frames(unsigned long now, bool in_00_stage);
+  bool bus_fast_frames_allowed() const;  // 10 ms frames only after the wake-up burst
   void send_simulator_signals(unsigned long currentMillis);
 
   // EXPERIMENTAL (02.10.): staged precharge/main-relay sequence for 0x55D, auto-triggered by the rising

@@ -25,14 +25,15 @@ class TestTwingo : public RenaultTwingoGen1Battery {
   bool clock_set = false;
   uint32_t clock_secs = 0;
   bool unix_set = true;  // the vehicle age needs a valid clock: default = frozen at the seed reference
-  time_t unix_now = 1791319221;
+  time_t unix_now = 1791590400;
   TestTwingo() {  // the age state is global: every test starts from the seed, automatic mode, nothing sent yet
     RenaultTwingoGen1Battery::age_manual_clear();
     auto& t = datalayer_extended.twingoGen1;
-    t.age_pack_value = 1311344;
-    t.age_pack_unix = 1791319221;
+    t.age_pack_value = 1025301;
+    t.age_pack_unix = 1791590400;
     t.age_last_sent = 0;
     t.age_source = 0;
+    t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
   }
 
   bool network_ready() override { return network_up; }
@@ -173,8 +174,8 @@ TEST(TwingoTimeFramesTests, ClockFrameCarriesRealTimeAndFixedDate) {
   EXPECT_TRUE(bytes_are(f53b[0], {0x50, 0xAC, 0x06, 0x4B, 0x30, 0x7D}));
   auto f350 = with_id(frames, 0x350);
   ASSERT_EQ(f350.size(), 1u);
-  // state C7 like the vehicle while it is ready to drive, age 1312784 min = 0x140810 (seed + safety lead)
-  EXPECT_TRUE(bytes_are(f350[0], {0xC7, 0x14, 0x08, 0x10, 0x14, 0x98, 0x94, 0x45}));
+  // state C7 like the vehicle while it is ready to drive, age 1025301 min = 0x140810 (seed + safety lead)
+  EXPECT_TRUE(bytes_are(f350[0], {0xC7, 0x0F, 0xA5, 0x15, 0x14, 0x98, 0x94, 0x45}));
 }
 
 TEST(TwingoTimeFramesTests, ClockFrameOncePerSecondAndRunFrameEvery100ms) {
@@ -274,7 +275,7 @@ TEST(TwingoTimeFramesTests, SleepAndWakeSequenceUseTheVehicleAgeFromTheClock) {
   // Normal operation so far: the "C7" run frame every 100 ms.
   ASSERT_FALSE(with_id(log, 0x350).empty());
   for (const Tx& x : with_id(log, 0x350)) {
-    EXPECT_TRUE(bytes_are(x.f, {0xC7, 0x14, 0x08, 0x10, 0x14, 0x98, 0x94, 0x45}));
+    EXPECT_TRUE(bytes_are(x.f, {0xC7, 0x0F, 0xA5, 0x15, 0x14, 0x98, 0x94, 0x45}));
   }
 
   // A plausible temperature frame ends the boot phase of the temperature filter before the sleep run.
@@ -295,9 +296,9 @@ TEST(TwingoTimeFramesTests, SleepAndWakeSequenceUseTheVehicleAgeFromTheClock) {
   uint64_t t_first_00 = 0, t_last_350 = 0;
   for (const Tx& x : f350) {
     // Every 0x350 frame of the sequence carries the age of the (frozen) clock in bytes 1-3.
-    EXPECT_EQ(x.f.data.u8[1], 0x14);
-    EXPECT_EQ(x.f.data.u8[2], 0x08);
-    EXPECT_EQ(x.f.data.u8[3], 0x10);
+    EXPECT_EQ(x.f.data.u8[1], 0x0F);
+    EXPECT_EQ(x.f.data.u8[2], 0xA5);
+    EXPECT_EQ(x.f.data.u8[3], 0x15);
     uint8_t s = x.f.data.u8[0];
     seen_c3 |= (s == 0xC3);
     seen_c2 |= (s == 0xC2);
@@ -354,12 +355,12 @@ TEST(TwingoTimeFramesTests, SleepAndWakeSequenceUseTheVehicleAgeFromTheClock) {
     }
   }
   ASSERT_EQ(burst.size(), 11u);
-  EXPECT_TRUE(bytes_are(burst[0].f, {0xC0, 0x14, 0x08, 0x10, 0x14, 0x70, 0x96, 0x85}));
+  EXPECT_TRUE(bytes_are(burst[0].f, {0xC0, 0x0F, 0xA5, 0x15, 0x14, 0x70, 0x96, 0x85}));
   for (size_t i = 1; i < burst.size(); i++) {
     EXPECT_EQ(burst[i].f.data.u8[0], 0xC3);
-    EXPECT_EQ(burst[i].f.data.u8[1], 0x14);
-    EXPECT_EQ(burst[i].f.data.u8[2], 0x08);
-    EXPECT_EQ(burst[i].f.data.u8[3], 0x10);
+    EXPECT_EQ(burst[i].f.data.u8[1], 0x0F);
+    EXPECT_EQ(burst[i].f.data.u8[2], 0xA5);
+    EXPECT_EQ(burst[i].f.data.u8[3], 0x15);
   }
   auto wake53b = with_id(wake_log, 0x53B);
   ASSERT_FALSE(wake53b.empty());
@@ -374,7 +375,7 @@ TEST(TwingoTimeFramesTests, SleepAndWakeSequenceUseTheVehicleAgeFromTheClock) {
   ASSERT_GE(run350.size(), 38u);
   ASSERT_LE(run350.size(), 41u);
   for (const Tx& x : run350) {
-    EXPECT_TRUE(bytes_are(x.f, {0xC7, 0x14, 0x08, 0x10, 0x14, 0x98, 0x94, 0x45}));
+    EXPECT_TRUE(bytes_are(x.f, {0xC7, 0x0F, 0xA5, 0x15, 0x14, 0x98, 0x94, 0x45}));
   }
 
   // After the wake-up the BMS behaves like after a boot: the temperature filter is armed again, an implausible

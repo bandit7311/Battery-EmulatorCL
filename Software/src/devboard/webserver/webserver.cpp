@@ -214,7 +214,22 @@ void init_webserver() {
         uint64_t lo = prefs.getUInt("TWINGOSIMMASK", (uint32_t)(current & 0xFFFFFFFFULL));
         uint64_t hi = prefs.getUInt("TWINGOSIMHI", (uint32_t)(current >> 32));
         datalayer_extended.twingoGen1.simulator_enabled_mask = (hi << 32) | lo;
+        // 128 rows since 10.10.: bits 64-95 / 96-127, default 0 (off) - no migration of stored switches needed.
+        uint64_t lo2 = prefs.getUInt("TWINGOSIMHI2", (uint32_t)(datalayer_extended.twingoGen1.simulator_enabled_mask_hi &
+                                                                0xFFFFFFFFULL));
+        uint64_t hi2 =
+            prefs.getUInt("TWINGOSIMHI3", (uint32_t)(datalayer_extended.twingoGen1.simulator_enabled_mask_hi >> 32));
+        datalayer_extended.twingoGen1.simulator_enabled_mask_hi = (hi2 << 32) | lo2;
       }
+      datalayer_extended.twingoGen1.bus_state =
+          (uint8_t)prefs.getUInt("TWBUSSTATE", datalayer_extended.twingoGen1.bus_state);
+      if (datalayer_extended.twingoGen1.bus_state >= twingo_bus::BUS_STATE_COUNT) {
+        datalayer_extended.twingoGen1.bus_state = twingo_bus::BUS_WACH;
+      }
+      datalayer_extended.twingoGen1.bus_format_zoe_old =
+          prefs.getBool("TWBUSFMT", datalayer_extended.twingoGen1.bus_format_zoe_old);
+      datalayer_extended.twingoGen1.cell_source_broadcast =
+          prefs.getBool("TWCELLSRC", datalayer_extended.twingoGen1.cell_source_broadcast);
       datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled =
           prefs.getBool("TWINGOSIM55DDRV", datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled);
       prefs.end();
@@ -886,6 +901,7 @@ void init_webserver() {
   });
   def_route_with_auth("/twingoSimRestore", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     RenaultTwingoGen1Battery::sim_restore();
+    RenaultTwingoGen1Battery::note_action("rows restored");
     request->send(200, "text/plain", "OK");
   });
 
@@ -973,13 +989,75 @@ void init_webserver() {
       bool enable = request->getParam("value")->value().toInt() != 0;
       if (index >= 0 && index < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT) {
         RenaultTwingoGen1Battery::sim_row_set((uint8_t)index, enable);
+        {
+          char buf[48];
+          snprintf(buf, sizeof(buf), "0x%03X %s", (unsigned)RenaultTwingoGen1Battery::sim_signals[index].id,
+                   enable ? "on" : "off");
+          RenaultTwingoGen1Battery::note_action(buf);
+        }
         uint64_t mask = datalayer_extended.twingoGen1.simulator_enabled_mask;
         Preferences prefs;
         prefs.begin("batterySettings", false);
         prefs.putUInt("TWINGOSIMMASK", (uint32_t)(mask & 0xFFFFFFFFULL));
         prefs.putUInt("TWINGOSIMHI", (uint32_t)(mask >> 32));
+        const uint64_t mask_hi = datalayer_extended.twingoGen1.simulator_enabled_mask_hi;
+        prefs.putUInt("TWINGOSIMHI2", (uint32_t)(mask_hi & 0xFFFFFFFFULL));
+        prefs.putUInt("TWINGOSIMHI3", (uint32_t)(mask_hi >> 32));
         prefs.end();
       }
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  // Bus mode "like the vehicle" (10.10.): state of the car for the frames of /simulator block 1, format of the five
+  // Zoe-form frames (0 = like the car, 1 = old Zoe form) and source of the cell voltages (0 = UDS poll, 1 = broadcast).
+  def_route_with_auth("/twingoBusState", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      int v = request->getParam("value")->value().toInt();
+      if (v >= 0 && v < twingo_bus::BUS_STATE_COUNT) {
+        datalayer_extended.twingoGen1.bus_state = (uint8_t)v;
+        {
+          char buf[48];
+          snprintf(buf, sizeof(buf), "state: %s", twingo_bus::state_name((uint8_t)v));
+          RenaultTwingoGen1Battery::note_action(buf);
+        }
+        Preferences prefs;
+        prefs.begin("batterySettings", false);
+        prefs.putUInt("TWBUSSTATE", (uint32_t)v);
+        prefs.end();
+      }
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  // Small JSON for the 1 s poll of /simulator: reception status per row / cell frame / other ID, times in ms
+  // relative to T+0 (see RenaultTwingoGen1Battery::rx_status_json).
+  def_route_with_auth("/twingoRxStatus", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "application/json", RenaultTwingoGen1Battery::rx_status_json(millis()));
+  });
+
+  def_route_with_auth("/twingoBusFormat", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      bool old_form = request->getParam("value")->value().toInt() != 0;
+      datalayer_extended.twingoGen1.bus_format_zoe_old = old_form;
+      RenaultTwingoGen1Battery::note_action(old_form ? "format: Zoe old" : "format: like the car");
+      Preferences prefs;
+      prefs.begin("batterySettings", false);
+      prefs.putBool("TWBUSFMT", old_form);
+      prefs.end();
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  def_route_with_auth("/twingoCellSource", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      bool broadcast = request->getParam("value")->value().toInt() != 0;
+      datalayer_extended.twingoGen1.cell_source_broadcast = broadcast;
+      RenaultTwingoGen1Battery::note_action(broadcast ? "cells: broadcast" : "cells: UDS");
+      Preferences prefs;
+      prefs.begin("batterySettings", false);
+      prefs.putBool("TWCELLSRC", broadcast);
+      prefs.end();
     }
     request->send(200, "text/plain", "OK");
   });

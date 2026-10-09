@@ -25,15 +25,19 @@ inline bool battery_current_plausible(double amps) {
 }
 
 // ---------------------------------------------------------------------------------------------------------
-// Vehicle age (0x350 bytes 1-3, 0x523, 0x376), 24 bit minutes (point 17, 08.10.). The age never comes from the clock
-// any more (the clock value of 2.97 million is 3.15 years above the 1,311,344 the bench pack holds). It counts
-// +1 per minute from a reference (value + Unix time) and carries a safety lead of one day.
-constexpr uint32_t AGE_SAFETY_MIN = 1440;  // one day, added once (not every minute)
+// Vehicle age (0x350 bytes 1-3, 0x523, 0x376, 0x436), 24 bit minutes (point 17, 08.10.). The age never comes from the
+// clock (the clock value of 2.97 million is far above what this bench pack holds). It counts +1 per minute from a
+// reference (value + Unix time). Since 10.10. (decision of the user) there is no safety lead any more and the pack
+// reading higher no longer raises the reference: exactly the pack time of THIS bench pack is sent.
+constexpr uint32_t AGE_SAFETY_MIN = 0;  // was one day until 09.10.
+constexpr bool AGE_RAISE_FROM_PACK = false;  // was true until 09.10. (age_note_pack_read)
 constexpr uint32_t AGE_MAX_24 = 0xFFFFFF;
 constexpr int64_t UNIX_PLAUSIBLE_MIN = 1700000000LL;  // 14.11.2023; anything below is "clock not set"
-// Seed reference of the bench pack: 9261 = 91C1 = 1,311,344 min, first seen 06.10.2026 20:40:21 UTC.
-constexpr uint32_t AGE_SEED_VALUE = 1311344;
-constexpr int64_t AGE_SEED_UNIX = 1791319221LL;
+// Seed reference of the bench pack (10.10.2026): its pack time $91C1 was 912,981 min on 24.07.2026 (Zoe Gen2 run,
+// before the NVROL reset); 78 days x 1,440 min later (10.10.2026 00:00:00 UTC) that is 1,025,301 min. Until 09.10. the
+// seed was 1,311,344 (value read on 06.10.).
+constexpr uint32_t AGE_SEED_VALUE = 1025301;
+constexpr int64_t AGE_SEED_UNIX = 1791590400LL;
 
 inline uint32_t age_clamp24(uint64_t v) {
   return v > AGE_MAX_24 ? AGE_MAX_24 : (uint32_t)v;

@@ -998,11 +998,12 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
 bool RenaultTwingoGen1Battery::shutdown_like_car = false;
 bool RenaultTwingoGen1Battery::time_436_follow_age = false;
 uint64_t RenaultTwingoGen1Battery::sim_mask_saved = 0;
+uint64_t RenaultTwingoGen1Battery::sim_mask_saved_hi = 0;
 bool RenaultTwingoGen1Battery::sim_mask_saved_valid = false;
 bool RenaultTwingoGen1Battery::time_436_active = false;
 uint32_t RenaultTwingoGen1Battery::time_436_value = 0;
 uint32_t RenaultTwingoGen1Battery::odo_5d7_km = 19400;
-uint32_t RenaultTwingoGen1Battery::odo_426_km = 19400;
+uint32_t RenaultTwingoGen1Battery::odo_426_km = 6844;  // pack mileage $91CF of this bench pack (10.10.)
 uint8_t RenaultTwingoGen1Battery::odo_426_b7 = 0x40;
 bool RenaultTwingoGen1Battery::age_manual_active = false;
 uint32_t RenaultTwingoGen1Battery::age_manual_start_min = 0;
@@ -1017,8 +1018,8 @@ void RenaultTwingoGen1Battery::age_load_from_nvm() {
     return;
   }
   auto& t = datalayer_extended.twingoGen1;
-  t.age_pack_value = prefs.getUInt("TWAGEPV", t.age_pack_value);
-  t.age_pack_unix = prefs.getUInt("TWAGEPT", t.age_pack_unix);
+  t.age_pack_value = prefs.getUInt("TWAGEPV2", t.age_pack_value);
+  t.age_pack_unix = prefs.getUInt("TWAGEPT2", t.age_pack_unix);
   time_436_follow_age = prefs.getBool("TW436A", false);
   if (prefs.getBool("TWAGEMA", false)) {
     age_manual_active = true;
@@ -1037,8 +1038,8 @@ void RenaultTwingoGen1Battery::age_save_to_nvm() {
     return;
   }
   auto& t = datalayer_extended.twingoGen1;
-  prefs.putUInt("TWAGEPV", t.age_pack_value);
-  prefs.putUInt("TWAGEPT", t.age_pack_unix);
+  prefs.putUInt("TWAGEPV2", t.age_pack_value);
+  prefs.putUInt("TWAGEPT2", t.age_pack_unix);
   prefs.putBool("TW436A", time_436_follow_age);
   prefs.putBool("TWAGEMA", age_manual_active);
   prefs.putUInt("TWAGEMV", age_manual_start_min);
@@ -1056,17 +1057,142 @@ void RenaultTwingoGen1Battery::age_manual_set(uint32_t minutes, int64_t unix_s) 
   age_save_to_nvm();
 }
 
+const uint16_t RenaultTwingoGen1Battery::RX_CELL_IDS[RenaultTwingoGen1Battery::RX_CELL_ID_COUNT] = {
+    0x5F7, 0x5F4, 0x5F2, 0x5F1, 0x5F0, 0x5ED, 0x5EA, 0x5D9, 0x5EC, 0x5D6,
+    0x5CC, 0x5CB, 0x5C9, 0x5B7, 0x5B5, 0x5B4, 0x5AC, 0x5AD, 0x5A1, 0x5DD};
+RenaultTwingoGen1Battery::RxSeen RenaultTwingoGen1Battery::rx_row[RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT] = {};
+RenaultTwingoGen1Battery::RxSeen RenaultTwingoGen1Battery::rx_cell[RenaultTwingoGen1Battery::RX_CELL_ID_COUNT] = {};
+uint16_t RenaultTwingoGen1Battery::rx_other_id[RenaultTwingoGen1Battery::RX_OTHER_MAX] = {};
+RenaultTwingoGen1Battery::RxSeen RenaultTwingoGen1Battery::rx_other[RenaultTwingoGen1Battery::RX_OTHER_MAX] = {};
+uint8_t RenaultTwingoGen1Battery::rx_other_count = 0;
+uint32_t RenaultTwingoGen1Battery::rx_t0_ms = 0;
+uint32_t RenaultTwingoGen1Battery::rx_action_ms = 0;
+char RenaultTwingoGen1Battery::rx_action_text[48] = {0};
+
+static void rx_touch(RenaultTwingoGen1Battery::RxSeen& r, uint32_t now_ms) {
+  if (r.count == 0) {
+    r.first_ms = now_ms;
+  }
+  r.last_ms = now_ms;
+  if (r.count < 0xFFFFFFFFUL) {
+    r.count++;
+  }
+}
+
+void RenaultTwingoGen1Battery::rx_note(uint32_t id, uint32_t now_ms) {
+  for (uint8_t i = 0; i < SIM_SIGNAL_COUNT; i++) {
+    if (sim_signals[i].id == id) {
+      rx_touch(rx_row[i], now_ms);
+      return;
+    }
+  }
+  for (uint8_t i = 0; i < RX_CELL_ID_COUNT; i++) {
+    if (RX_CELL_IDS[i] == id) {
+      rx_touch(rx_cell[i], now_ms);
+      return;
+    }
+  }
+  for (uint8_t i = 0; i < rx_other_count; i++) {
+    if (rx_other_id[i] == id) {
+      rx_touch(rx_other[i], now_ms);
+      return;
+    }
+  }
+  if (rx_other_count < RX_OTHER_MAX) {
+    rx_other_id[rx_other_count] = (uint16_t)id;
+    rx_other[rx_other_count] = RxSeen{0, 0, 0};
+    rx_touch(rx_other[rx_other_count], now_ms);
+    rx_other_count++;
+  }
+}
+
+void RenaultTwingoGen1Battery::rx_reset(uint32_t now_ms) {
+  for (uint8_t i = 0; i < SIM_SIGNAL_COUNT; i++) {
+    rx_row[i] = RxSeen{0, 0, 0};
+  }
+  for (uint8_t i = 0; i < RX_CELL_ID_COUNT; i++) {
+    rx_cell[i] = RxSeen{0, 0, 0};
+  }
+  rx_other_count = 0;
+  rx_t0_ms = now_ms;
+  rx_action_ms = 0;
+  rx_action_text[0] = 0;
+}
+
+void RenaultTwingoGen1Battery::note_action(const char* text) {
+  rx_action_ms = millis();
+  strncpy(rx_action_text, text, sizeof(rx_action_text) - 1);
+  rx_action_text[sizeof(rx_action_text) - 1] = 0;
+}
+
+static void rx_json_entry(String& s, bool& first_entry, long idx, const RenaultTwingoGen1Battery::RxSeen& r,
+                          uint32_t t0) {
+  if (r.count == 0) {
+    return;
+  }
+  if (!first_entry) {
+    s += ",";
+  }
+  first_entry = false;
+  s += "[" + String(idx) + "," + String((long)((int32_t)(r.first_ms - t0))) + "," +
+       String((long)((int32_t)(r.last_ms - t0))) + "," + String((unsigned long)r.count) + "]";
+}
+
+// Compact JSON for the /simulator page: r = rows (index in sim_signals), c = cell frames (index in RX_CELL_IDS),
+// o = other IDs (the ID itself), each [key, first seen, last seen, count] with times in ms relative to T+0;
+// u = Unix time of "now" (0 = clock not set).
+String RenaultTwingoGen1Battery::rx_status_json(uint32_t now_ms) {
+  time_t unix_now = time(nullptr);  // NTP clock for the page (0 as long as it is not set)
+  if (unix_now < 1700000000) {
+    unix_now = 0;
+  }
+  String s = "{\"now\":" + String((long)((int32_t)(now_ms - rx_t0_ms))) + ",\"u\":" + String((long)unix_now) +
+             ",\"act\":" +
+             String((long)(rx_action_ms == 0 ? -1L : (long)((int32_t)(rx_action_ms - rx_t0_ms)))) + ",\"acttxt\":\"";
+  char txt[sizeof(rx_action_text)];
+  uint8_t n = 0;
+  for (const char* c = rx_action_text; *c && n + 1 < sizeof(txt); c++) {
+    if (*c != '"' && *c != '\\') {
+      txt[n++] = *c;  // no quotes or backslashes inside the JSON string
+    }
+  }
+  txt[n] = 0;
+  s += txt;
+  s += "\",\"r\":[";
+  bool first_entry = true;
+  for (uint8_t i = 0; i < SIM_SIGNAL_COUNT; i++) {
+    rx_json_entry(s, first_entry, i, rx_row[i], rx_t0_ms);
+  }
+  s += "],\"c\":[";
+  first_entry = true;
+  for (uint8_t i = 0; i < RX_CELL_ID_COUNT; i++) {
+    rx_json_entry(s, first_entry, i, rx_cell[i], rx_t0_ms);
+  }
+  s += "],\"o\":[";
+  first_entry = true;
+  for (uint8_t i = 0; i < rx_other_count; i++) {
+    rx_json_entry(s, first_entry, rx_other_id[i], rx_other[i], rx_t0_ms);
+  }
+  s += "]}";
+  return s;
+}
+
 void RenaultTwingoGen1Battery::sim_all_off() {
   if (!sim_mask_saved_valid) {
     sim_mask_saved = datalayer_extended.twingoGen1.simulator_enabled_mask;
+    sim_mask_saved_hi = datalayer_extended.twingoGen1.simulator_enabled_mask_hi;
     sim_mask_saved_valid = true;
   }
   datalayer_extended.twingoGen1.simulator_enabled_mask = 0;
+  datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
+  rx_reset(millis());  // T+0: only "All rows off" sets the time to zero (decision of the user, 10.10.)
+  note_action("all rows off");
 }
 
 void RenaultTwingoGen1Battery::sim_restore() {
   if (sim_mask_saved_valid) {
     datalayer_extended.twingoGen1.simulator_enabled_mask = sim_mask_saved;
+    datalayer_extended.twingoGen1.simulator_enabled_mask_hi = sim_mask_saved_hi;
     sim_mask_saved_valid = false;
   }
 }
@@ -1146,8 +1272,8 @@ bool RenaultTwingoGen1Battery::vehicle_age_available(unsigned long nowMillis, ui
 // Called after 0x9261 / 0x91C1 were stored: if the pack holds more than we currently send, it becomes the new reference
 // (raised once, the safety lead is added again by age_auto). A pack that only stores what we sent never raises it.
 void RenaultTwingoGen1Battery::age_note_pack_read(unsigned long nowMillis) {
-  if (age_manual_active) {
-    return;
+  if (age_manual_active || !twingo::AGE_RAISE_FROM_PACK) {
+    return;  // since 10.10. only the pack time of this bench pack is sent (no raise from the pack reading)
   }
   int64_t now_unix = 0;
   if (!unix_now_valid(now_unix)) {
@@ -1186,20 +1312,26 @@ bool RenaultTwingoGen1Battery::sim_enabled(uint8_t row) {
 }
 
 bool RenaultTwingoGen1Battery::sim_row_enabled(uint8_t row) {
-  if (row >= 64) {
+  if (row >= 128) {
     return false;
+  }
+  if (row >= 64) {
+    return ((datalayer_extended.twingoGen1.simulator_enabled_mask_hi >> (row - 64)) & 1ULL) != 0;
   }
   return ((datalayer_extended.twingoGen1.simulator_enabled_mask >> row) & 1ULL) != 0;
 }
 
 void RenaultTwingoGen1Battery::sim_row_set(uint8_t row, bool on) {
-  if (row >= 64) {
+  if (row >= 128) {
     return;
   }
+  uint64_t& word = (row >= 64) ? datalayer_extended.twingoGen1.simulator_enabled_mask_hi
+                               : datalayer_extended.twingoGen1.simulator_enabled_mask;
+  const uint64_t bit = 1ULL << (row & 63);
   if (on) {
-    datalayer_extended.twingoGen1.simulator_enabled_mask |= (1ULL << row);
+    word |= bit;
   } else {
-    datalayer_extended.twingoGen1.simulator_enabled_mask &= ~(1ULL << row);
+    word &= ~bit;
   }
 }
 
@@ -1941,7 +2073,29 @@ void RenaultTwingoGen1Battery::append_refresh_script_html(String& s, bool busy) 
 #endif
 
 void RenaultTwingoGen1Battery::handle_incoming_can_frame(CAN_frame rx_frame) {
+  if (!rx_frame.ext_ID) {
+    rx_note(rx_frame.ID, millis());
+  }
 #ifdef TWINGO_EXTENDED_CELL_POLLING
+  if (!rx_frame.ext_ID && datalayer_extended.twingoGen1.cell_source_broadcast) {
+    // Cell source "broadcast": the 20 cell frames (5 cells each, 0x5DD one) replace the UDS cell poll. Placeholders
+    // of the wake-up (FF.. / 00..0F) decode outside the plausible window and are skipped.
+    const int idx = twingo_bus::cell_frame_index((uint16_t)rx_frame.ID);
+    if (idx >= 0) {
+      uint16_t mv[5];
+      const uint8_t n = twingo_bus::decode_cell_frame((uint8_t)idx, rx_frame.data.u8, mv);
+      for (uint8_t k = 0; k < n; k++) {
+        const uint8_t cell = (uint8_t)(twingo_bus::first_cell((uint8_t)idx) + k);
+        if (mv[k] == 0 || cell >= 96) {
+          continue;
+        }
+        if (datalayer_battery->status.cell_voltages_mV[cell] == 0 && ext_cells_seen < 96) {
+          ext_cells_seen++;
+        }
+        datalayer_battery->status.cell_voltages_mV[cell] = mv[k];
+      }
+    }
+  }
   if (NVROLstateMachine == 5 || NVROLstateMachine == 7 || NVROLstateMachine == 8) {
     // Recording runs from the start of the shutdown announcement (state 7: C3/C2/C0/00) all the way
     // through true silence (state 5) AND the wake-up burst (state 8), on one continuous timeline - so
@@ -2818,6 +2972,308 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      "\"Total Boost Time\" of the Zoe Gen2 driver, all zero. The MCPU has a value \"Total boost time from HEVC to "
      "BMS saved at powerlatch\" that may belong to it (guess, from the name). Not in the Twingo vehicle log.",
      SIM_END_BUS},
+    // --- 10.10.: frames of the bus between the LBC and the EVC (tag R), sent in the real format by
+    // send_simulator_signals() from RENAULT-TWINGO-GEN1-BUS.h (content per state, counters, checksums) ---
+    {0x155,
+     8,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     10,
+     'R',
+     true,
+     "0x155 bus: power/current/SOC",
+     true,
+     "Battery (bench log 25.09.)",
+     "Charging power (byte 0 x 300 W), current (bytes 1-2, 0.25 A per bit, offset -500 A), SOC (bytes 4-5, "
+     "0.0025 percent per bit) - decoded by this driver. The battery sends it on its own (bench log 25.09., "
+     "battery alone); sent from here it collides with a real battery. Content per state from the car log.",
+     SIM_END_BUS},
+    {0x0C5,
+     7,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     10,
+     'R',
+     true,
+     "0x0C5 bus",
+     true,
+     "Battery (bench log 25.09.)",
+     "Counter/checksum-like bytes, meaning unknown. The battery sends it on its own (bench log 25.09.). "
+     "Content per state from the car log.",
+     SIM_END_BUS},
+    {0x1C9,
+     2,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     10,
+     'R',
+     true,
+     "0x1C9 bus",
+     true,
+     "Battery (bench log 25.09.)",
+     "Two bytes, counter/checksum-like, meaning unknown. The battery sends it on its own (bench log "
+     "25.09.). The Renault CAN list has a steering frame with this ID (EPS_R5, 10 ms); whether it is the "
+     "same frame is unknown.",
+     SIM_END_BUS},
+    {0x157,
+     8,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     10,
+     'R',
+     false,
+     "0x157 bus",
+     true,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Byte 1 high nibble = counter (+5 per frame), no checksum found, bytes 0 and 3 vary slowly, meaning "
+     "unknown. In the car log of the LBC<>EVC bus.",
+     SIM_END_BUS},
+    {0x1A1,
+     8,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     10,
+     'R',
+     false,
+     "0x1A1 bus",
+     true,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Measurement-like bytes, no counter, no checksum found, meaning unknown. In the car log of the "
+     "LBC<>EVC bus.",
+     SIM_END_BUS},
+    {0x1C7,
+     6,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     10,
+     'R',
+     false,
+     "0x1C7 bus",
+     true,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Almost constant per state, meaning unknown. In the car log of the LBC<>EVC bus.",
+     SIM_END_BUS},
+    {0x0EC,
+     3,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     10,
+     'R',
+     false,
+     "0x0EC bus (counter + CRC)",
+     true,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Byte 1 high nibble = counter (+1 per frame), byte 2 = CRC-8 (poly 0x1D, start 0, final XOR 0xBE) "
+     "over bytes 0-1 (100 percent of 57,317 frames of the car log). Meaning unknown. First frame at wake-up in "
+     "the car.",
+     SIM_END_BUS},
+    {0x0ED,
+     3,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     10,
+     'R',
+     false,
+     "0x0ED bus",
+     true,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Byte 1 changes FF -> CC with the GO switch in the car, meaning otherwise unknown. In the car log of "
+     "the LBC<>EVC bus.",
+     SIM_END_BUS},
+    {0x419,
+     6,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     false,
+     "0x419 bus",
+     true,
+     "unclear (not seen from the battery alone)",
+     "Six bytes, values vary with the state, meaning unknown. Whether the EVC or the battery sends it is "
+     "unclear.",
+     SIM_END_BUS},
+    {0x424,
+     8,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     true,
+     "0x424 bus: limits/SOH/temperature",
+     true,
+     "Battery (bench log 25.09.)",
+     "Byte 2 x 500 W regeneration limit, byte 3 x 500 W discharge limit, byte 5 SOH, bytes 4/7 "
+     "minimum/maximum temperature (+40), byte 6 heartbeat 0x55/0xAA - decoded by this driver. The battery "
+     "sends it on its own. Content per state from the car log (heartbeat stays constant here).",
+     SIM_END_BUS},
+    {0x425,
+     8,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     true,
+     "0x425 bus: cell min/max",
+     true,
+     "Battery (bench log 25.09.)",
+     "Cell maximum/minimum in bytes 4-7 (10 mV raster, +1000 mV) and more - decoded by this driver. The "
+     "battery sends it on its own. Content per state from the car log.",
+     SIM_END_BUS},
+    {0x428,
+     8,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     false,
+     "0x428 bus",
+     true,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Constant 00 00 00 00 00 06 00 00 (a different pattern in the first frames after the wake-up), "
+     "meaning unknown.",
+     SIM_END_BUS},
+    {0x42F,
+     6,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     false,
+     "0x42F bus",
+     true,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Constant 00 20 FF 80 0F B0 (zeros in the first frames after the wake-up), meaning unknown.",
+     SIM_END_BUS},
+    {0x435,
+     8,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     false,
+     "0x435 bus",
+     true,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Changes with the wake-up and the door (byte 2 1D/1E, byte 3 EB/0B, byte 5 FC/00), meaning unknown.",
+     SIM_END_BUS},
+    {0x43A,
+     6,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     true,
+     "0x43A bus",
+     true,
+     "Battery (bench log 25.09.)",
+     "Counter/checksum-like, meaning unknown. The battery sends it on its own. Content per state from the "
+     "car log.",
+     SIM_END_BUS},
+    {0x445,
+     7,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     true,
+     "0x445 bus: heartbeat",
+     true,
+     "Battery (bench log 25.09.)",
+     "Byte 2 alternates 0x55/0xAA (checked by this driver). The battery sends it on its own. Content per "
+     "state from the car log (heartbeat stays constant here).",
+     SIM_END_BUS},
+    {0x464,
+     3,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     true,
+     "0x464 bus",
+     true,
+     "Battery (bench log 25.09.)",
+     "Counter/checksum-like, meaning unknown. The battery sends it on its own. Content per state from the "
+     "car log.",
+     SIM_END_BUS},
+    {0x4F7,
+     8,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     false,
+     "0x4F7 bus",
+     true,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Byte 4 changes with ignition 1 (B0 -> 90), meaning unknown.",
+     SIM_END_BUS},
+    {0x500,
+     5,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     false,
+     "0x500 bus (ignition on only)",
+     false,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Five bytes, random-looking, no counter, no checksum found; only while the ignition is on (starts "
+     "about 15 s after ignition 1 in the car). Meaning unknown.",
+     SIM_END_BUS},
+    {0x511,
+     7,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     false,
+     "0x511 bus (six counters)",
+     false,
+     "not sent by the battery alone (bench log 25.09.)",
+     "Byte 0 = 04 at rest and 00 from ignition 3; bytes 1-6 are six counters with a fixed step each (+63, "
+     "+201, +185, +107, +13, +227 per frame). The same format is seen on the vehicle CAN. Meaning unknown.",
+     SIM_END_BUS},
+    {0x588,
+     4,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     100,
+     'R',
+     true,
+     "0x588 bus",
+     true,
+     "Battery (bench log 25.09.)",
+     "Counter/checksum-like, meaning unknown. The battery sends it on its own. Content per state from the "
+     "car log.",
+     SIM_END_BUS},
+    {0x6BE,
+     6,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     1000,
+     'R',
+     true,
+     "0x6BE bus",
+     true,
+     "Battery (bench log 25.09.)",
+     "Six bytes, changes with the state, meaning unknown. The battery sends it on its own. Content per "
+     "state from the car log.",
+     SIM_END_BUS},
+    {0x4AE,
+     8,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     3000,
+     'R',
+     true,
+     "0x4AE bus",
+     true,
+     "Battery (bench log 25.09.)",
+     "Constant after the wake-up (all FF in the first frame), meaning unknown. The battery sends it on its "
+     "own.",
+     SIM_END_BUS},
+    {0x4AF,
+     5,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     3000,
+     'R',
+     true,
+     "0x4AF bus",
+     false,
+     "Battery (bench log 25.09.)",
+     "Constant after the wake-up (all FF in the first frame), meaning unknown. The battery sends it on its "
+     "own.",
+     SIM_END_BUS},
+    {0x659,
+     4,
+     {0, 0, 0, 0, 0, 0, 0, 0},
+     3000,
+     'R',
+     true,
+     "0x659 bus",
+     true,
+     "Battery (bench log 25.09.)",
+     "Constant after the wake-up (all FF in the first frame), meaning unknown. The battery sends it on its "
+     "own.",
+     SIM_END_BUS},
 };
 
 // EXPERIMENTAL override for the 0x55D row above, content from an unsourced text (no log/code evidence,
@@ -2894,9 +3350,8 @@ twingo::HvOut RenaultTwingoGen1Battery::hv_now(unsigned long now) const {
 void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMillis) {
   // The true-silence rule of the old code (every row stops with the C0 stage of the shutdown and none starts before
   // the first wake frame) is sim_row_allowed_now() now; in the mode "like the car" each row ends at its SimEnd.
-  uint64_t mask = datalayer_extended.twingoGen1.simulator_enabled_mask;
   for (uint8_t i = 0; i < SIM_SIGNAL_COUNT; i++) {
-    if (!(mask & (1ULL << i))) {
+    if (!sim_row_enabled(i)) {
       if (sim_signals[i].id == 0x1F8) {
         sim_1f8_running = false;  // switched off: starts with the FA phase again when it is switched on
       }
@@ -2920,7 +3375,22 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
     sim_last_send_ms[i] = currentMillis;
     CAN_frame f = {.FD = false, .ext_ID = false, .DLC = sim_signals[i].dlc, .ID = sim_signals[i].id};
     memcpy(f.data.u8, sim_signals[i].data, 8);
-    if (sim_signals[i].id == 0x1F8) {
+    if (sim_signals[i].tag == 'R') {
+      // Frame of the LBC<>EVC bus (10.10.): real format, content per state, counters/CRC where known.
+      const twingo_bus::FrameDef* def = twingo_bus::find_frame((uint16_t)sim_signals[i].id);
+      if (def == nullptr) {
+        continue;
+      }
+      const uint8_t state = datalayer_extended.twingoGen1.bus_state;
+      if (!twingo_bus::active_in_state(*def, state)) {
+        continue;
+      }
+      if (def->interval_ms <= 10 && !bus_fast_frames_allowed()) {
+        continue;  // the 10 ms frames start only after the wake-up burst
+      }
+      twingo_bus::build_frame(*def, state, bus_seq[def - twingo_bus::FRAMES]++, 0, odo_426_km, f.data.u8);
+      f.DLC = def->dlc;
+    } else if (sim_signals[i].id == 0x1F8) {
       // Bytes 5/6 = motor speed (bits 40-50, 10 rpm per bit); the car stands, so 0. Like the real EVC the
       // transmission starts with FA (invalid), then 00 and a fade to 0 (taken from the vehicle log, 11 frames
       // at 10 ms): 00, 20, 0E(A0), 06(A0), 03, 01(60), 00(A0), 00(40), 00(20), 00. This is NOT a relay or
@@ -3086,6 +3556,60 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
   }
 }
 
+// 10 ms frames of the bus mode start only after the wake-up burst (decision of the user, 10.10.; the CAN NATIVE BUS
+// ERROR of 29.09. came with 0x090/0x242 running during the burst).
+bool RenaultTwingoGen1Battery::bus_fast_frames_allowed() const {
+#ifdef TWINGO_EXTENDED_CELL_POLLING
+  return NVROLstateMachine != 8;
+#else
+  return true;
+#endif
+}
+
+// The five Zoe-form frames in the format of the real bus (global switch "like the car", default): 0x19F every 10 ms,
+// 0x423/0x426/0x436 every 100 ms (0x69F is the same in both formats and is sent by the 1 s block). Content per state
+// from twingo_bus::FRAMES, kilometres from the 0x426 field, age (0x436) from the manual 0x436 time or the vehicle
+// age; each row is still switched by its own checkbox (rows 3, 6, 4, 5).
+void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool in_00_stage) {
+  if (datalayer_extended.twingoGen1.bus_format_zoe_old || in_00_stage) {
+    return;
+  }
+  struct Item {
+    uint16_t id;
+    uint8_t row;
+    uint8_t slot;
+  };
+  static const Item ITEMS[4] = {{0x19F, 3, 0}, {0x423, 6, 1}, {0x426, 4, 2}, {0x436, 5, 3}};
+  const uint8_t state = datalayer_extended.twingoGen1.bus_state;
+  for (const Item& it : ITEMS) {
+    if (!sim_enabled(it.row)) {
+      continue;
+    }
+    const twingo_bus::FrameDef* def = twingo_bus::find_frame(it.id);
+    if (def == nullptr) {
+      continue;
+    }
+    if (def->interval_ms <= 10 && !bus_fast_frames_allowed()) {
+      continue;
+    }
+    if (now - bus_last_ms[it.slot] < def->interval_ms) {
+      continue;
+    }
+    bus_last_ms[it.slot] = now;
+    uint32_t age_min = 0;
+    if (def->kind == twingo_bus::K_436) {
+      if (time_436_active) {
+        age_min = time_436_value;
+      } else if (!vehicle_age_available(now, age_min)) {
+        continue;  // no age known: no frame
+      }
+    }
+    CAN_frame f = {.FD = false, .ext_ID = false, .DLC = def->dlc, .ID = def->id};
+    twingo_bus::build_frame(*def, state, bus_seq[def - twingo_bus::FRAMES]++, age_min, odo_426_km, f.data.u8);
+    transmit_can_frame(&f);
+  }
+}
+
 void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
 #ifdef TWINGO_TIME_FRAMES
   time_service(currentMillis);  // NTP start / fallback clock, transmits nothing itself
@@ -3129,7 +3653,8 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
       previousMillis100 = currentMillis;
       // The four Zoe frames below (423/19F/426/436) never occur in the real Twingo vehicle log; each one has
       // its own /simulator checkbox (rows 6/3/4/5), counters keep running while a frame is switched off.
-      if (sim_enabled(6)) {
+      const bool zoe_old = datalayer_extended.twingoGen1.bus_format_zoe_old;  // else send_bus_vehicle_frames()
+      if (zoe_old && sim_enabled(6)) {
         transmit_can_frame(&ZOE_423);
       }
 
@@ -3145,10 +3670,10 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
       // Broadcast 100ms vehicle frames (PEB Inverter 0x19F, EVC Power Mux 0x426, EVC Status 0x436)
       // Rolling 4-bit sequence counter (cycles 0-15)
       ZOE_19F_INVERTER.data.u8[3] = (zoe_19F_counter++ & 0x0F);
-      if (sim_enabled(3)) {
+      if (zoe_old && sim_enabled(3)) {
         transmit_can_frame(&ZOE_19F_INVERTER);
       }
-      if (sim_enabled(4)) {
+      if (zoe_old && sim_enabled(4)) {
         const uint32_t km256 = (odo_426_km > ODO_426_MAX_KM ? ODO_426_MAX_KM : odo_426_km) * 256UL;
         ZOE_426_POWER_MUX.data.u8[4] = (uint8_t)(km256 >> 16);
         ZOE_426_POWER_MUX.data.u8[5] = (uint8_t)(km256 >> 8);
@@ -3156,7 +3681,7 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
         ZOE_426_POWER_MUX.data.u8[7] = odo_426_b7;
         transmit_can_frame(&ZOE_426_POWER_MUX);
       }
-      if (sim_enabled(5)) {
+      if (zoe_old && sim_enabled(5)) {
         bool send_436 = true;
         if (time_436_follow_age && !time_436_active) {
           uint32_t age_min = 0;
@@ -3190,6 +3715,8 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
       }
 #endif
     }
+
+    send_bus_vehicle_frames(currentMillis, in_00_stage);  // 0x19F/0x423/0x426/0x436 in the format of the real bus
 
     // Update EVC 0x436 vehicle runtime clock every 60s
     if (currentMillis - previousMillis60000_436 >= INTERVAL_60_S) {
@@ -3300,6 +3827,13 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
         ext_priority_pending_mask = 0;
         pid = ext_poll_list[ext_poll_index];
         ext_poll_index = (ext_poll_index + 1) % EXT_POLL_LIST_LENGTH;
+        // Cell source "broadcast": the cell voltages arrive by themselves, skip their PIDs (0x9021..0x9083).
+        for (uint16_t guard = 0; datalayer_extended.twingoGen1.cell_source_broadcast && pid >= 0x9021 &&
+                                 pid <= 0x9083 && guard < EXT_POLL_LIST_LENGTH;
+             guard++) {
+          pid = ext_poll_list[ext_poll_index];
+          ext_poll_index = (ext_poll_index + 1) % EXT_POLL_LIST_LENGTH;
+        }
       }
       ZOE_POLL_18DADBF1.data.u8[0] = 0x03;  // see the matching comment in the Cellwatch branch above
       ZOE_POLL_18DADBF1.data.u8[1] = 0x22;

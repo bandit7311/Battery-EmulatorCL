@@ -23,14 +23,15 @@ namespace {
 class TestTwingo : public RenaultTwingoGen1Battery {
  public:
   bool unix_set = true;  // the vehicle age needs a valid clock: default = frozen at the seed reference
-  time_t unix_now = 1791319221;
+  time_t unix_now = 1791590400;
   TestTwingo() {  // the age state is global: every test starts from the seed, automatic mode, nothing sent yet
     RenaultTwingoGen1Battery::age_manual_clear();
     auto& t = datalayer_extended.twingoGen1;
-    t.age_pack_value = 1311344;
-    t.age_pack_unix = 1791319221;
+    t.age_pack_value = 1025301;
+    t.age_pack_unix = 1791590400;
     t.age_last_sent = 0;
     t.age_source = 0;
+    t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
   }
   bool clock_set = true;
   uint32_t clock_secs = 12 * 3600;
@@ -186,7 +187,7 @@ TEST(TwingoSimulatorTable, TenIRowsInTheDocumentedOrder) {
 
 TEST(TwingoSimulatorTable, OnlyTheZoeFramesAndTheCanListFrameAreMarkedX) {
   int x_count = 0;
-  for (int i = 0; i < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; i++) {
+  for (int i = 0; i < 46; i++) {  // the 25 rows from index 46 on are the real-bus rows
     const auto& s = RenaultTwingoGen1Battery::sim_signals[i];
     bool expect_x = (s.id == 0x19F || s.id == 0x426 || s.id == 0x436 || s.id == 0x423 || s.id == 0x523 ||
                      s.id == 0x373 || s.id == 0x375 || s.id == 0x376 || s.id == 0x0EE || s.id == 0x5F8 ||
@@ -223,10 +224,11 @@ namespace {
 void reset_age_state() {
   RenaultTwingoGen1Battery::age_manual_clear();
   auto& t = datalayer_extended.twingoGen1;
-  t.age_pack_value = 1311344;
-  t.age_pack_unix = 1791319221;
+  t.age_pack_value = 1025301;
+  t.age_pack_unix = 1791590400;
   t.age_last_sent = 0;
   t.age_source = 0;
+  t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
 }
 // A single-frame positive reply 62 <pid> <3 data bytes> from the MCPU.
 void feed_time_reply(RenaultTwingoGen1Battery& b, uint16_t pid, uint32_t v) {
@@ -253,13 +255,13 @@ TEST(TwingoVehicleAge, SeedGivesTheBenchValueOf0810) {
   TestTwingo b;
   b.setup();
   b.unix_set = true;
-  b.unix_now = 1791448320;  // 08.10.2026 08:32 UTC = 10:32 MESZ
+  b.unix_now = 1791590400 + 6000;  // 100 minutes after the seed reference
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 200, 100, log);
   auto f = with_id(log, 0x350);
   ASSERT_FALSE(f.empty());
-  EXPECT_EQ(age_of_frame(f.back()), 1314935u);  // 1,311,344 + 2151 min + one day
+  EXPECT_EQ(age_of_frame(f.back()), 1025401u);  // seed 1,025,301 + 100 min, no safety day
 }
 
 TEST(TwingoVehicleAge, TicksOncePerMinute) {
@@ -267,19 +269,19 @@ TEST(TwingoVehicleAge, TicksOncePerMinute) {
   TestTwingo b;
   b.setup();
   b.unix_set = true;
-  b.unix_now = 1791319221 + 59;
+  b.unix_now = 1791590400 + 59;
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 100, 100, log);
   auto f = with_id(log, 0x350);
   ASSERT_FALSE(f.empty());
-  EXPECT_EQ(age_of_frame(f.back()), 1312784u);
+  EXPECT_EQ(age_of_frame(f.back()), 1025301u);
   b.unix_now += 1;  // the next minute starts
   log.clear();
   run(b, t, 100, 100, log);
   f = with_id(log, 0x350);
   ASSERT_FALSE(f.empty());
-  EXPECT_EQ(age_of_frame(f.back()), 1312785u);
+  EXPECT_EQ(age_of_frame(f.back()), 1025302u);
 }
 
 TEST(TwingoVehicleAge, WithoutAClockNoFrameWithAnAgeIsSent) {
@@ -292,7 +294,7 @@ TEST(TwingoVehicleAge, WithoutAClockNoFrameWithAnAgeIsSent) {
   run(b, t, 500, 100, log);
   EXPECT_TRUE(with_id(log, 0x350).empty());
   b.unix_set = true;
-  b.unix_now = 1791319221;
+  b.unix_now = 1791590400;
   log.clear();
   run(b, t, 300, 100, log);
   EXPECT_FALSE(with_id(log, 0x350).empty());
@@ -315,36 +317,30 @@ TEST(TwingoVehicleAge, NeverGoesBackwardsWhenTheClockStepsBack) {
   TestTwingo b;
   b.setup();
   b.unix_set = true;
-  b.unix_now = 1791319221 + 600;
+  b.unix_now = 1791590400 + 600;
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 200, 100, log);
   uint32_t before = age_of_frame(with_id(log, 0x350).back());
-  b.unix_now = 1791319221 + 60;
+  b.unix_now = 1791590400 + 60;
   log.clear();
   run(b, t, 200, 100, log);
   EXPECT_GE(age_of_frame(with_id(log, 0x350).back()), before);
 }
 
-TEST(TwingoVehicleAge, PackReadingAboveWhatWeSendRaisesTheReferenceOnce) {
+TEST(TwingoVehicleAge, PackReadingAboveWhatWeSendDoesNotRaiseTheReference) {
   reset_age_state();
   TestTwingo b;
   b.setup();
   b.unix_set = true;
-  b.unix_now = 1791319221 + 600;  // sends 1312794
+  b.unix_now = 1791590400 + 600;  // sends 1025311
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 200, 100, log);
-  // the pack reports 1,400,000 via 0x9261
-  feed_time_reply(b, 0x9261, 1400000);
+  feed_time_reply(b, 0x9261, 1400000);  // since 09.10. the reading never raises what we send
   log.clear();
   run(b, t, 200, 100, log);
-  EXPECT_EQ(age_of_frame(with_id(log, 0x350).back()), 1400000u + 1440u);
-  // reading back what we sent (the pack stored it) must not raise it again
-  feed_time_reply(b, 0x9261, 1400000 + 1440);
-  log.clear();
-  run(b, t, 200, 100, log);
-  EXPECT_EQ(age_of_frame(with_id(log, 0x350).back()), 1400000u + 1440u);
+  EXPECT_EQ(age_of_frame(with_id(log, 0x350).back()), 1025311u);
 }
 
 TEST(TwingoVehicleAge, PackReadingBelowWhatWeSendChangesNothing) {
@@ -352,14 +348,14 @@ TEST(TwingoVehicleAge, PackReadingBelowWhatWeSendChangesNothing) {
   TestTwingo b;
   b.setup();
   b.unix_set = true;
-  b.unix_now = 1791319221;
+  b.unix_now = 1791590400;
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 200, 100, log);
   feed_time_reply(b, 0x9261, 1311344);
   log.clear();
   run(b, t, 200, 100, log);
-  EXPECT_EQ(age_of_frame(with_id(log, 0x350).back()), 1312784u);
+  EXPECT_EQ(age_of_frame(with_id(log, 0x350).back()), 1025301u);
 }
 
 // ---------------------------------------------------------------------------
@@ -480,7 +476,12 @@ TEST(TwingoSimulatorSwitches, EveryPlannedAndAssumedRowSwitchesOnAndOff) {
   for (int row = 10; row < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; row++) {
     const auto& sig = RenaultTwingoGen1Battery::sim_signals[row];
     for (int on = 0; on < 2; on++) {
-      set_mask(on ? (0x3FFull | (1ull << row)) : 0x3FFull);
+      set_mask(0x3FFull);
+      datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
+      if (on) {
+        RenaultTwingoGen1Battery::sim_row_set((uint8_t)row, true);
+      }
+      datalayer_extended.twingoGen1.bus_state = 2;  // ignition 1: every real-bus frame is active
       TestTwingo b;
       b.setup();
       uint64_t t = 1000;
@@ -504,6 +505,8 @@ TEST(TwingoSimulatorSwitches, EveryPlannedAndAssumedRowSwitchesOnAndOff) {
   }
   set_mask(0x3FF);
   datalayer.battery.status.voltage_dV = 0;
+  datalayer_extended.twingoGen1.bus_state = 1;
+  datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -1088,7 +1091,7 @@ TEST(TwingoFreeWrite, SetTimeNowWritesTheVehicleAge) {
   TestTwingo b;
   b.setup();
   b.unix_set = true;
-  b.unix_now = 1791319221;  // seed: age 1,312,784 = 0x140810
+  b.unix_now = 1791590400;  // seed: age 1,312,784 = 0x140810
   set_millis64(1000);
   clear_transmitted_frames();
   ASSERT_STREQ(b.write_time_now(), "OK");
@@ -1100,9 +1103,9 @@ TEST(TwingoFreeWrite, SetTimeNowWritesTheVehicleAge) {
   auto tx = diag_tx();
   ASSERT_EQ(tx.size(), 1u);
   EXPECT_EQ(tx[0].data.u8[1], 0x2E);
-  EXPECT_EQ(tx[0].data.u8[4], 0x14);
-  EXPECT_EQ(tx[0].data.u8[5], 0x08);
-  EXPECT_EQ(tx[0].data.u8[6], 0x10);
+  EXPECT_EQ(tx[0].data.u8[4], 0x0F);
+  EXPECT_EQ(tx[0].data.u8[5], 0xA5);
+  EXPECT_EQ(tx[0].data.u8[6], 0x15);
 }
 
 TEST(TwingoFreeWrite, SetTimeNowNeedsAnAge) {
@@ -1298,7 +1301,7 @@ TEST(TwingoManualAge, OffReturnsToTheAutomaticMode) {
   run(b, t, 200, 100, log);
   auto f = with_id(log, 0x350);
   ASSERT_FALSE(f.empty());
-  EXPECT_EQ(age_of(f.back()), 1312784u);
+  EXPECT_EQ(age_of(f.back()), 1025301u);
 }
 
 TEST(TwingoManualAge, ValueIsLimitedTo24Bit) {
@@ -1694,8 +1697,8 @@ TEST(TwingoSteady350, DefaultIsC7AndTheSwitchChangesOnlyTheSteadyFrame) {
   f = with_id(log, 0x350);
   ASSERT_FALSE(f.empty());
   // C3 as the emulator sent it before 03.10.: 14 14 96 45, age bytes stay the real minutes
-  EXPECT_TRUE(f.back().f.data.u8[0] == 0xC3 && f.back().f.data.u8[1] == 0x14 && f.back().f.data.u8[2] == 0x08 &&
-              f.back().f.data.u8[3] == 0x10 && f.back().f.data.u8[4] == 0x14 && f.back().f.data.u8[5] == 0x14 &&
+  EXPECT_TRUE(f.back().f.data.u8[0] == 0xC3 && f.back().f.data.u8[1] == 0x0F && f.back().f.data.u8[2] == 0xA5 &&
+              f.back().f.data.u8[3] == 0x15 && f.back().f.data.u8[4] == 0x14 && f.back().f.data.u8[5] == 0x14 &&
               f.back().f.data.u8[6] == 0x96 && f.back().f.data.u8[7] == 0x45);
   RenaultTwingoGen1Battery::steady_350_use_c3 = false;
   log.clear();
