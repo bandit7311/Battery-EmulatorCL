@@ -33,8 +33,10 @@ Basis-Branch fuer Code: claude/twingo-hv-modell-und-alter (HEAD e3988cb).
 
 16. Spalte "auf beiden Bussen" (26 IDs) in der Simulator-Liste; Datenbasis BEFUND_Echter_Bus_LBC_EVC_09-10.md Abschnitt 9.2.
 
+17. Absender-Marker auf Basis der Bench-Mitschnitte (BEFUND_Echter_Bus_LBC_EVC_09-10.md Abschnitt 10.2): Akku sendet 0x155, 0x0C5, 0x1C9, 0x424, 0x425, 0x43A, 0x445, 0x464, 0x588, 0x4AE, 0x4AF, 0x659, 0x6BE, 0x5A1...0x5F7, 0x5DD.
+
 ## Offen beim Nutzer
-- Bench-Mitschnitt mit Logger (RX und TX) in den drei Schritten fuer 0x423 (Abschnitt 7.5)
+- Bench-Mitschnitt mit Logger (RX und TX) in vier Schritten (0x423 ohne/mit/allein, nur 0x350; Abschnitt 10.3)
 - Pin-Belegung am LBC-Stecker (CAN H/L), damit die Aderfarben aus dem Schaltplan zugeordnet werden koennen.
 
 ## Korrektur zum Mitschnitt 22aaf176

@@ -178,3 +178,33 @@ Die Datei ist die offizielle Renault-Nachrichtenliste (DDT2000, Plattform C1A, P
 - Als Broadcast verfuegbar (gemessen): 96 Zellspannungen, 0x155 (Strom, SOC), 0x424 (Limits, Temperaturen, SOH), 0x425 (Zellminimum/-maximum).
 - Zeit und Zustand (9261, 91C1, 9259, 925C) kommen nach heutigem Wissen nicht als Broadcast; das Fahrzeugalter geht in Gegenrichtung (0x436, EVC -> Akku).
 - **Offen:** Ob der Akku auf *irgendein* Frame hin sendet. Der Standardsatz (`0x090`, `0x242`, `0x350`, `0x53B`, `0x214`, `0x69F`) besteht fast nur aus Fahrzeug-CAN-Frames; was davon noetig ist, klaert der Test in drei Schritten (Abschnitt 7.5).
+
+## 10. Bench-Mitschnitte des Emulators (hochgeladen 09.10.): Absender, Wecktrigger, Zellspannungen
+
+Quellen: `cf794fb4-canlog_00-04-48.zip` (Zip-Eintraege 24.07.), `6770a7c4-canlog_06-03-23.zip` (05.08.), `406580d6-canlog_after_nvrol.zip` (25.09.). Jahr nicht in den Dateien. Format: Emulator-Log, `TX1` = wir senden, `RX0` = wir empfangen (keine Busmitschnitte). Der Chat, in dem der Zusammenhang dokumentiert war, ist fuer mich nicht lesbar.
+
+### 10.1 Juli/August: Zoe-Gen2-Sendesatz
+- Gesendet: `0x0EE` (10 ms), `0x373`, `0x375`, `0x376` (100 ms), `0x5F8`, `0x6BF` (1 s) + UDS-Abfragen. Kein `0x090/0x242/0x350/0x423/0x69F`.
+- Empfangen: **nur UDS-Antworten** (`18DAF1DB`, 64 bzw. 69 Frames). **Kein** Broadcast (`0x155`, `0x424`, `0x425`, `0x5xx`).
+- 24.07.: Zellwerte per UDS alle `00 00` (0 von 25), `9259 = 00`, `91C1 = 0D EE 55` (= 912.981), `9261` ohne Antwort, `925D` NRC 31, `91CF = 80 03 57 80`, `9250/9252 = 80 01 C2 29`, `9262 = 80 00 00 00`.
+- 05.08.: Zellwerte per UDS 4192-4208 mV gueltig (45 von 47), `925D` NRC 31.
+
+### 10.2 25.09. (`after_nvrol`): Zoe-Gen1-Satz, Akku sendet Broadcast (gemessen)
+- Gesendet: `0x19F`, `0x423`, `0x426`, `0x436`, `0x69F`, `0x79B`, UDS-Abfragen. Daneben 29-Bit-IDs `0x4210...0x4290`, `0x7310...0x7340`, `0x4200` (**Annahme:** Wechselrichter-Schnittstelle/Pylon, nicht im Code geprueft).
+- Empfangen vom **Akku**: `0x155`, `0x0C5`, `0x1C9` (10 ms), `0x424`, `0x425`, `0x43A`, `0x445`, `0x464`, `0x588` (100 ms), `0x4AE`, `0x4AF`, `0x659`, `0x6BE`, alle Zellframes `0x5A1...0x5F7`, `0x5DD`.
+- **Berichtigung zu Abschnitt 3 und 9.2:** `0x0C5`, `0x1C9`, `0x43A`, `0x464`, `0x588`, `0x659`, `0x4AE`, `0x4AF`, `0x6BE` sind Akku-Frames (nicht "wohl EVC").
+- Nicht vom Akku (in diesem Log nicht empfangen): `0x0EC`, `0x0ED`, `0x157`, `0x1A1`, `0x1C7`, `0x419`, `0x428`, `0x42F`, `0x435`, `0x4F7`, `0x500`, `0x511` -> passend zu EVC (**Schluss**; `0x419` koennte auch zustandsabhaengig fehlen).
+
+### 10.3 Wecktrigger fuer den Broadcast
+| Sendesatz | Akku sendet Broadcast |
+|---|---|
+| Zoe-Gen2-Satz (10.1) | nein |
+| nur `0x350` (Code-Kommentar `RENAULT-TWINGO-GEN1-BATTERY.cpp:1964-1966`) | ja, `0x155` mit Ungueltig-Werten |
+| `0x19F, 0x423, 0x426, 0x436, 0x69F` (10.2) | ja, voll |
+- **Offen:** Ob `0x423` allein genuegt (im Satz 10.2 liefen `0x19F`, `0x426`, `0x436` mit). Test am Bench in vier Schritten: (1) Standard ohne `0x423`; (2) `0x090/0x242/0x350` + `0x423`; (3) nur `0x423`; (4) nur `0x350`. Je Kommunikation (Zellspannungen, `0x155`, Status) notieren.
+
+### 10.4 Zellspannungen: Broadcast gegen UDS (25.09.)
+- Broadcast-Dekodierung (Rohwert + 2000 mV) passt zu `0x425` (Zellmaximum 4190/4200 mV, Minimum 4160 mV; Broadcast-Zellen 4164-4188 mV).
+- UDS-Zellwerte (DID 9021...9083, ohne 9040/9060/9080; Zelle n: n<=31 -> `0x9020+n`, 32-62 -> `0x9041+(n-32)`, 63-93 -> `0x9061+(n-63)`, 94-96 -> `0x9081+(n-94)`) liegen auf dem Bench-Akku konstant **ca. 103 mV hoeher** (4262-4295 mV; Differenz 98...109 mV bei 42 Zellen).
+- Die Nummerierung der Broadcast-Zellen stimmt (Korrelation UDS/Broadcast 0,94 bei 20 Zellen; gemeinsame Ausreisser bei Zellen 71-77 und 87-96).
+- **Offen:** Ursache des +100-mV-Versatzes bei UDS (Vermutung: UDS-Wert unplausibel, > 4,2 V). Die 05.08.-Werte (4192-4208 mV) liegen dagegen im Bereich der Broadcast-Werte.
