@@ -3,6 +3,13 @@
 Stand 09.10.2026. Gebaut wird erst nach ausdruecklichem "bauen".
 Basis-Branch fuer Code: claude/twingo-hv-modell-und-alter (HEAD e3988cb).
 
+## PRIORITAET 1c (Nutzer, 10.10.): Empfangs-LED in der Simulator-Liste
+- Neue Spalte **zwischen Haken und ID**: LED **gruen** = Frame mit dieser ID wird gerade empfangen (also von aussen, vom Akku), **grau** = nichts empfangen. Zweck: ausschliessen, dass wir ein Frame emulieren muessen, das der Akku ohnehin selbst sendet.
+- Gilt fuer alle Zeilen beider Bloecke (inkl. der zwoelf neuen EVC-Frames). Eigene Sendungen zaehlen nicht (die Empfangsliste der Logs enthaelt nie unsere TX-IDs, z. B. kein RX `0x423`/`0x19F` im Log 25.09.).
+- Zusatz: Abschnitt "Weitere empfangene IDs" (alle IDs, die gehoert werden und in keiner Zeile stehen, mit Anzahl und letzter Zeit).
+- Schwelle gruen/grau: z. B. 3 x Takt, mindestens 2 s (3-s-Frames: 10 s). Aktualisierung per kleinem Abruf alle 1-2 s ohne Seiten-Neuladen.
+- Technik (im Code nachgeschaut): Zaehler pro ID gibt es heute nur fuer das Schlaf-Log (`nvrol_silence_ids`, `SILENCE_ID_MAX`), nicht allgemein; neu waere ein Feld "zuletzt gesehen" je Zeile im Empfangsteil des Treibers plus ein JSON-Abruf. Nicht bauen ohne ausdrueckliches "bauen".
+
 ## PRIORITAET 1b (Nutzer, 10.10.): Modus "wie im Fahrzeug" und zweigeteilte Simulator-Liste
 Vorgabe: Auch die 12 weiteren EVC-Frames des echten BMS<>EVC-Busses aufnehmen. Neuer Code auf **neuem Branch ab e3988cb** (z. B. `twingo-echter-bus-modus`); `claude/twingo-hv-modell-und-alter` bleibt als Rueckfall unveraendert.
 
