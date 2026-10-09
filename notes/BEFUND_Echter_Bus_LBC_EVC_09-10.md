@@ -70,3 +70,32 @@ Bei jedem Zündzyklus, 4 bis 8 s nach dem Aufwachen, in dieser Reihenfolge: `924
 - **Schluss:** Die Quelle der Akku-Zeit ist am Bench `0x436` Bytes 1-3 auf diesem Bus, nicht `0x350`. Das erklärt, warum 0x350 mit Alter bei der MCPU nie etwas bewegt hat und warum die SCPU `0x436` nimmt.
 - **Offen:** Warum nimmt die MCPU unser `0x436` nicht? Kandidaten: Byte 0 (`86` statt `80`/`AD`), Bytes 4-5 (`FF DC` statt `00 00`), fehlende Begleitframes (`0x426` im echten Format, `0x423`, `0x435`, `0x0ED`, `0x19F` mit A0), fehlender Zustand wie Wecken/Zündung/GO.
 - **Vorschlag (noch nicht gebaut):** Ein Emulator-Modus "EVC wie im echten Bus" mit den Frames aus Abschnitt 3 und den Zuständen aus Abschnitt 2.
+
+## 6. Nachtrag 09.10. (spaeter): Korrektur, Zustaende, Schlaf, neue Frames
+
+Zeiten = Zeitstempel im Log (Sekunden). Kennzeichnung: **gemessen** / **Schluss** / **Annahme**.
+
+### 6.1 Korrektur zu Abschnitt 0 (Logger)
+- **Gemessen:** Die Aussage "Logger zeigt 10-ms-Frames im Abstand von ca. 25 ms" ist falsch. `0x155`: 60.697 geloggt, ca. 77.500 erwartet in aktiver Zeit, Abstand meist 10-19 ms.
+- Es fehlen ca. 16.800 Frames (22 %) in 88 kurzen Loechern (Mittel 1,9 s, zusammen 169 s). Lange Pausen (753 s: 471-566, 748-1355, 1531-1553, 1557-1586) sind echte Busstille.
+- Zykluszeiten im Log: Start 84,5 / 565,4 / 1354,6 / 1553,2 / 1585,7 s.
+
+### 6.2 Zustand 05 (9259)
+- **Gemessen:** Das Log enthaelt keine 9259-Abfrage (EVC liest nur 9243, 9245, 91CF, 91C1, 901B, 92C1-92C3). Welcher Zustand 9259=05 bringt, ist aus dem Log **nicht ableitbar**.
+- Zustandsfolge des EVC (gemessen, 1. Zyklus): zu `0x426` B1/B2 `00/02` -> Wecken `08/06` (0x423 B0 `30->33->07`) -> Zuendung 1 `60/67->65` (99,4 s) -> Zuendung 3 `60/69` (201,5 s; 0x423 B0 `0B`, 0x19F A0, 0x500 startet) -> GO `60/61` (209,2 s; 0x0ED B1 `CC`) -> Fahrt `70/69` (217,4 s) -> aus `00/05->07->06` (340 s).
+- Der Bench sendet diese Zustaende nie. Test: Zustaende nacheinander senden, nach jedem Schritt 9259 lesen (Bauliste B).
+
+### 6.3 Schlafimpuls
+- **Gemessen:** Bei jeder Stille (471,0 / 748,7 / 1530,6 s) enden alle Frames von Akku und EVC innerhalb ca. 30 ms. Kein besonderes Akku-Frame in den letzten 6 s davor gefunden.
+- **Gemessen:** Zyklus 1: `0x426` B2 `06->02` bei 469,8 s, Stille 471,0 s. Zyklus 2: B2 `02` bei 698,0 s, Stille 748,7 s; am Ende 0x423 B0 `07->04` (747,8 s), 0x435 B3/B5 `EB/FC` (748,2-748,5 s). Zyklus 3: Stille bei B2=`06` (1530,6 s und 1556,7 s), also ohne `02`.
+- **Schluss (nicht belegt):** Der Schlafimpuls ist auf dem Bus kein Frame, eher Wegfall von Versorgung/Weckleitung. B2=`02` ist Merkmal "zu", nicht Ursache.
+
+### 6.4 Balancieren
+- **Gemessen:** Keine Balancing-Meldung und keine UDS-Abfrage dazu im Log. Der Zoe-Code liest den Balancing-Status per UDS; `0x4AE`, `0x4AF`, `0x5A1...0x5F7` stehen dort nur in der Liste ignorierter Frames.
+- 0x4AE/0x4AF/0x659 erscheinen 3 s nach dem Wecken mit konstanten Werten (`D2 BE 32 A0 A0 50 96 7C` / `95 45 4B 35 C0` / `67 71 A1 02`) und verschwinden beim Abschalten; die uebrigen 0x5xx kommen alle ca. 7 s.
+
+### 6.5 Frames, die im Twingo-Code und in den Notizen bisher fehlten (Suche im Repo)
+- Wohl vom EVC (**Annahme**, nur nach Format): 0x157, 0x1A1, 0x0C5, 0x0EC, 0x0ED, 0x1C7, 0x1C9, 0x428, 0x42F, 0x435, 0x4F7, 0x500, 0x511, 0x6BE.
+- Wohl vom Akku (**Annahme**): 0x419, 0x43A, 0x464, 0x588, 0x659.
+- Nur im Zoe-Gen2-Code, nicht im Twingo-Code: 0x4AE, 0x4AF, 0x5A1, 0x5AC, 0x5AD, 0x5B4, 0x5B5, 0x5B7, 0x5C9, 0x5CB, 0x5CC, 0x5D6, 0x5D9, 0x5DD, 0x5EA, 0x5EC, 0x5ED, 0x5F0, 0x5F1, 0x5F2, 0x5F4, 0x5F7.
+- **Gemessen:** Beim Wecken kommen zuerst 0x0EC (+0,05 s) und 0x423 (+0,11 s), ca. 0,17 s nach Zyklusstart alle uebrigen Frames.
