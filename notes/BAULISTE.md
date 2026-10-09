@@ -40,6 +40,9 @@ Vorgabe: Auch die 12 weiteren EVC-Frames des echten BMS<>EVC-Busses aufnehmen. N
 - Last: sechs 10-ms-Frames = ca. 600 Frames/s. Fruehere Wake-Fehler (CAN NATIVE BUS ERROR) kamen bei 0x090/0x242 gleichzeitig mit dem Wake-Burst; die schnellen Frames erst nach dem Wake-Burst starten (Fix-later-Punkt aus dem Chat vom 29.09.).
 - Nicht bauen ohne ausdrueckliches "bauen".
 
+## KORREKTUR Block 1 (Nutzer, 10.10.): ALLE Adressen des BMS<>EVC-Busses, keine Vorauswahl nach Absender
+Block 1 enthaelt **alle 50 Adressen (11 Bit)** des Mitschnitts 22aaf176 (ungefiltert laut Nutzer), nicht nur die 17 vom Claude vermuteten EVC-Frames. Wer sendet, wird nicht vorab angenommen: Spalte "Bench-Messung" zeigt nur, was der Akku allein gesendet hat (Log 25.09.), die LED zeigt am Bench, was von aussen ankommt. Keine technische Sperre; Hinweis wie bisher bei Zeilen mit BMS-Ursprung. Takt-Verteilung: 10 ms (9): `0x155`, `0x0C5`, `0x1C9`, `0x157`, `0x19F`, `0x1A1`, `0x1C7`, `0x0EC`, `0x0ED`; 100 ms (16): `0x419`, `0x423`, `0x424`, `0x425`, `0x426`, `0x428`, `0x42F`, `0x435`, `0x436`, `0x43A`, `0x445`, `0x464`, `0x4F7`, `0x500`, `0x511`, `0x588`; 1 s (2): `0x69F`, `0x6BE`; 3 s (23): `0x4AE`, `0x4AF`, `0x659` und die 20 Zellframes. Inhalte je Zustand aus dem Mitschnitt (aufgezeichnete Werte; Zaehler/CRC wo bekannt, siehe Abschnitt 17). Skizze: `Skizze_Simulator_Seite_v2.html` (Scratchpad). Die Aussage "17 EVC-Frames" in den Punkten 1b/Bauumfang ist damit ueberholt: 17 = Teilmenge, die nicht vom Akku allein gesendet wurde.
+
 ## PRIORITAET 1 (Nutzer, 10.10.): Markierung "echter BMS<>EVC-Bus" in der Simulator-Liste
 Vorgabe: Der Traffic auf dem BMS<>EVC-CAN reicht. In der Simulator-Liste muss pro Zeile sichtbar sein, ob das Frame dort wirklich vorkommt (Quelle: Mitschnitt 22aaf176, Abschnitt 3/9.2 in BEFUND_Echter_Bus_LBC_EVC_09-10.md).
 - **ja (5 Zeilen):** `0x423`, `0x426`, `0x436`, `0x19F`, `0x69F` (bei `0x423/0x426/0x436/0x19F` Zusatz "Format weicht ab").
