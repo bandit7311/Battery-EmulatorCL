@@ -26,7 +26,13 @@ Basis-Branch fuer Code: claude/twingo-hv-modell-und-alter (HEAD e3988cb).
 11. Abschalt-Knopf.
 12. 0x436 dauerhaft manuell einstellbar.
 
+## D. Neu am 09.10. (abends)
+13. Testzeile `0x62B` (HEVC_WakeUpFrame, 2 Byte, Signal HEVC_WakeUp_Signal laut Renault-Datenbank, Inhalt unbekannt) im Simulator, nur zum Ausprobieren, ob der Akku darauf reagiert. In keinem unserer Logs vorhanden.
+14. Zellspannungen aus den Broadcast-Frames anzeigen (96 Zellen, mV = Rohwert + 2000) mit der korrigierten Nummerierung: 0x5F7 = Zellen 1-5, 0x5F4 = 6-10, 0x5F2, 0x5F1, 0x5F0, 0x5ED, 0x5EA, 0x5D9, (0x5EC statt 0x5D7 = 36-40, Annahme), 0x5D6, 0x5CC, 0x5CB, 0x5C9, 0x5B7, 0x5B5, 0x5B4, 0x5AC, 0x5AD, 0x5A1 = 91-95, 0x5DD = 96. Siehe BEFUND_Echter_Bus_LBC_EVC_09-10.md Abschnitt 8.1.
+15. Marker "Absender" (Akku / EVC / Fahrzeug) in der Simulator-Liste, gespeist aus dem Bench-Mitschnitt mit RX/TX (Abschnitt 7.5) und der Renault-Datenbank (Abschnitt 8.2).
+
 ## Offen beim Nutzer
+- Bench-Mitschnitt mit Logger (RX und TX) in den drei Schritten fuer 0x423 (Abschnitt 7.5)
 - Pin-Belegung am LBC-Stecker (CAN H/L), damit die Aderfarben aus dem Schaltplan zugeordnet werden koennen.
 
 ## Korrektur zum Mitschnitt 22aaf176
