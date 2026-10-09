@@ -300,3 +300,24 @@ Format wie in Abschnitt 10 (Emulator-Log, `TX1`/`RX0`, Bursts je Datei, Frame-Za
 - **Gemessen (10.10.):** Der ungefilterte Mitschnitt vom 02.10. (`364b56eb`) enthaelt alle 16 IDs (18.689 bis 20.693 Frames je `0x090`, `0x0C6`, `0x12E`, `0x17A`, `0x17E`, `0x186`, `0x18A`, `0x1F6`, `0x1F8`; 9.341 bis 10.449 je `0x1B0`, `0x211`, `0x217`, `0x242`, `0x29A`, `0x29C`, `0x2B7`), aber **keine** BMS-Bus-Frames (`0x155`, `0x424`, `0x425`, `0x423`, `0x426`, `0x436` = 0). Er stammt vom Fahrzeug-CAN und sagt nichts ueber den BMS<>EVC-Bus.
 - Der Mitschnitt vom 04.10. (`5c3d7daf`) enthaelt keine der 16 IDs (und keine BMS-Bus-Frames); ob er gefiltert war, ist nicht belegt.
 - **Offen:** Mitschnitt im Auto am BMS<>EVC-Bus mit dem Filter "Lauf 2" (Abschnitt 12).
+
+## 16. 0x426: warum der Akku mit unserem Frame auf Stoerung geht (10.10., Vergleich mit dem echten Bus)
+
+Bekannt (MERKZETTEL_Zeitwerte_33BE.md Z. 126/284, BEFUND_SCPU_0436_Bench_08-10.md Z. 90-96): Mit `0x426` an zeigt der Akku jedes Mal **E14381** ("CAN from EVC/HEVC", Typ 81 = "invalid serial data received"), meist zusammen mit **E14281** (CAN from Inverter) und **1B0715**; ohne `0x426` kein E14381. E14281 verschwindet mit `0x19F` an.
+
+### 16.1 Vergleich unser Frame gegen den echten Bus (gemessen, 6.080 Frames im Mitschnitt 22aaf176)
+| Byte | Echt (alle 6.080 Frames) | Unser Frame (`RENAULT-TWINGO-GEN1-BATTERY.h:300-305`) |
+|---|---|---|
+| B0 | `00` | `00` |
+| B1 | `00`, `08`, `60`, `70` | `60` |
+| B2 | `02`, `05`, `06`, `07` (mit B1 `00`/`08`) oder `61`, `65`, `67`, `69` (mit B1 `60`/`70`) | **`01`** (kommt nie vor) |
+| B3 | **`01`** (immer) | **`00`** |
+| B4-B5 | km, 16 Bit (`6A 70` = 27.248) | km (unsere 19.400 = `4B C8`) |
+| B6 | `00` | `00` (aus km * 256) |
+| B7 | `40` | `40` (einstellbar) |
+
+- **Gemessen:** Echte Paare B1/B2: `00/06` (2.898), `70/69` (1.701), `60/65` (796), `00/02` (432), `60/69` (120), `60/61` (48), `08/02` (19), `00/05` (19), `08/06` (12), `00/07` (12), `70/61` (12), `60/67` (10), `70/65` (1). Unser Paar `60/01` kommt im echten Bus nie vor, unser B3 = `00` ebenfalls nie.
+- Auffaellig: Unsere `01` steht in B2, im echten Bus steht sie in B3 (Frame wirkt um ein Byte verschoben bzw. aus anderem Format).
+- **Schluss (nicht bewiesen):** Der Fehler "invalid serial data" kann am **Inhalt** (B2/B3) haengen, nicht am Frame an sich. Test (a) aus KONZEPT_HV_Modell Z. 111 ("0x426 an mit km = 0") wurde nie gemacht; der Inhalt von B1-B3 ist in der Simulator-Seite bisher nicht einstellbar (nur km und Byte 7).
+- **Vorschlag fuer den ersten Test im Modus "echter Bus":** `0x426` im Ruhezustand wie im Auto, z. B. `00 00 06 01 [km] 00 40` (wach, Tuer offen) oder `00 00 02 01 ...` (zu); dazu `0x19F` mit 10 ms. Erwartung: E14381 bleibt aus. Nicht belegt; es koennen auch fehlende Begleitframes (`0x435`, `0x0ED`, `0x1A1`) im Spiel sein.
+- Welche CPU den Fehler setzt, ist offen: E14381 steht in MCPU- und SCPU-Definition; der Fehlertext deutet auf die SCPU (Funktion LBC2).
