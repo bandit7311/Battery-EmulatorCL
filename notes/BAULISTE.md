@@ -40,6 +40,13 @@ Vorgabe: Auch die 12 weiteren EVC-Frames des echten BMS<>EVC-Busses aufnehmen. N
 - Last: sechs 10-ms-Frames = ca. 600 Frames/s. Fruehere Wake-Fehler (CAN NATIVE BUS ERROR) kamen bei 0x090/0x242 gleichzeitig mit dem Wake-Burst; die schnellen Frames erst nach dem Wake-Burst starten (Fix-later-Punkt aus dem Chat vom 29.09.).
 - Nicht bauen ohne ausdrueckliches "bauen".
 
+## NEU (Nutzer, 10.10.): Zellspannungen aus den Broadcast-Frames auswerten
+- Der Akku sendet am Bench alle 96 Zellen im Broadcast (`0x5A1...0x5F7`, `0x5DD`, alle 3 s, ein Burst dauert 100 ms; gemessen in den Logs 25.09., 28.09., 01.10.). Der Treiber wertet sie bisher nicht aus (kein `case` in `RENAULT-TWINGO-GEN1-BATTERY.cpp`); die Zellwerte kommen aus der UDS-Abfrage (`TWINGO_EXTENDED_CELL_POLLING`).
+- Dekodierung: je Frame 5 Zellen, 12 Bit, mV = Roh + 2000; Zellnummer nach Renault-Datenbank (`0x5F7` = Zelle 1-5 ... `0x5A1` = 91-95, `0x5DD` = 96; `0x5EC` ersetzt `0x5D7`, Annahme); Platzhalter beim Wecken (`FF...`, `00 ... 0F`) ausfiltern.
+- **Eigener Schalter "Zellwerte-Quelle: UDS (heute) / Broadcast"**, getrennt vom Schalter "Format Fahrzeug / Zoe alt" (der betrifft nur gesendete BMS<>EVC-Frames). Vorschlag, noch zu bestaetigen.
+- Wirkung auf den Wechselrichter (im Code nachgeschaut, `RENAULT-TWINGO-GEN1-BATTERY.cpp:36-105`): Wechselrichter lesen `datalayer.battery.status` (`cell_voltages_mV[]`, `cell_min/max_voltage_mV`, Pack-Spannung als Summe, Temperaturen, Limits). Mit Broadcast als Quelle wuerden dieselben Felder gefuellt, die Werte kaemen also ohne weitere Aenderung beim Wechselrichter an (alle 3 s statt rund 20 s fuer ein volles UDS-Bild, 1-mV-Aufloesung, ohne UDS-Abfragelast).
+- Nicht bauen ohne ausdrueckliches "bauen".
+
 ## ENTSCHEIDUNG Block 1 (Nutzer, 10.10., endgueltig): Sendbar sind 30 Zeilen, die 20 Zellframes nur mit LED
 - **Nur LED, keine Sendemoeglichkeit:** die 20 Zellframes `0x5A1`, `0x5AC`, `0x5AD`, `0x5B4`, `0x5B5`, `0x5B7`, `0x5C9`, `0x5CB`, `0x5CC`, `0x5D6`, `0x5D9`, `0x5EA`, `0x5EC`, `0x5ED`, `0x5F0`, `0x5F1`, `0x5F2`, `0x5F4`, `0x5F7`, `0x5DD` (kommen sicher vom BMS; LED zeigt, wann sie anfangen).
 - **Sendbar mit LED (30 Zeilen):** alle uebrigen 30 Adressen von Block 1, **auch die vermeintlichen Akku-Frames** `0x155`, `0x0C5`, `0x1C9`, `0x424`, `0x425`, `0x43A`, `0x445`, `0x464`, `0x588`, `0x4AE`, `0x4AF`, `0x659`, `0x6BE` ("da wir ja gar nix wissen"), plus die 17 anderen.
