@@ -208,3 +208,28 @@ Quellen: `cf794fb4-canlog_00-04-48.zip` (Zip-Eintraege 24.07.), `6770a7c4-canlog
 - UDS-Zellwerte (DID 9021...9083, ohne 9040/9060/9080; Zelle n: n<=31 -> `0x9020+n`, 32-62 -> `0x9041+(n-32)`, 63-93 -> `0x9061+(n-63)`, 94-96 -> `0x9081+(n-94)`) liegen auf dem Bench-Akku konstant **ca. 103 mV hoeher** (4262-4295 mV; Differenz 98...109 mV bei 42 Zellen).
 - Die Nummerierung der Broadcast-Zellen stimmt (Korrelation UDS/Broadcast 0,94 bei 20 Zellen; gemeinsame Ausreisser bei Zellen 71-77 und 87-96).
 - **Offen:** Ursache des +100-mV-Versatzes bei UDS (Vermutung: UDS-Wert unplausibel, > 4,2 V). Die 05.08.-Werte (4192-4208 mV) liegen dagegen im Bereich der Broadcast-Werte.
+
+## 11. Berichtigung und Zusammenhang aus dem Chat-Export `BatteryEmulator_vs_OVMS_250926` (25.-28.09.2026)
+
+Quelle: `429c72f7-batteryemulator_vs_ovms_250926.md` (Chat vom 25.09.-28.09.2026, Export 09.10.). Kennzeichnung: **Chat** = steht im Chat, von mir nicht neu geprueft.
+
+### 11.1 Berichtigung zu 10.4 (UDS-Zellen "+103 mV")
+- **Berichtigt:** UDS-Zellwerte (DID 9021...9083) haben die Skalierung **0,976563 mV/Bit** (Chat, Auswertung 25.09.). Roh `0x10B9` = 4281 -> 4180,7 mV; Broadcast 4179 mV. Die Differenz von ca. 103 mV in 10.4 war ein Skalierungsfehler von mir; UDS und Broadcast stimmen. Die 05.08.-Rohwerte 4192-4208 entsprechen 4094-4109 mV.
+- Das Pack war am 25.09. fast voll (Statusanzeige: SOC 98,88 %, 400,7 V, Zellen 4160/4187 mV); am 09.10. im Auto 3,54 V je Zelle (339,7 V).
+
+### 11.2 Zusammenhang `canlog_after_nvrol`
+- **Chat:** Aufnahme am 25.09. ca. 16:37, nach Ende der Ladung und nach NVROL-Reset (Sequenz: Session 1, Routine B009 "no response", Session 2, Write 9281=1, Read-back OK). Balancing laut `0x912B` aktiv in Zellen 85-96; Wach-Poll `0x9270/0x9281/0x9251/0x9252` nach Wake up.
+- **Gemessen:** Das Log besteht aus 23 Dateien im 5-s-Raster mit je einem Burst von 0,01-0,8 s. Frame-Zaehlungen sind daher **keine Raten** (z. B. `0x155` 907 Frames in 114 s). Die Aussagen zu Absendern bleiben gueltig, die Haeufigkeiten nicht.
+- **Chat:** Lifetime-Zaehler `0x9245/0x9247` antworten nach NVROL-Reset mit Nullen; am 23.09. vorher 99 Zyklen, 1026,59 kWh geladen, 1178,56 kWh entladen, 204,18 kWh regeneriert.
+
+### 11.3 Zeit und Balancing (Chat, Nutzeraussagen kursiv zu verstehen)
+- Nutzer: Pack lief ca. 10 Wochen ohne Balancing (vor dem 23.09.); nach NVROL-Reset balanciert zunaechst nur Block 85-96, Spread 40 mV -> 27 mV (25.09.) -> 20-25 mV (27.09.). **Annahme:** Die Logs vom 24.07./05.08. liegen in dieser Zeit (nicht belegt).
+- Nutzer: Zoe-Ph2-Software sendet Zeit. Chat (Code gelesen): Zoe-Gen2-Treiber sendet `0x376` (Zeit, ab 24.04.2025 sekuendlich), `0x373` (Wake/Sleep), `0x375`, `0x5F8` (Vehicle ID), `0x6BF` (Boost Time), `0x0EE`. Chat (Ladelog geprueft): diese sechs IDs kommen im echten Twingo-Fahrzeug-Log **nicht** vor.
+- Chat: `0x53B` im Twingo-Fahrzeug-Log ist ein hochzaehlender Sekunden-/Minutenzaehler (Zeitkandidat); ab Kontaktorschluss reale Werte, davor `F8 FC FF FF 00 07`.
+- **Chat, Zitat aus dem Zoe-Gen2-Treiber (TODO-Block, Quelle ljames28):** "If the pack is in a state where it is confused about the time, you may need to reset its NVROL memory. However, if the power is later power cycled, it will revert back to its previous confused state. Therefore, after resetting the NVROL you must enable 'temporisation before sleep', and then stop streaming 373. It will then save the data and go to sleep. When the pack is confused, the state of charge may reset back to an incorrect value every time the power is reset. In this state, the voltage will still be accurate."
+  - Relevanz: Hinweis, dass das Pack Daten beim Einschlafen speichert, nachdem `0x373` aufhoert. Offen, ob das auf den Twingo-LBC uebertragbar ist.
+- Chat: Der Twingo-Fork hat NVROL-Reset und "temporisation before sleep" (9281) bereits umgesetzt; Zoe2-Referenztreiber hat sie als TODO. Auf der Bauliste im Chat: Wach-Balancing-Zaehler `0x9262/0x9263` (Entscheidung offen).
+
+### 11.4 Folge fuer die offenen Fragen
+- Die Logs 24.07./05.08. (kein Broadcast mit Zoe-Gen2-Satz) und 25.09. (Broadcast mit Zoe-Gen1-Satz) stimmen mit dem Chat ueberein, in dem der Zoe-Gen2-Satz nur fuer Zeit/Status gedacht war.
+- **Offen:** Nutzer-Frage, ob eine gueltige Uhrzeit fuer Balancing und Zaehler noetig ist; Chat-Befund: Balancing laeuft nachweislich auch ohne gesendete Zeit (Block 85-96 aktiv).
