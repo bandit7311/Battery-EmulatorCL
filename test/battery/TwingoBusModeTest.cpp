@@ -581,3 +581,18 @@ TEST(TwingoWakeForm, SwitchingTheRowOffAndOnStartsANewSession) {
   EXPECT_EQ(hex_of(f[0].f.data.u8, 2), "10 01");
   EXPECT_EQ(f[6].f.data.u8[0], 0x1C);
 }
+
+TEST(TwingoBusPage, FourPartsTogetherAreTheWholePageAndEachIsSmall) {
+  BusTwingo b;
+  b.setup();
+  std::string all(simulator_processor(String("X")).c_str());
+  std::string parts;
+  for (const char* name : {"A", "B", "C", "D"}) {
+    std::string p(simulator_processor(String(name)).c_str());
+    EXPECT_GT(p.size(), 1000u) << name;
+    EXPECT_LT(p.size(), 30000u) << name;  // no String of the whole 60 kB page is needed on the device
+    EXPECT_EQ(p.find('%'), std::string::npos) << name;
+    parts += p;
+  }
+  EXPECT_EQ(parts, all);
+}

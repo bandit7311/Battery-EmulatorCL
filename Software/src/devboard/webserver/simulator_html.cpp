@@ -125,8 +125,13 @@ static void append_cell_frame_rows(String& content, uint8_t cols) {
 }
 
 String simulator_processor(const String& var) {
-  if (var == "X") {
+  const bool all = (var == "X");  // the whole page in one piece (tests); the web server asks for the parts A-D
+  const bool part_a = all || var == "A", part_b = all || var == "B", part_c = all || var == "C",
+             part_d = all || var == "D";
+  if (part_a || part_b || part_c || part_d) {
     String content = "";
+    content.reserve(all ? 70000 : (part_a ? 10000 : (part_b ? 26000 : (part_c ? 27000 : 6000))));
+    if (part_a) {
     content += "<style>";
     content += "body { background-color: black; color: white; font-family: sans-serif; }";
     content += "table { border-collapse: collapse; width: 1200px; max-width: 97vw; }";
@@ -313,6 +318,8 @@ String simulator_processor(const String& var) {
     content += "fetch(u).then(function(r){return r.text();}).then(function(t){";
     content += "document.getElementById('odoState').textContent=t;});}</script>";
 
+    }
+    if (part_b) {
     // ---- Block 1: the LBC<>EVC bus ----
     content += "<h3>Block 1: ALLE SIMULATIONSWERTE wie im FAHRZEUG &ndash; BMS&harr;EVC-Bus (50 Adressen)</h3>";
     content +=
@@ -347,6 +354,8 @@ String simulator_processor(const String& var) {
     content += "</tbody></table><p class='note'>Typ I = wird heute vom Treiber gesendet (Zoe-Form), R = neu, Z = "
                "Zellframe (nur LED).</p>";
 
+    }
+    if (part_c) {
     // ---- Block 2: the old simulator ----
     content += "<h3>Block 2: simulator alt (Fahrzeug-CAN, 41 Zeilen)</h3>";
     content +=
@@ -368,6 +377,8 @@ String simulator_processor(const String& var) {
     }
     content += "</tbody></table>";
 
+    }
+    if (part_d) {
     content += "<h3>Weitere empfangene IDs (nicht in der Liste)</h3>";
     content +=
         "<p class='note'>Alles, was am Bench ankommt und weder in Block 1 noch in Block 2 steht, mit Anzahl und "
@@ -435,6 +446,7 @@ String simulator_processor(const String& var) {
                "Active (precharge &amp; close main relay)</label>";
 
     content += "<p><a href='/advanced' style='color:#8fd3ff;'>Back to More Battery Info</a></p>";
+    }
     return content;
   }
   return String();

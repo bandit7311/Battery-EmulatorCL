@@ -834,7 +834,13 @@ void init_webserver() {
 
   // Route for going to the CAN Signal Simulator page (35 signals, see simulator_html.cpp)
   def_route_with_auth("/simulator", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(200, "text/html", index_html, simulator_processor);
+    // The page is big (about 60 kB): it is delivered in four parts (A-D) so that no 60 kB String has to exist at once.
+    static String sim_template;
+    if (sim_template.length() == 0) {
+      sim_template = index_html;
+      sim_template.replace("%X%", "%A%%B%%C%%D%");
+    }
+    request->send(200, "text/html", sim_template.c_str(), simulator_processor);
   });
 
   // Steady 0x350 frame: C7 (value=0, default) or C3 (value=1), runtime only (03.10.).
