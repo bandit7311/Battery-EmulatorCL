@@ -374,9 +374,39 @@ inline const char* state_name(uint8_t state) {
   return state < BUS_STATE_COUNT ? NAMES[state] : "?";
 }
 
+// Byte 0 of 0x0EC while driving: after entering the state "driving" it walks a ramp and settles at 29 (first drive of
+// the car log 22aaf176, T+216.4 s ...: 25 x90, 27 x13, 26 x4, 2A x6, 22 x1, 21 x328, 2B x3, 29 x212, 28 x26, then 29;
+// one frame = 10 ms). The second drive of the log (T+1373 s) walks a different ramp (27 x821 ...); this one is replayed.
+// n = frames since the state was entered.
+inline uint8_t ec_drive_b0(uint32_t n) {
+  struct Step {
+    uint8_t b0;
+    uint16_t frames;
+  };
+  static constexpr Step RAMP[9] = {{0x25, 90}, {0x27, 13}, {0x26, 4},  {0x2A, 6},  {0x22, 1},
+                                   {0x21, 328}, {0x2B, 3}, {0x29, 212}, {0x28, 26}};
+  for (const Step& st : RAMP) {
+    if (n < st.frames) {
+      return st.b0;
+    }
+    n -= st.frames;
+  }
+  return 0x29;
+}
+
+// Closing form of the last second before the bus goes silent (car log 22aaf176, session 2): 0x0ED carries 60 FF 00
+// instead of 60 FF 80. Applied after build_frame() in the state "closed" while the bus shuts down.
+inline void apply_closing_form(const FrameDef& d, uint8_t out[8]) {
+  if (d.kind == K_0ED) {
+    out[2] = 0x00;
+  }
+}
+
 // Fills out[0..dlc-1] with frame number seq (0, 1, 2, ...) of the frame d in the state. age_min: vehicle age for
-// 0x436 (24 bit), km: kilometres for 0x426 (16 bit, wraps at 65536 like in the car).
-inline void build_frame(const FrameDef& d, uint8_t state, uint32_t seq, uint32_t age_min, uint32_t km, uint8_t out[8]) {
+// 0x436 (24 bit), km: kilometres for 0x426 (24 bit in bytes 3-5). state_seq: frames since the state was entered (only
+// 0x0EC while driving uses it).
+inline void build_frame(const FrameDef& d, uint8_t state, uint32_t seq, uint32_t age_min, uint32_t km, uint8_t out[8],
+                        uint32_t state_seq = 0) {
   if (state >= BUS_STATE_COUNT) {
     state = BUS_WACH;
   }
@@ -392,6 +422,9 @@ inline void build_frame(const FrameDef& d, uint8_t state, uint32_t seq, uint32_t
       out[1] = (uint8_t)((out[1] & 0x0F) | (((5U * seq) & 0x0F) << 4));
       break;
     case K_0EC:
+      if (state == BUS_FAHRT) {
+        out[0] = ec_drive_b0(state_seq);
+      }
       if (seq < WAKE_0EC_FRAMES) {
         out[0] = 0x10;  // wake-up form: the first 6 frames of every session in the car log (10 01 17 ... 10 51 C9)
       }

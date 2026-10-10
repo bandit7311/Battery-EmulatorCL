@@ -364,6 +364,15 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   uint32_t bus_seq[twingo_bus::FRAME_COUNT] = {0};
   unsigned long bus_last_ms[4] = {0};  // 0x19F (10 ms), 0x423, 0x426, 0x436 (100 ms)
   void send_bus_vehicle_frames(unsigned long now, bool in_00_stage);
+  // Frames since the bus state was entered, per frame of twingo_bus::FRAMES (0x0EC walks a ramp while driving), and
+  // the state they belong to (255 = none yet).
+  uint32_t bus_state_frames[twingo_bus::FRAME_COUNT] = {0};
+  uint8_t bus_state_seen[twingo_bus::FRAME_COUNT] = {};
+  // The bus goes to sleep like in the car (10.10.): in the 00 stage of the shutdown sequence (Sleep, Sleep 0x9281=1,
+  // NVROL reset) the state becomes "closed" (0x426 = zu), 0x0EC ends, 0x0ED carries on with 60 FF 00 until the stage
+  // is over. The next wake-up starts every frame with its wake-up form again.
+  void send_bus_closing(unsigned long now);
+  void bus_restart_sessions();
   bool bus_fast_frames_allowed() const;  // 10 ms frames only after the wake-up burst
   void send_simulator_signals(unsigned long currentMillis);
 

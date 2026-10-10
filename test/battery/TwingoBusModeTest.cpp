@@ -596,3 +596,175 @@ TEST(TwingoBusPage, FourPartsTogetherAreTheWholePageAndEachIsSmall) {
   }
   EXPECT_EQ(parts, all);
 }
+
+// ---------------------------------------------------------------------------
+// 0x0EC while driving, the bus falls asleep with the Sleep / NVROL buttons
+// ---------------------------------------------------------------------------
+
+TEST(TwingoDriveRamp, Byte0Of0ECWalksTheRampOfTheFirstDriveAndSettlesAt29) {
+  using twingo_bus::ec_drive_b0;
+  EXPECT_EQ(ec_drive_b0(0), 0x25);
+  EXPECT_EQ(ec_drive_b0(89), 0x25);
+  EXPECT_EQ(ec_drive_b0(90), 0x27);    // 25 x90
+  EXPECT_EQ(ec_drive_b0(102), 0x27);   // 27 x13
+  EXPECT_EQ(ec_drive_b0(103), 0x26);   // 26 x4
+  EXPECT_EQ(ec_drive_b0(107), 0x2A);   // 2A x6
+  EXPECT_EQ(ec_drive_b0(113), 0x22);   // 22 x1
+  EXPECT_EQ(ec_drive_b0(114), 0x21);   // 21 x328
+  EXPECT_EQ(ec_drive_b0(441), 0x21);
+  EXPECT_EQ(ec_drive_b0(442), 0x2B);   // 2B x3
+  EXPECT_EQ(ec_drive_b0(445), 0x29);   // 29 x212
+  EXPECT_EQ(ec_drive_b0(657), 0x28);   // 28 x26
+  EXPECT_EQ(ec_drive_b0(683), 0x29);   // then 29 for good
+  EXPECT_EQ(ec_drive_b0(100000), 0x29);
+}
+
+TEST(TwingoDriveRamp, OnlyFrame0ECInTheStateDrivingUsesIt) {
+  const twingo_bus::FrameDef* ec = twingo_bus::find_frame(0x0EC);
+  ASSERT_NE(ec, nullptr);
+  uint8_t out[8];
+  twingo_bus::build_frame(*ec, twingo_bus::BUS_FAHRT, 50, 0, 0, out, 0);
+  EXPECT_EQ(out[0], 0x25);
+  EXPECT_EQ(out[1] >> 4, 50 & 0x0F);  // counter keeps counting
+  uint8_t crc_in[2] = {out[0], out[1]};
+  EXPECT_EQ(out[2], (uint8_t)(twingo_bus::crc8(crc_in, 2, 0x1D) ^ 0xBE));  // CRC over the changed byte 0
+  twingo_bus::build_frame(*ec, twingo_bus::BUS_FAHRT, 50, 0, 0, out, 700);
+  EXPECT_EQ(out[0], 0x29);
+  twingo_bus::build_frame(*ec, twingo_bus::BUS_WACH, 50, 0, 0, out, 0);
+  EXPECT_EQ(out[0], 0x1C);  // other states: the value of the state
+  twingo_bus::build_frame(*ec, twingo_bus::BUS_FAHRT, 2, 0, 0, out, 0);
+  EXPECT_EQ(out[0], 0x10);  // the wake-up form of the first six frames wins
+}
+
+TEST(TwingoDriveRamp, TheRowStartsTheRampWhenTheStateIsEntered) {
+  BusTwingo b;
+  b.setup();
+  only_rows({0x0EC});
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 300, 1, log);  // awake: 1C
+  datalayer_extended.twingoGen1.bus_state = twingo_bus::BUS_FAHRT;
+  log.clear();
+  run(b, t, 1500, 1, log);
+  auto f = with_id(log, 0x0EC);
+  ASSERT_GT(f.size(), 140u);
+  EXPECT_EQ(f[0].f.data.u8[0], 0x25);  // the ramp starts at the first frame in the state
+  EXPECT_EQ(f[89].f.data.u8[0], 0x25);
+  EXPECT_EQ(f[90].f.data.u8[0], 0x27);
+  datalayer_extended.twingoGen1.bus_state = twingo_bus::BUS_WACH;
+}
+
+namespace {
+// Runs the Sleep button through the shutdown sequence up to and including the silence; returns the log from the start of
+// the 00 stage on (stage 3 is the last second before the silence).
+struct SleepRun {
+  std::vector<Tx> before;  // everything before the 00 stage
+  std::vector<Tx> stage00;
+  std::vector<Tx> silence;
+  uint64_t t = 1000;
+};
+
+SleepRun run_sleep(BusTwingo& b) {
+  SleepRun r;
+  b.request_sleep();
+  std::vector<Tx> all;
+  // C3 66 s + C2 60 s + C0 10 s = 136 s, then the 00 stage (1 s): find it by the end of the frames of 0x350 C0
+  run(b, r.t, 135000, 10, all);
+  r.before = all;
+  std::vector<Tx> late;
+  run(b, r.t, 3000, 10, late);
+  r.stage00 = late;
+  return r;
+}
+}  // namespace
+
+TEST(TwingoBusSleep, TheBusClosesInTheLastSecondBeforeTheSilence) {
+  BusTwingo b;
+  b.setup();
+  only_rows({0x0EC, 0x0ED, 0x426});
+  SleepRun r = run_sleep(b);
+  // Before: awake content, 0x0EC runs
+  auto ec_before = with_id(r.before, 0x0EC);
+  ASSERT_GT(ec_before.size(), 1000u);
+  auto k426 = with_id(r.before, 0x426);
+  ASSERT_FALSE(k426.empty());
+  EXPECT_EQ(k426.back().f.data.u8[2], 0x06);  // awake
+  // At the end: 0x426 says closed, 0x0ED carries 60 FF 00, 0x0EC is gone
+  auto k426_late = with_id(r.stage00, 0x426);
+  bool closed_seen = false;
+  for (const Tx& x : k426_late) {
+    closed_seen |= (x.f.data.u8[2] == 0x02);
+  }
+  EXPECT_TRUE(closed_seen) << "0x426 never went to closed";
+  bool ed_closing = false;
+  for (const Tx& x : with_id(r.stage00, 0x0ED)) {
+    ed_closing |= (x.f.data.u8[0] == 0x60 && x.f.data.u8[1] == 0xFF && x.f.data.u8[2] == 0x00);
+  }
+  EXPECT_TRUE(ed_closing) << "0x0ED never carried 60 FF 00";
+  // 0x0EC ends no later than the first "closed" frame of 0x426, 0x0ED goes on after it
+  auto ec_late = with_id(r.stage00, 0x0EC);
+  uint64_t t_closed = 0;
+  for (const Tx& x : k426_late) {
+    if (x.f.data.u8[2] == 0x02) {
+      t_closed = x.t;
+      break;
+    }
+  }
+  for (const Tx& x : ec_late) {
+    EXPECT_LE(x.t, t_closed + 100) << "0x0EC after the bus closed";
+  }
+  auto ed_late = with_id(r.stage00, 0x0ED);
+  ASSERT_FALSE(ed_late.empty());
+  EXPECT_GT(ed_late.back().t, t_closed + 500);  // about a second after closing
+  // The true silence: nothing at all
+  std::vector<Tx> silent;
+  run(b, r.t, 5000, 10, silent);
+  EXPECT_TRUE(with_id(silent, 0x0EC).empty());
+  EXPECT_TRUE(with_id(silent, 0x0ED).empty());
+  EXPECT_TRUE(with_id(silent, 0x426).empty());
+}
+
+TEST(TwingoBusSleep, NvrolButtonAndSleepWith9281GoThroughTheSameClosing) {
+  for (int mode = 0; mode < 2; mode++) {
+    BusTwingo b;
+    b.setup();
+    only_rows({0x0EC, 0x426});
+    if (mode == 0) {
+      b.request_sleep_temporisation();
+    } else {
+      b.reset_NVROL();
+    }
+    uint64_t t = 1000;
+    std::vector<Tx> all;
+    run(b, t, 400000, 100, all);  // the whole run incl. UDS steps; the bus rows are checked, not the timing
+    bool closed = false;
+    for (const Tx& x : with_id(all, 0x426)) {
+      closed |= (x.f.data.u8[2] == 0x02);
+    }
+    // 100 ms steps are too coarse for 0x0EC, but 0x426 (100 ms) must show the closing
+    EXPECT_TRUE(closed) << "mode " << mode << ": 0x426 never went to closed";
+  }
+}
+
+TEST(TwingoBusSleep, AfterTheWakeUpEveryFrameStartsWithItsWakeForm) {
+  BusTwingo b;
+  b.setup();
+  only_rows({0x0EC, 0x0ED});
+  SleepRun r = run_sleep(b);
+  std::vector<Tx> silent;
+  run(b, r.t, 3000, 10, silent);
+  b.request_wake_up();
+  std::vector<Tx> wake;
+  run(b, r.t, 20000, 10, wake);
+  auto ec = with_id(wake, 0x0EC);
+  ASSERT_GT(ec.size(), 10u);
+  EXPECT_EQ(ec[0].f.data.u8[0], 0x10);
+  EXPECT_EQ(ec[0].f.data.u8[1], 0x01);
+  EXPECT_EQ(ec[5].f.data.u8[0], 0x10);
+  EXPECT_EQ(ec[6].f.data.u8[0], 0x1C);
+  auto ed = with_id(wake, 0x0ED);
+  ASSERT_GT(ed.size(), 40u);
+  EXPECT_EQ(hex_of(ed[0].f.data.u8, 3), "A3 FF 00");
+  EXPECT_EQ(hex_of(ed[10].f.data.u8, 3), "A3 FF 80");
+  EXPECT_EQ(hex_of(ed[31].f.data.u8, 3), "63 FF 80");
+}

@@ -601,9 +601,16 @@ TEST(TwingoCarMode, EndOfTheRowsAsBeforeIsUnchanged) {
        {0x090u, 0x242u, 0x17Au, 0x18Au, 0x1F8u, 0x211u, 0x1B0u, 0x55Du, 0x5DEu, 0x1FDu, 0x0C6u, 0x45Cu, 0x657u}) {
     EXPECT_LE(last_t(id), r.t_c0 + 20) << "0x" << std::hex << id;
   }
-  // ... the I rows (0x53B, 0x69F, Zoe frames) run until the 00 stage, nothing in the 00 stage
+  // ... the I rows (0x53B, 0x69F, Zoe frames) run until the 00 stage, nothing of the old rows in the 00 stage. Only
+  // the rows of the bus (tag R, 10.10.) close in the 00 stage: 0x426 = closed, 0x0EC ends, 0x0ED goes on.
+  std::set<uint32_t> bus_ids;
+  for (int i = 0; i < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; i++) {
+    if (RenaultTwingoGen1Battery::sim_signals[i].tag == 'R') {
+      bus_ids.insert(RenaultTwingoGen1Battery::sim_signals[i].id);
+    }
+  }
   for (const Tx& x : r.log) {
-    if (x.t > r.t_00 + 20 && x.f.ID != 0x350 && !is_old_kwp_poll(x.f)) {
+    if (x.t > r.t_00 + 20 && x.f.ID != 0x350 && !is_old_kwp_poll(x.f) && bus_ids.count(x.f.ID) == 0) {
       ADD_FAILURE() << "0x" << std::hex << x.f.ID << " in the 00 stage as before";
     }
   }

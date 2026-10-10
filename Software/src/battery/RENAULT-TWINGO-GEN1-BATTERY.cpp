@@ -719,6 +719,7 @@ void RenaultTwingoGen1Battery::start_wake_burst(void) {
   wake_first_uds = -1;
   wake_priority_done = -1;
   wake_priority_timeout = false;
+  bus_restart_sessions();
   NVROLstateMachine = 8;
 }
 
@@ -1423,6 +1424,9 @@ void RenaultTwingoGen1Battery::send_214_like_car(unsigned long currentMillis) {
 bool RenaultTwingoGen1Battery::sim_row_allowed_now(const SimSignal& s) const {
 #ifdef TWINGO_EXTENDED_CELL_POLLING
   if (NVROLstateMachine == 7) {
+    if (s.tag == 'R') {
+      return powerdown_stage < 3;  // frames of the bus run through C3/C2/C0; the 00 stage is send_bus_closing()
+    }
     if (!shutdown_like_car) {
       return powerdown_stage < 2;
     }
@@ -3395,7 +3399,12 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
       if (def->interval_ms <= 10 && !bus_fast_frames_allowed()) {
         continue;  // the 10 ms frames start only after the wake-up burst
       }
-      twingo_bus::build_frame(*def, state, bus_seq[def - twingo_bus::FRAMES]++, 0, odo_426_km, f.data.u8);
+      const uint8_t def_idx = (uint8_t)(def - twingo_bus::FRAMES);
+      if (bus_state_seen[def_idx] != state) {
+        bus_state_seen[def_idx] = state;
+        bus_state_frames[def_idx] = 0;  // the state was entered: 0x0EC starts its driving ramp from the beginning
+      }
+      twingo_bus::build_frame(*def, state, bus_seq[def_idx]++, 0, odo_426_km, f.data.u8, bus_state_frames[def_idx]++);
       f.DLC = def->dlc;
     } else if (sim_signals[i].id == 0x1F8) {
       // Bytes 5/6 = motor speed (bits 40-50, 10 rpm per bit); the car stands, so 0. Like the real EVC the
@@ -3578,7 +3587,7 @@ bool RenaultTwingoGen1Battery::bus_fast_frames_allowed() const {
 // from twingo_bus::FRAMES, kilometres from the 0x426 field, age (0x436) from the manual 0x436 time or the vehicle
 // age; each row is still switched by its own checkbox (rows 3, 6, 4, 5).
 void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool in_00_stage) {
-  if (datalayer_extended.twingoGen1.bus_format_zoe_old || in_00_stage) {
+  if (datalayer_extended.twingoGen1.bus_format_zoe_old) {
     return;
   }
   struct Item {
@@ -3587,7 +3596,7 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
     uint8_t slot;
   };
   static const Item ITEMS[4] = {{0x19F, 3, 0}, {0x423, 6, 1}, {0x426, 4, 2}, {0x436, 5, 3}};
-  const uint8_t state = datalayer_extended.twingoGen1.bus_state;
+  const uint8_t state = in_00_stage ? (uint8_t)twingo_bus::BUS_ZU : datalayer_extended.twingoGen1.bus_state;
   for (const Item& it : ITEMS) {
     if (!sim_enabled(it.row)) {
       continue;
@@ -3613,6 +3622,40 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
     }
     CAN_frame f = {.FD = false, .ext_ID = false, .DLC = def->dlc, .ID = def->id};
     twingo_bus::build_frame(*def, state, bus_seq[def - twingo_bus::FRAMES]++, age_min, odo_426_km, f.data.u8);
+    transmit_can_frame(&f);
+  }
+}
+
+// A new session of the bus (the wake-up after Sleep / NVROL reset): every frame starts again with its wake-up form
+// (0x0EC 10 xx, 0x0ED A3 FF xx) and the driving ramp of 0x0EC starts from the beginning.
+void RenaultTwingoGen1Battery::bus_restart_sessions() {
+  for (uint8_t i = 0; i < twingo_bus::FRAME_COUNT; i++) {
+    bus_seq[i] = 0;
+    bus_state_frames[i] = 0;
+    bus_state_seen[i] = 255;
+  }
+}
+
+// The 00 stage of the shutdown sequence on the bus (log 22aaf176: 0x426 goes to "zu", 0x0EC ends with it, 0x0ED is the
+// last frame and carries on for about a second): the rows of block 1 that are switched on go on in the state
+// "closed", without 0x0EC, and 0x0ED in its closing form. The five Zoe-form rows follow in
+// send_bus_vehicle_frames(). After the stage the true silence begins.
+void RenaultTwingoGen1Battery::send_bus_closing(unsigned long now) {
+  for (uint8_t i = 0; i < SIM_SIGNAL_COUNT; i++) {
+    if (sim_signals[i].tag != 'R' || !sim_row_enabled(i)) {
+      continue;
+    }
+    const twingo_bus::FrameDef* def = twingo_bus::find_frame((uint16_t)sim_signals[i].id);
+    if (def == nullptr || def->kind == twingo_bus::K_0EC) {
+      continue;  // 0x0EC ends when the car closes
+    }
+    if (now - sim_last_send_ms[i] < def->interval_ms) {
+      continue;
+    }
+    sim_last_send_ms[i] = now;
+    CAN_frame f = {.FD = false, .ext_ID = false, .DLC = def->dlc, .ID = def->id};
+    twingo_bus::build_frame(*def, twingo_bus::BUS_ZU, bus_seq[def - twingo_bus::FRAMES]++, 0, odo_426_km, f.data.u8);
+    twingo_bus::apply_closing_form(*def, f.data.u8);
     transmit_can_frame(&f);
   }
 }
@@ -3652,6 +3695,8 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
 #endif
   if (in_00_stage) {
     datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;
+    send_bus_closing(currentMillis);                     // the bus closes: 0x426 = zu, 0x0EC ends, 0x0ED goes on
+    send_bus_vehicle_frames(currentMillis, true);        // 0x19F/0x423/0x426/0x436 in the state "closed"
   }
   if (!suppress_own_broadcast) {
     // Send 100ms CAN Message (the BMS only answers diagnostic requests while it
@@ -3723,7 +3768,9 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
 #endif
     }
 
-    send_bus_vehicle_frames(currentMillis, in_00_stage);  // 0x19F/0x423/0x426/0x436 in the format of the real bus
+    if (!in_00_stage) {
+      send_bus_vehicle_frames(currentMillis, false);  // 0x19F/0x423/0x426/0x436 in the format of the real bus
+    }
 
     // Update EVC 0x436 vehicle runtime clock every 60s
     if (currentMillis - previousMillis60000_436 >= INTERVAL_60_S) {
