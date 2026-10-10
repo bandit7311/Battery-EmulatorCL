@@ -1,6 +1,6 @@
 # Bauliste (bereinigte Fassung, Stand 10.10.2026)
 
-**Stand 10.10.:** Prioritaet 1 und 2 sind gebaut (Branch `twingo-echter-bus-modus`, Commits `14f3aaf` und `0d0d8d2`, Bericht: `BAUBERICHT_Prio1_Prio2_10-10.md`). Alles unten ab "Neu aufgenommen" und Prioritaet 3 ist **nicht gebaut**; gebaut wird erst nach ausdruecklichem "bauen". Die vorherige, chronologisch gewachsene Fassung steht unveraendert in `BAULISTE_ALT_10-10_vor_Bereinigung.md`. Kennzeichnung: **gemessen** / **Schluss** / **Annahme** wie in den Befund-Dateien.
+**Stand 10.10.:** Prioritaet 1 und 2 sind gebaut (Branch `twingo-echter-bus-modus`, Commits `14f3aaf`, `0d0d8d2` Weck-Form 0x0EC/0x0ED, `85ba74a` Seite in vier Teilen, `cb190c5` 0x426 km 24 Bit; Bericht: `BAUBERICHT_Prio1_Prio2_10-10.md`; Bench-Ergebnisse: `TEST_BENCH_10-10_Aufwecken_und_Zustaende.md`). Alles unten ab "Neu aufgenommen" und Prioritaet 3 ist **nicht gebaut**; gebaut wird erst nach ausdruecklichem "bauen". Die vorherige, chronologisch gewachsene Fassung steht unveraendert in `BAULISTE_ALT_10-10_vor_Bereinigung.md`. Kennzeichnung: **gemessen** / **Schluss** / **Annahme** wie in den Befund-Dateien.
 
 ## Prioritaet 1: Umbau "echter Bus"
 Neuer Branch ab `e3988cb` (z. B. `twingo-echter-bus-modus`, ohne Modellnamen); `claude/twingo-hv-modell-und-alter` bleibt unveraendert als Rueckfall.
@@ -40,6 +40,12 @@ Neuer Branch ab `e3988cb` (z. B. `twingo-echter-bus-modus`, ohne Modellnamen); `
 - Abschalt-Taster (Nice-to-have): Sleep inkl. `0x9281` ohne Wiederanlauf, SSD1306-Hinweise "Shutdown requested / Sleep requested / Battery sleeping - Turn off now!!".
 - Fix-later: Wake-up-CAN-Bus-Fehler (`0x090`/`0x242` erst nach dem Wake-Burst). To-do: kurz 100 % SOC an den Deye nach dem Aufwachen, `CAN NATIVE BUS ERROR` nach dem Wiederanlauf automatisch quittieren.
 - Lokaler Stash (`stash@{0}`, "All rows off"-Statusanzeige, nicht gebaut/getestet): einspielen oder verwerfen, offen.
+
+## Naechste Schritte nach den Bench-Ergebnissen vom 10.10. (nicht gebaut)
+- **Speichertest** (kein Bau): Zustand "aus" (erwartet `9259` 04, `925C` 02, `9279` +1), 3 bis 5 min warten, `91C1`/`91CF`/`9261`/`925F` lesen; danach "zu" mit Frame-Ende wie im Auto. Vorher DTC loeschen und pruefen, ob `1B0E41` (Speicherfehler, aktiv `2F`) zurueckkommt.
+- **Fehlerfreier Zeilensatz** festhalten (E14281/E14381 sind verschwunden; Satz und Reihenfolge fehlen noch beim Nutzer).
+- **Abschaltfolge auf dem Bus** (siehe Abschnitt "Neu aufgenommen"): wird wichtiger, weil `9259` = 05 erreicht ist und der Schnappschuss wohl erst nach Sitzungsende geschrieben wird.
+- **Seite beobachten:** Absturz beim Oeffnen mit der ersten Fassung; Gegenmassnahme `85ba74a` (vier Teile), am Geraet noch nicht bestaetigt.
 
 ## Neu aufgenommen (10.10.): Ablauf auf dem BMS<>EVC-Bus wie im Fahrzeug
 **Erst pruefen, was voneinander abhaengt, dann bauen.** Ausloeser: Die Knoepfe "Sleep", "Sleep 0x9281=1" und "NVROL reset" fahren nur die alte Folge auf dem Fahrzeug-CAN (`0x350` C3/C2/C0/00, Wake-Buendel); die Bus-Folge des Autos fehlt.
