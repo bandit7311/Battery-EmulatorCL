@@ -70,3 +70,10 @@ Springt `9259` auf `05` oder zaehlt `9279` / bewegt sich `9261`/`91C1`: letzte G
 - Teil 3:
 - Teil 4:
 - Auffaelligkeiten:
+
+
+## Ergebnis Bench 10.10. (Firmware 0d0d8d2, vom Nutzer berichtet, kein Log)
+- Format "Fahrzeug" (Standard). Zuerst nur `0x0EC` und `0x0ED` angehakt: **keine** Frames vom Akku.
+- Danach `0x423` dazu: es kommen sofort alle 13 Akku-Frames (`0x155`, `0x0C5`, `0x1C9`, `0x424`, `0x425`, `0x43A`, `0x445`, `0x464`, `0x588`, `0x4AE`, `0x4AF`, `0x659`, `0x6BE`) und alle 20 Zellframes.
+- Schluss: `0x423` weckt den Akku; `0x0EC`/`0x0ED` allein nicht. Ob `0x0EC`/`0x0ED` bei laufendem `0x423` etwas aendern (Zustand, MCPU), ist ungetestet.
+- Weiter beobachtet: DTC `1B0E41` mit Status `2F` (aktiv, erstmals mit gesetztem Bit 0; fruehere Staende `28`/`2C`); Ausloeser unklar.
