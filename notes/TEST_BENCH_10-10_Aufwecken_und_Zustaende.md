@@ -96,3 +96,14 @@ Springt `9259` auf `05` oder zaehlt `9279` / bewegt sich `9261`/`91C1`: letzte G
 - **0x426 im Auto-Log (6.080 Frames, 16 verschiedene):** B0 = `00`; B1 = `00`/`08`/`60`/`70`; B2 = `02` zu, `06` wach, `65` Zuendung 1, `69` Zuendung 3 und Fahrt, `61` GO, `05` aus, dazu Uebergaenge `67`, `07`; B3-B5 = km 24 Bit (`01 6A 70` = 92.784, einmal `01 6A 71` bei T+1412,1 s im Fahren); B6 = `00`; B7 = `40`; Takt 100 ms. Jede Sitzung beginnt mit `00 00 02` (1,1-1,2 s), `00 08 02` (0,6-0,7 s), `00 08 06` (0,4-0,5 s), dann `00 00 06`. Uns fehlt dieser Anlauf und die Uebergangswerte.
 - **`0x157` als Kandidat fuer E14381 ("Invalid data received on CAN Current sensor frames"):** B1 = Zaehler (+5), B4 `FF`, B5 `E0` fest, B2/B3 = 16-Bit-Wert, ueberwiegend `09 C4` (2.500), zeitweise `0A 3C`, `08 xx`, `0C xx`; B0 nimmt 256 Werte an, meist `D5`. **Annahme:** ein gemessener Wert (Strom?) mit Pruefbyte. Test: mit `0x426` an zuerst `0x157` einschalten.
 - **`91CF` im Auto-Log:** Antwort `80 0C 28 40` = 24.898 km, gleich bei T+90,6 s, 341,2 s, 570,9 s und 1360,2 s (auch nach rund 2 min Fahrt in Sitzung 1). Der Pack-Zaehler laeuft nicht mit jeder Fahrt; `9245` stieg in Sitzung 1 um `0x38` (56 Schritte = 0,056 kWh). Bench: `91CF` = 0 seit dem NVROL-Reset (vorher 6.844 = `80 03 57 80`). Schreiben waere `2E 91 CF 80 03 57 80`; nicht empfohlen, solange `1B0E41` (Fehler im externen Dauerspeicher) aktiv ist.
+- **`91CF` (Pack-km) zaehlt Zuwaechse der Fahrzeug-km von `0x426` (10.10., Messreihe vom Nutzer, MCPU im Fahrmodus `9259` = 05):**
+
+| Lesung | `925F` (Fahrzeug-km) | `91CF` (Pack-km) |
+|---|---|---|
+| 1 | 6.482 | 85.942 |
+| 2 | 6.487 | 86.304 (+362) |
+| 3 | 6.500 | 86.317 (+13) |
+
+  Erklaerung, die alle Werte trifft (**Schluss, nicht belegt**): `91CF` summiert nur positive Aenderungen der km aus `0x426`, abnehmende Werte werden nicht abgezogen. +362 = 6.844 − 6.482 (die km standen zwischen Lesung 1 und 2 vermutlich kurz auf 6.844, dem Standard nach einem Neustart, und wurden danach auf 6.487 gesetzt); +13 = 6.500 − 6.487. Auch der Startwert 85.942 passt (Testwert 92.784 minus rund 6.842 Ausgangswert), bei zwei km Abweichung. Es braucht dazu den Fahrmodus (`9259` = 05). Gegenprobe: km um 100 senken (`91CF` bleibt), dann um 50 anheben (`91CF` +50).
+- `9270` (Missionsliste, 32 Eintraege): Zahl der `06` ("Driving") am Ende waechst mit der Zeit: 8, 12, 17, 18 (Lesung 1 bis 4); das MCPU haengt im Fahrmodus laufend Eintraege an. Uhrzeiten der Lesungen fehlen, die Rate ist offen.
+- `0x155` verworfen (ungueltiger Strom oder SOC): 295, dann 590; steigt seit dem Sleep-Lauf an.
