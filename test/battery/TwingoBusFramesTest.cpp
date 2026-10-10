@@ -99,21 +99,30 @@ TEST(TwingoBus, Frame511Byte0FollowsTheState) {
   EXPECT_EQ(out[0], 0x00);
 }
 
-TEST(TwingoBus, Frame426HasStateBytesAndSixteenBitKilometres) {
+TEST(TwingoBus, Frame426HasStateBytesAndTwentyFourBitKilometres) {
   const FrameDef& d = *find_frame(0x426);
   uint8_t out[8];
   build_frame(d, BUS_WACH, 0, 0, 6844, out);  // 6844 = 0x1ABC
-  const uint8_t wach[8] = {0x00, 0x00, 0x06, 0x01, 0x1A, 0xBC, 0x00, 0x40};
+  const uint8_t wach[8] = {0x00, 0x00, 0x06, 0x00, 0x1A, 0xBC, 0x00, 0x40};
   for (int i = 0; i < 8; i++) {
     EXPECT_EQ(out[i], wach[i]) << i;
   }
   build_frame(d, BUS_FAHRT, 0, 0, 6844, out);
   EXPECT_EQ(out[1], 0x70);
   EXPECT_EQ(out[2], 0x69);
-  build_frame(d, BUS_ZU, 0, 0, 65536 + 5, out);  // wraps at 65536 like in the car
+  build_frame(d, BUS_ZU, 0, 0, 65536 + 5, out);  // 24 bit: 72,... km needs byte 3
   EXPECT_EQ(out[2], 0x02);
+  EXPECT_EQ(out[3], 0x01);
   EXPECT_EQ(out[4], 0x00);
   EXPECT_EQ(out[5], 0x05);
+  build_frame(d, BUS_ZU, 0, 0, 72380, out);  // pack reading of 10.10.: 0x011ABC = 72,380 km came from 01 1A BC
+  EXPECT_EQ(out[3], 0x01);
+  EXPECT_EQ(out[4], 0x1A);
+  EXPECT_EQ(out[5], 0xBC);
+  build_frame(d, BUS_ZU, 0, 0, 92784, out);  // the car log: 01 6A 70
+  EXPECT_EQ(out[3], 0x01);
+  EXPECT_EQ(out[4], 0x6A);
+  EXPECT_EQ(out[5], 0x70);
   build_frame(d, BUS_ZUENDUNG1, 0, 0, 0, out);
   EXPECT_EQ(out[1], 0x60);
   EXPECT_EQ(out[2], 0x65);

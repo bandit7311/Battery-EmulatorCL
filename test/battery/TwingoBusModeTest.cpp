@@ -255,7 +255,7 @@ TEST(TwingoBusFormat, Frame426InTheVehicleFormatCarriesStateAndKm) {
   const struct {
     uint8_t state;
     const char* bytes;
-  } cases[] = {{twingo_bus::BUS_ZU, "00 00 02 01 1A BC 00 40"}, {twingo_bus::BUS_WACH, "00 00 06 01 1A BC 00 40"}};
+  } cases[] = {{twingo_bus::BUS_ZU, "00 00 02 00 1A BC 00 40"}, {twingo_bus::BUS_WACH, "00 00 06 00 1A BC 00 40"}};
   for (const auto& c : cases) {
     BusTwingo b;
     b.setup();

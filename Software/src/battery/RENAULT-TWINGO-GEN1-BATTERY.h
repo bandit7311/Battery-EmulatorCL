@@ -140,7 +140,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // 0x426 (I row 4, bytes 4-6 = km * 256, so 0 .. 65,535 km; byte 7 free). Defaults: 19,400 km (the value the pack
   // showed as $925F), byte 7 = 0x40.
   static const uint32_t ODO_5D7_MAX_KM = 2684354UL;
-  static const uint32_t ODO_426_MAX_KM = 65535UL;
+  static const uint32_t ODO_426_MAX_KM = 65535UL;           // old Zoe form: km * 256 in 24 bit
+  static const uint32_t ODO_426_BUS_MAX_KM = 16777215UL;    // vehicle form: km in 24 bit (bytes 3-5)
   static uint32_t odo_5d7_km;
   static uint32_t odo_426_km;
   static uint8_t odo_426_b7;

@@ -967,8 +967,8 @@ void init_webserver() {
       }
       RenaultTwingoGen1Battery::odo_5d7_km = v;
     } else if (which == "426") {
-      if (v > RenaultTwingoGen1Battery::ODO_426_MAX_KM) {
-        request->send(200, "text/plain", "too large (at most 65535)");
+      if (v > RenaultTwingoGen1Battery::ODO_426_BUS_MAX_KM) {
+        request->send(200, "text/plain", "too large (at most 16777215)");
         return;
       }
       RenaultTwingoGen1Battery::odo_426_km = v;

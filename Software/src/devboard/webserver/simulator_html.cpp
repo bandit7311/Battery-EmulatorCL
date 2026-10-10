@@ -304,13 +304,13 @@ String simulator_processor(const String& var) {
     content += "<p><b>Odometer 0x5D7:</b> <input type='number' id='odo5d7' min='0' max='2684354' value='";
     content += String(RenaultTwingoGen1Battery::odo_5d7_km);
     content += "' style='width:8em'> km <button onclick=\"odoSet('5d7')\">Set</button> &nbsp; ";
-    content += "<b>0x426 (Zoe frame):</b> <input type='number' id='odo426' min='0' max='65535' value='";
+    content += "<b>0x426 (Zoe frame):</b> <input type='number' id='odo426' min='0' max='16777215' value='";
     content += String(RenaultTwingoGen1Battery::odo_426_km);
     content += "' style='width:6em'> km, byte 7 <input type='number' id='odo426b7' min='0' max='255' value='";
     content += String(RenaultTwingoGen1Battery::odo_426_b7);
     content += "' style='width:4em'> <button onclick=\"odoSet('426')\">Set</button> <span id='odoState'></span> ";
     content +=
-        "<span class='note'>- runtime only. 0x426 holds km * 256 in 24 bit, so at most 65,535 km, and it triggers "
+        "<span class='note'>- runtime only. 0x426 holds the km in 24 bit (bytes 3-5) in the vehicle form, the old Zoe form only up to 65,535 km and it triggers "
         "E14381; 0x5D7 reaches 2,684,354 km. Defaults: 0x5D7 19,400 km; 0x426 6,844 km (pack value 91CF), byte 7 = 64 (0x40).</span></p>";
     content += "<script>function odoSet(w){var u='/editTwingoOdo?which='+w+'&km='+encodeURIComponent(";
     content += "document.getElementById(w=='5d7'?'odo5d7':'odo426').value);";

@@ -14,7 +14,7 @@
 //  - 0x19F: byte 3 low nibble = counter +5 (mod 16).
 //  - 0x157: byte 1 high nibble = counter +5 (mod 16), no checksum found.
 //  - 0x511: bytes 1-6 are six counters with a fixed step (mod 256): +63, +201, +185, +107, +13, +227.
-//  - 0x426: bytes 4-5 = kilometres (16 bit); 0x436: bytes 1-3 = vehicle age in minutes, byte 0 = 0x80 or 0xAD
+//  - 0x426: bytes 3-5 = kilometres (24 bit, corrected 10.10.); 0x436: bytes 1-3 = vehicle age in minutes, byte 0 = 0x80 or 0xAD
 //    (ignition on); 0x423: bytes 4/6 alternate between 0x5D and 0xB2, the payload of both variants is stored.
 //  - everything else is sent as recorded (the checksum of 0x423 byte 7, 0x500, 0x1A1, 0x419 is unknown).
 // The frames marked from_pack are the ones the battery sends on its own (bench log of 25.09., battery alone);
@@ -418,6 +418,9 @@ inline void build_frame(const FrameDef& d, uint8_t state, uint32_t seq, uint32_t
       break;
     }
     case K_426:
+      // Kilometres: 24 bit in bytes 3-5 (the car log shows 01 6A 70 = 92,784 km; the pack shows it as $925F). Byte 6 stays
+      // 00 (fraction). Corrected 10.10.: before it was 16 bit in bytes 4-5 with byte 3 fixed at 01, which gave 72,380 km.
+      out[3] = (uint8_t)((km >> 16) & 0xFF);
       out[4] = (uint8_t)((km >> 8) & 0xFF);
       out[5] = (uint8_t)(km & 0xFF);
       break;
