@@ -51,7 +51,7 @@ Neuer Branch ab `e3988cb` (z. B. `twingo-echter-bus-modus`, ohne Modellnamen); `
 **Erst pruefen, was voneinander abhaengt, dann bauen.** Ausloeser: Die Knoepfe "Sleep", "Sleep 0x9281=1" und "NVROL reset" fahren nur die alte Folge auf dem Fahrzeug-CAN (`0x350` C3/C2/C0/00, Wake-Buendel); die Bus-Folge des Autos fehlt.
 - **Wecken (gemessen, in allen 3 Sitzungen des Logs 22aaf176 gleich):** `0x0EC` zuerst (+0,05 s), `0x423` (+0,11 s), Weck-Buendel (+0,17 s); `0x0ED` ab +0,18 s mit `A3 FF 00` (10x), `A3 FF 80` (21x), dann Zustandswert. **Schon gebaut:** Weck-Form von `0x0EC` und `0x0ED` beim Einschalten der Zeile.
 - **Noch offen:**
-  - `0x0C5`: Zaehler im oberen Nibble von Byte 0 (`15`, `25`, `35` ...), Byte 1 vermutlich Pruefsumme (nicht untersucht), Weck-Form `15 2D 00 00 00 00 00`; heute nur feste Bytes. `0x0C5` kommt laut Bench vom Akku.
+  - `0x0C5` **entfaellt**: kommt vom Akku selbst (Bench 25.09. und 10.10.), kein Zaehler und keine Weck-Form von uns noetig. Die Zeile bleibt nur als Sendemoeglichkeit mit Vorsicht (Kollision mit echtem Akku).
   - `0x0EC` Byte 0 beim Fahren wechselnd (`25`, `27`, `26`, `2A`, `22`, `21`, `2B`, `29`, `28`); heute fest je Zustand.
   - Automatische Zustandsfolge (zu, wach, Zuendung 1, GO, Fahrt, aus, wach, zu) statt Handwahl.
   - Einschlafen auf dem Bus: `0x426` auf "zu" (`00 00 02 ...`), `0x0EC` endet mit "zu", `0x0ED` laeuft rund 1,2 s weiter und ist das letzte Frame (`60 FF 80`, in Sitzung 2 `60 FF 00`); Zeiten Sitzung 1: zu bei T+469,8 s, Ende T+471,0 s.
