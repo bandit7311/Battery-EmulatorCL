@@ -83,3 +83,12 @@ Springt `9259` auf `05` oder zaehlt `9279` / bewegt sich `9261`/`91C1`: letzte G
 - `91CF` = `80 00 00 00` = 0 km (Pack-km, Offset 0x80000000): unveraendert 0 seit dem NVROL-Reset (vorher 6.844), folgt `925F` (live, 72.380 km vor der Korrektur) nicht. Wie `91C1` ein gespeicherter Wert, der noch nicht geschrieben wurde.
 - **`925C` folgt dem Zustand (10.10., vom Nutzer berichtet):** Mit Zustand nur "awake" zeigen MCPU und SCPU (`[DC]`) `925C` = `02` (`62 92 5C 02`); vorher mit dem anderen Satz/Zustand `01` (mit `9259` = 05). `02` ist der Wert des Autos bei "Zuendung aus" (dort `9259` = 04). Offen: `9259` in diesem Zustand, und bei welchem Zustand genau `01`/`05` auftrat.
 - **Angehakter Satz (10.10., vom Nutzer berichtet), Zustand "awake", Format Fahrzeug:** `0x0EC`, `0x0ED`, `0x19F`, `0x426`, `0x436`, `0x419`, `0x423` (7 Zeilen aus Block 1). Mit diesem Satz `925C` = `02` (MCPU und SCPU). Unklar, ob das auch der Satz ist, bei dem E14281/E14381 verschwanden und welche Zeile zuletzt dazukam; `0x419` (100 ms, im Auto `56 00 28 00 3A 00` o. ae., Inhalt je Zustand aufgezeichnet) ist die einzige Zeile dieses Satzes, die nicht zu den bisher getesteten gehoert.
+- **0x426 an/aus, Zustand "awake" (10.10., vom Nutzer berichtet; MCPU = ohne Kennung, SCPU = `[DC]`).** Angehakt waren `0x0EC`, `0x0ED`, `0x19F`, `0x436`, `0x419`, `0x423`.
+
+| | `9259` MCPU | `9259` SCPU | `925C` MCPU | `925C` SCPU | DTC |
+|---|---|---|---|---|---|
+| **ohne** `0x426` | **04** | 05 | **03** | 01 | keine |
+| **mit** `0x426` | **05** | 05 | **01** | 01 | **E14381 aktiv** |
+
+- Schluss (gemessen am Wert, Ursache offen): `0x426` ist der Frame, der das MCPU von 04/03 auf 05/01 (Fahrmodus) bringt; das SCPU steht auch ohne `0x426` auf 05. Preis: E14381 ("CAN from EVC/HEVC", ungueltige Daten) ist mit `0x426` aktiv, ohne `0x426` ist er weg (wie in `MERKZETTEL_Zeitwerte_33BE.md`, Z. 126/285). Die Erwartung in `BEFUND_Echter_Bus_LBC_EVC_09-10.md`, Abschnitt 17.2, "E14381 bleibt aus" mit dem echten Format ist **nicht eingetreten** (Firmwarestand beim Test unklar).
+- Offene Hypothese (nicht belegt): Mit `0x426` ueberwacht das MCPU weitere EVC-Frames (`0x157`, `0x1A1`, `0x1C7`, `0x428`, `0x42F`, `0x435`, `0x4F7`, `0x511`, `0x500`), die wir nicht senden. Naechster Test: mit `0x426` an die uebrigen EVC-Zeilen aus Block 1 nacheinander dazu, nach jeder DTC lesen.
