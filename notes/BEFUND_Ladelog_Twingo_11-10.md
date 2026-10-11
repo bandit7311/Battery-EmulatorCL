@@ -50,7 +50,11 @@ MCPU (148 von 335 Werten geaendert, davon 96 Zellspannungen):
 - `9270` (Modusverlauf): zwei neue Eintraege `04` (laut Definition "Non Isolated Charge").
 - `9259` `05` -> `04`, `925C` `01` -> `02`, `9243` +1255, `9245` +141, `9005`/`9007`/`9009`/`900D` (Spannung/Strom) geaendert, `9215` +1, `91CF` unveraendert (`80 0C 28 60` = 24.899 km Packkilometer).
 - `925E` bleibt `13 88 6F`.
-SCPU (nur 32 Kennungen in beiden Dumps verwertbar): `9261` `2D 5A A3` -> `2D 5A E4` (+65, folgt der Uhr live), `925B` `00` -> `06`, Spannungen/Temperaturen geaendert.
+SCPU (alle vier Dumps verglichen; `9270` gibt es in der SCPU nicht, weder in der Definition noch in den Dumps):
+- `9261`: `2D 5A A3` -> `2D 5A DE` -> `2D 5A E2` -> `2D 5A E4` (folgt der Uhr live, +1 pro Minute).
+- `9259` und `925C` (gemessen, nur Dumps mit Antwort): vorher `05` / `01`; Dump 3 (`1791732071`) `04` / `02`; Dump 4 (`1791732192`) wieder `05` / `01`. Dump 2 hat bei 9259 keine Antwort. Dump 3 zeigt dieselben Werte wie der MCPU-Nachher-Dump (`9259` = `04`, `925C` = `02`). **Schluss:** ein zeitlich begrenzter Zustandswechsel kurz nach dem Schlaf, der in beiden Prozessoren gleich auftrat.
+- `925B` (Index kaeltester Thermistor): `00` -> `02` -> `06` (wandert von Dump zu Dump).
+- Weitere geaenderte Kennungen im vollstaendigen Paar (vorher/Dump 4): Spannungen und Temperaturen (9007, 9008, 9009, 9014, 91B8, 91FC), 91FA/91FB, 920A.
 
 ## 5. Was daraus fuer die Bench folgt (Konzept, noch nichts gebaut)
 1. **Sichern von 9261/91C1:** passiert im Auto am Sitzungsende mit dem letzten 0x436-Wert. Bei uns sendet 0x436 ein festes Alter; fuer die Sicherung fehlt vermutlich ein Sitzungsende wie im Auto (A0/41 -> 00/01 -> ... -> 00/02 -> Stille). **Annahme.**
