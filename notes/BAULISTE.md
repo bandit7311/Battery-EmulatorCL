@@ -117,6 +117,28 @@ Quellen: Ladelog 1 (`598b197c-canmitlog.log`, PuTTY, Aufwachen bei 611,77 s, `A0
 4. **Noch festzulegen (der Nutzer ergaenzt es spaeter):** wie die Betriebsarten im automatischen Ablauf wirken sollen (Ziel der Folge nach Start und Aufwecken, was "Schlafen" in der Folge bedeutet, Dauer von "Laden", Auswahl der Ende-Folge).
 5. Nicht festgelegt und deshalb im Bau offen zu lassen: Verhalten von Sleep, Sleep 0x9281 = 1 und NVROL je nach gewaehlter Betriebsart.
 
+## Zum Bauen vorgemerkt: Messung der eigenen Sendeabstaende (Stand 11.10., noch nicht gebaut, wartet auf "bauen")
+Anlass: Frage, ob das Timing von 0x426 zu E14381 beitragen kann. Nur Gemessenes und Codestellen, keine Annahme ueber die Ursache.
+
+**Gemessen im echten Auto (Fahrlog 22aaf176, Ladelog 445a1527; Zeitaufloesung der Logs 10 ms)**
+- 0x426, 0x423, 0x435, 0x436: 96 bis 99 % der Abstaende sind 0,10 s, der Rest 0,09 oder 0,11 s.
+- 0x419, 0x428, 0x42F, 0x4F7: 96 bis 98 % bei 0,10 s. 0x1A1 und 0x19F: 98 bis 99 % bei 0,01 s.
+- 0x435 und 0x436 kommen im selben Zeitstempel wie 0x426 (Versatz 0,00 s; in 41 bzw. 104 von je ca. 1060 Zyklen im Ladelog 0,01 s).
+- 0x423 kommt nach 0x426: +0,01 s (Fahrlog, 889 von 1215 Zyklen; -0,01 s in 326), +0,03 s (Ladelog, 888 von 1060; +0,04 s in 172).
+
+**Stand im Code**
+- Kernschleife 1 ms, `transmit()` bei jedem Durchlauf (`Software.cpp`, `core_loop`, Zeilen 605-676).
+- `send_bus_vehicle_frames` (`RENAULT-TWINGO-GEN1-BATTERY.cpp:3611`): 0x19F, 0x423, 0x426, 0x436 je mit eigenem Timer (`now - bus_last_ms[slot] < interval`, dann `bus_last_ms = now`), kein gemeinsamer Burst.
+- 0x435, 0x419, 0x428, 0x42F, 0x4F7, 0x1A1: ueber `send_simulator_signals`, je Zeile eigener Timer.
+- `transmit_can_frame_to_interface` ruft `print_can_frame` im Sendepfad auf (`comm_can.cpp:317`).
+- In den vorhandenen Logs stehen keine TX-Zeilen des Emulators; die eigenen Sendeabstaende sind nicht gemessen.
+
+**Bauauftrag (noch nicht gebaut)**
+1. Zaehler in der Firmware fuer 0x426, 0x435 und 0x436: Zeit zwischen zwei Sendungen und Versatz der drei Frames zueinander, in Mikrosekunden.
+2. Anzeige der Werte auf der Seite (Minimum, Maximum, Mittel, Anzahl der Abstaende ausserhalb 100 ms +-1 ms ist noch festzulegen).
+3. Alternative ohne Bau: zweites Geraet als CAN-Logger mit Hardware-Zeitstempeln am Bus (vom Nutzer zu entscheiden).
+4. Nicht gemessen und deshalb nicht zu raten: ob die MCPU den Takt von 0x426 prueft und ob E14381 davon abhaengt.
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
