@@ -851,6 +851,84 @@ TEST(TwingoStateSequence, TheStepsKeepTheTimesOfTheCar) {
   datalayer_extended.twingoGen1.bus_state_manual = true;
 }
 
+// Session 3 of the car log 22aaf176, seconds after the first 0x426 frame: 08/02 1.2, 08/06 1.9, 00/06 2.3, 60/67 13.1,
+// 60/65 13.6, 60/69 15.1, 60/61 16.8, 70/61 18.7, 70/69 19.9 (the frame comes every 100 ms, so +-0.1 s is the grid).
+TEST(TwingoStateSequence, TransitionTimesMatchSession3OfTheCarLog) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = false;
+  only_rows({0x426});
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 25000, 10, log);
+  auto f = with_id(log, 0x426);
+  ASSERT_FALSE(f.empty());
+  const uint64_t t0 = f[0].t;
+  const struct {
+    const char* pair;
+    uint64_t want_ms;
+  } want[] = {{"08/02", 1200},  {"08/06", 1900},  {"00/06", 2300},  {"60/67", 13100}, {"60/65", 13600},
+              {"60/69", 15100}, {"60/61", 16800}, {"70/61", 18700}, {"70/69", 19900}};
+  std::string prev = pair_of(f[0]);
+  size_t k = 0;
+  for (const auto& x : f) {
+    std::string cur = pair_of(x);
+    if (cur != prev) {
+      ASSERT_LT(k, sizeof(want) / sizeof(want[0]));
+      EXPECT_EQ(cur, want[k].pair);
+      const int64_t d = (int64_t)(x.t - t0) - (int64_t)want[k].want_ms;
+      EXPECT_LE(d < 0 ? -d : d, 50) << cur << " at " << (x.t - t0) << " ms, car " << want[k].want_ms;
+      k++;
+      prev = cur;
+    }
+  }
+  EXPECT_EQ(k, sizeof(want) / sizeof(want[0]));
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+}
+
+// Shutdown of session 1 of the car log, ms after 70/65: 60/65 +100, 00/05 +200, 00/07 +2100, 00/06 +4700.
+TEST(TwingoStateSequence, ShutdownTimesMatchSession1OfTheCarLog) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = false;
+  only_rows({0x426});
+  uint64_t t = 1000;
+  std::vector<Tx> up;
+  run(b, t, 25000, 10, up);
+  b.request_sleep();
+  std::vector<Tx> down;
+  run(b, t, 8000, 10, down);
+  auto f = with_id(down, 0x426);
+  uint64_t t0 = 0;
+  bool have0 = false;
+  std::vector<std::pair<std::string, uint64_t>> got;
+  std::string prev;
+  for (const auto& x : f) {
+    std::string cur = pair_of(x);
+    if (cur != prev) {
+      if (cur == "70/65") {
+        t0 = x.t;
+        have0 = true;
+      }
+      if (have0) {
+        got.push_back({cur, x.t - t0});
+      }
+      prev = cur;
+    }
+  }
+  const struct {
+    const char* pair;
+    uint64_t ms;
+  } want[] = {{"70/65", 0}, {"60/65", 100}, {"00/05", 200}, {"00/07", 2100}, {"00/06", 4700}};
+  ASSERT_GE(got.size(), 5u);
+  for (size_t i = 0; i < 5; i++) {
+    EXPECT_EQ(got[i].first, want[i].pair);
+    const int64_t d = (int64_t)got[i].second - (int64_t)want[i].ms;
+    EXPECT_LE(d < 0 ? -d : d, 50) << want[i].pair << " at " << got[i].second;
+  }
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+}
+
 TEST(TwingoStateSequence, ManualHoldsTheSelectedState) {
   BusTwingo b;
   b.setup();

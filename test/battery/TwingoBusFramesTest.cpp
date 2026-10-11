@@ -277,19 +277,19 @@ TEST(TwingoBusSequence, WakeUpWalksTheStatesOfTheCarAndStaysAtDriving) {
     uint8_t state;
     int32_t o426;
   } want[] = {{0, BUS_ZU, -1},
-              {1299, BUS_ZU, -1},
-              {1300, BUS_WACH, 0x0802},
-              {1999, BUS_WACH, 0x0802},
-              {2000, BUS_WACH, 0x0806},
-              {2399, BUS_WACH, 0x0806},
-              {2400, BUS_WACH, -1},
-              {13199, BUS_WACH, -1},
-              {13200, BUS_ZUENDUNG1, 0x6067},
-              {13700, BUS_ZUENDUNG1, -1},
-              {15200, BUS_ZUENDUNG3, -1},
-              {16900, BUS_GO, -1},
-              {18800, BUS_FAHRT, 0x7061},
-              {20000, BUS_FAHRT, -1},
+              {1199, BUS_ZU, -1},
+              {1200, BUS_WACH, 0x0802},
+              {1899, BUS_WACH, 0x0802},
+              {1900, BUS_WACH, 0x0806},
+              {2299, BUS_WACH, 0x0806},
+              {2300, BUS_WACH, -1},
+              {13099, BUS_WACH, -1},
+              {13100, BUS_ZUENDUNG1, 0x6067},
+              {13600, BUS_ZUENDUNG1, -1},
+              {15100, BUS_ZUENDUNG3, -1},
+              {16800, BUS_GO, -1},
+              {18700, BUS_FAHRT, 0x7061},
+              {19900, BUS_FAHRT, -1},
               {600000, BUS_FAHRT, -1}};
   for (const auto& w : want) {
     int32_t o = 123;

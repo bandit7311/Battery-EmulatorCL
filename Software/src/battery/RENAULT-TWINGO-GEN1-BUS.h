@@ -760,7 +760,7 @@ struct StateStep {
 };
 
 inline constexpr StateStep WAKE_STEPS[9] = {
-    {1300, BUS_ZU, -1},        {700, BUS_WACH, 0x0802},      {400, BUS_WACH, 0x0806},
+    {1200, BUS_ZU, -1},        {700, BUS_WACH, 0x0802},      {400, BUS_WACH, 0x0806},
     {10800, BUS_WACH, -1},     {500, BUS_ZUENDUNG1, 0x6067}, {1500, BUS_ZUENDUNG1, -1},
     {1700, BUS_ZUENDUNG3, -1}, {1900, BUS_GO, -1},           {1200, BUS_FAHRT, 0x7061}};
 
