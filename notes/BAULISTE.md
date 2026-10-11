@@ -103,6 +103,12 @@ Quellen: Ladelog 1 (`598b197c-canmitlog.log`, PuTTY, Aufwachen bei 611,77 s, `A0
 4. Dauer von "Laden" im Auto: 297,6 s und 529,8 s, jeweils bis zur Fernbedienung; Vorgabe fuer den Emulator offen (vom Nutzer zu entscheiden).
 5. Nicht gemessen und deshalb nicht zu raten: ob die BMS in "Laden" das Entladen zulaesst, ob die Schuetze gleich schalten, was die Sicherung von 9261/91C1 ausloest, ob E14381 in "Laden" ausbleibt (Bench-Test nach dem Bau).
 6. Wake-Formen der uebrigen EVC-Frames, Startversatz der Frames, kurzer Einschlafweg aus Sitzung 3 des Fahr-Logs und Standardwert 0x426 km bleiben wie bisher auf der Liste (0x5D7 bleibt auf der Bench aus, Fahrzeug-CAN-Frame).
+7. **Vergleich mit unserer FRAMES-Tabelle (Befund Abschnitt 7, nur Gemessenes):** Die Zeilen "wach" von 0x428, 0x435, 0x1C7, 0x4F7, 0x42F und 0x419 kommen in `A0/41` nicht vor.
+   - Fast konstant in der Ladephase: 0x428 `00 00 00 00 00 04 8E 00` (Log 1) / `... 04 8F 00` (Log 2); 0x435 `FF FF 1E 6A 35|36 00 00 00` mit B5-Pulsen `FC` ca. alle 10 s (ca. 0,2 s lang); 0x1C7 `AA 23 00 04 34 00`.
+   - Wake-Phase (rund 4 s): 0x428 B5 `06` -> `04`, B6 `80`, dann +2 alle 0,1 s bis `8E`/`8F`; 0x435 B3 `A9` -> `AA`; 0x1C7 `02 36` -> `02 34` -> `04 34`.
+   - Dynamisch in der Ladephase, Bedeutung und Pruefsumme unbekannt: 0x4F7 (B2 `0C`, B3 48 -> 5D, B4 `28`, B1/B5 veraenderlich), 0x42F (alle Bytes veraenderlich, Start `00 20 00 0C 80 00`), 0x419 (B0 `61`, B2 `2A`, B3 `8F`, B1/B4 veraenderlich).
+   - Wie die dynamischen Frames nachgebildet werden (Konstante, aufgezeichnete Folge): nicht festgelegt.
+   - Zusammenhang mit E14381: nicht belegt.
 
 **Auswahl von "Laden" (Entscheidung des Nutzers, 11.10. abends: Moeglichkeit C)**
 1. **Auswahlfeld "Zustand":** "Laden" als zusaetzlicher Eintrag, nur bei gesetzter Checkbox "manuell" bedienbar (wie die bisherigen sieben Eintraege).
