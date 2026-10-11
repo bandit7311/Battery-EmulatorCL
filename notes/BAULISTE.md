@@ -65,6 +65,21 @@ Neuer Branch ab `e3988cb` (z. B. `twingo-echter-bus-modus`, ohne Modellnamen); `
 4. **Anzeige der km mit zwei Stellen** (Aufloesung 0,01 km) statt drei (`.000` irritiert); Pack-km (`91CF`, 1/32 km) mit einer oder zwei Stellen.
 5. **Feld "byte 7" von 0x426 im Fahrzeugformat wirksam machen** (heute nur im alten Zoe-Format, im Fahrzeugformat fest `0x40`).
 
+## Weitere Bauten am 11.10. (alle auf twingo-echter-bus-modus, Bench-Test offen)
+- `23961a6`: 0x19F wie im Auto (Wake-Form 12 Frames `FF FF FF Fx 00 06 00 FE`, 10 Rampenframes, Zaehler ab `F`, Byte 5 = CRC-8 Poly 0x2F ueber B2:B3hi, Zuendung-1-Rampe).
+- `95f4045`: keine Unterdrueckung der 10-ms-Frames im Wake-Buendel mehr; Zeit in 0x436, km/Byte 7 von 0x426, km von 0x5D7 und Checkbox "manuell" werden gespeichert; "All rows off" ueberschreibt die gespeicherten Zeilenschalter nicht mehr.
+- `3752043`: Zaehler der gesendeten 0x69F-Frames auf der Simulator-Seite; `2E` darf 925E schreiben (Free request, Ziel DB).
+- `c6fb094`: 0x426-Wechsel um 0,1 s korrigiert (zu 1,2 s), Zeittests gegen Auto-Log (Aufwachen Sitzung 3, Einschlafen Sitzung 1).
+
+## Zum Bauen vorgemerkt (Stand 11.10. abends, aus dem Ladelog, siehe `BEFUND_Ladelog_Twingo_11-10.md`; noch nicht gebaut, wartet auf "bauen")
+1. **Neue 0x426-Zustaende** `00/03`, `60/63`, `68/61`, `A0/41`, `A8/41`, `00/01`, `08/07` und **Byte 7 = `80`** in der Zustandsfolge (Zeiten und Reihenfolge aus Abschnitt 3 des Befunds).
+2. **Folgezustand `A0/41`** (Auto aufgeschlossen, Stecker getrennt, wieder verschlossen): 530 s lang, danach `00/01` -> `00/03` -> `00/07` -> `08/07` -> `08/06` -> `00/06` (wach 120 s) -> `00/02`. Inhalt der anderen Frames in diesem Zustand: 0x19F Ruheform, 0x436 B0 `AD`, 0x1C7 `AA 23 00 04 34 00`, 0x428 `..04 8E 00`, 0x435 `FF FF 1E 6A 36 00 00 00`, 0x0ED `60 FF 80`, 0x0EC B0 `1C`, kein 0x500.
+3. **Ladebetrieb als eigener Zustand** (EVC-Seite: 0x0EC, 0x0ED, 0x157, 0x1A1, 0x1C7, 0x19F in Ignition-Form, 0x4F7, 0x428, 0x42F; ohne 0x423, 0x426, 0x435, 0x436): Bench-Test, ob der Akku damit ohne 0x423 aufwacht und was er speichert.
+4. **Sitzungsende wie im Auto**, damit die MCPU `9261`/`91C1` sichern kann (Annahme: Sicherung mit dem letzten 0x436-Wert; `91C1` = `9261` - 784.382).
+5. **Wake-Formen der uebrigen EVC-Frames** (0x1A1, 0x1C7, 0x419, 0x423, 0x435, 0x428, 0x42F, 0x4F7): im Log belegt, heute nur 0x0EC, 0x0ED, 0x19F und 0x426 nachgebildet.
+6. **Startversatz der Frames beim Aufwachen** (0x0EC zuerst, 0x423 +0,06 s, 0x19F +0,13 s, 0x426 +0,22 s) und der **kurze Einschlafweg** aus Sitzung 3 (Fahrt -> `00/07` -> `00/06`).
+7. **Standardwert 0x426 km** (bisher 6.844): erst nach Entscheidung, weil Pack-km und Missions-km dadurch beeinflusst werden koennen; `0x5D7` ist ein Fahrzeug-CAN-Frame und bleibt auf der Bench aus.
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
