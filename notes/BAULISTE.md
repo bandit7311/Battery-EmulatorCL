@@ -104,6 +104,13 @@ Quellen: Ladelog 1 (`598b197c-canmitlog.log`, PuTTY, Aufwachen bei 611,77 s, `A0
 5. Nicht gemessen und deshalb nicht zu raten: ob die BMS in "Laden" das Entladen zulaesst, ob die Schuetze gleich schalten, was die Sicherung von 9261/91C1 ausloest, ob E14381 in "Laden" ausbleibt (Bench-Test nach dem Bau).
 6. Wake-Formen der uebrigen EVC-Frames, Startversatz der Frames, kurzer Einschlafweg aus Sitzung 3 des Fahr-Logs und Standardwert 0x426 km bleiben wie bisher auf der Liste (0x5D7 bleibt auf der Bench aus, Fahrzeug-CAN-Frame).
 
+**Auswahl von "Laden" (Entscheidung des Nutzers, 11.10. abends: Moeglichkeit C)**
+1. **Auswahlfeld "Zustand":** "Laden" als zusaetzlicher Eintrag, nur bei gesetzter Checkbox "manuell" bedienbar (wie die bisherigen sieben Eintraege).
+2. **Radiobuttons fuer die Betriebsart "Fahren", "Laden" und "Schlafen":** bestimmen das Ziel der automatischen Folge ("manuell" aus).
+3. **Vorerst nur manuelle Bedienung.** Die Radiobuttons werden gesetzt und im **NVM gespeichert** (wie die Format-Wahl); sie bleiben nach einem Neustart erhalten.
+4. **Noch festzulegen (der Nutzer ergaenzt es spaeter):** wie die Betriebsarten im automatischen Ablauf wirken sollen (Ziel der Folge nach Start und Aufwecken, was "Schlafen" in der Folge bedeutet, Dauer von "Laden", Auswahl der Ende-Folge).
+5. Nicht festgelegt und deshalb im Bau offen zu lassen: Verhalten von Sleep, Sleep 0x9281 = 1 und NVROL je nach gewaehlter Betriebsart.
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
