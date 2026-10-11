@@ -157,6 +157,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   void time_436_follow_set(bool on);
   // All rows off at once / back (point 19, 09.10.), runtime only (not stored in the NVM): the sudden end of every frame,
   // as it happened at the first non-zero 9261 of the bench pack on 06.10.
+  static uint32_t tx_69f_count;  // frames 0x69F (vehicle ID) sent since the start, shown on /simulator
   static uint64_t sim_mask_saved;
   static uint64_t sim_mask_saved_hi;
   static bool sim_mask_saved_valid;
@@ -196,7 +197,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Free request on the extended 29-bit protocol (03.10.), "More Battery Info" page: input field,
   // Query button, answer field. Read services are accepted (0x22 ReadDataByIdentifier, 0x19
   // ReadDTCInformation) and, since 05.10., the write service 0x2E only for the identifiers of
-  // UQ_WRITE_DIDS ($9261, $9264, $926B, $91C1, $91CF, $925F, $9281). A write first opens the extended session, then reads the
+  // UQ_WRITE_DIDS ($9261, $9264, $926B, $91C1, $91CF, $925F, $9281, $925E). A write first opens the extended session, then reads the
   // identifier ("before"), refuses when that read fails or the length of the entered value differs from the
   // length read, and only then writes. `hex` = request bytes as hex text (spaces allowed), e.g. "22925E" or
   // "2E 92 61 00 00 03". Returns "OK" when the request was started, otherwise a short reason. The answer is shown
@@ -928,7 +929,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   bool uq_post_read = false;              // the read back after a positive write answer is awaited (point 10)
   uint8_t uq_before[4] = {0};
   uint8_t uq_before_len = 0;
-  static const uint8_t UQ_WRITE_DID_COUNT = 7;
+  static const uint8_t UQ_WRITE_DID_COUNT = 8;
   static const uint16_t UQ_WRITE_DIDS[UQ_WRITE_DID_COUNT];
   static const char* uq_nrc_text(uint8_t nrc);  // short meaning of a negative response code, "" when not known
   char uq_result[UQ_TEXT_SIZE] = "not run yet";

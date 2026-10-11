@@ -999,6 +999,7 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
 // Vehicle age (0x350 bytes 1-3, 0x523, 0x376), minutes - see the comment at the declaration and twingo::age_auto().
 bool RenaultTwingoGen1Battery::shutdown_like_car = false;
 bool RenaultTwingoGen1Battery::time_436_follow_age = false;
+uint32_t RenaultTwingoGen1Battery::tx_69f_count = 0;
 uint64_t RenaultTwingoGen1Battery::sim_mask_saved = 0;
 uint64_t RenaultTwingoGen1Battery::sim_mask_saved_hi = 0;
 bool RenaultTwingoGen1Battery::sim_mask_saved_valid = false;
@@ -1202,7 +1203,7 @@ String RenaultTwingoGen1Battery::rx_status_json(uint32_t now_ms) {
   for (uint8_t i = 0; i < rx_other_count; i++) {
     rx_json_entry(s, first_entry, rx_other_id[i], rx_other[i], rx_t0_ms);
   }
-  s += "],\"bs\":" + String((int)bus_state_shown) +
+  s += "],\"t69\":" + String((unsigned long)tx_69f_count) + ",\"bs\":" + String((int)bus_state_shown) +
        ",\"bm\":" + String(datalayer_extended.twingoGen1.bus_state_manual ? 1 : 0) + "}";
   return s;
 }
@@ -3855,6 +3856,7 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
       previousMillis1000_69f = currentMillis;
       if (sim_enabled(7)) {  // /simulator row 0x69F
         transmit_can_frame(&ZOE_69F_BCM_GATEWAY);
+        tx_69f_count++;
       }
 #ifdef TWINGO_TIME_FRAMES
       if (!in_00_stage) {
@@ -4098,7 +4100,8 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
         "<td></td><td></td><td></td></tr></table>";
     content +=
         "<p style='margin:0 0 6px 0;font-size:0.85em;'>Write: <code>2E 92 61 00 00 03</code> = $9261 to 3. Allowed "
-        "identifiers: 9261, 9264, 926B, 91C1, 91CF, 925F, 9281. The value is read first and shown as \"before\"; the "
+        "identifiers: 9261, 9264, 926B, 91C1, 91CF, 925F, 9281, 925E. The value is read first and shown as \"before\"; "
+        "the "
         "write is only sent when that read works and the entered value has the same length, and the value is read "
         "back after the write. A write asks for confirmation. \"Set time now\" writes $9261 with the vehicle age "
         "that is being sent. Not undoable except by writing the old value back.</p>";
@@ -4298,7 +4301,7 @@ void RenaultTwingoGen1Battery::uq_restore_poll_template() {
 
 // Identifiers the free request may write (0x2E): the two time counters, the two mileages and the temporisation.
 const uint16_t RenaultTwingoGen1Battery::UQ_WRITE_DIDS[UQ_WRITE_DID_COUNT] = {0x9261, 0x9264, 0x926B, 0x91C1,
-                                                                              0x91CF, 0x925F, 0x9281};
+                                                                              0x91CF, 0x925F, 0x9281, 0x925E};
 
 // Short meaning of the negative response codes (ISO 14229) that matter for a write; "" for any other code.
 const char* RenaultTwingoGen1Battery::uq_nrc_text(uint8_t nrc) {
@@ -4462,11 +4465,11 @@ const char* RenaultTwingoGen1Battery::start_user_query(const char* hex, int8_t t
       }
     }
     if (!allowed) {
-      return "0x2E is only allowed for 9261, 9264, 926B, 91C1, 91CF, 925F and 9281";
+      return "0x2E is only allowed for 9261, 9264, 926B, 91C1, 91CF, 925F, 9281 and 925E";
     }
   } else {
     return "only 0x22 and 0x19 (read), 0x10 03 (session), 14 FF FF FF (clear DTCs) and 0x2E (write, "
-           "9261/9264/926B/91C1/91CF/925F/9281 only) are allowed";
+           "9261/9264/926B/91C1/91CF/925F/9281/925E only) are allowed";
   }
   uq_req_target = tgt;
   if (!uq_begin(UQ_FREE, req, n, req[0] == 0x19 || req[0] == 0x2E || req[0] == 0x14)) {

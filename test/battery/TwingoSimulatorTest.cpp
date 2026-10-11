@@ -789,7 +789,7 @@ TEST(TwingoFreeQuery, RejectsInvalidInput) {
   EXPECT_STREQ(b.start_user_query("22925"), "odd number of hex digits");
   const char* not_allowed =
       "only 0x22 and 0x19 (read), 0x10 03 (session), 14 FF FF FF (clear DTCs) and 0x2E (write, "
-      "9261/9264/926B/91C1/91CF/925F/9281 only) are allowed";
+      "9261/9264/926B/91C1/91CF/925F/9281/925E only) are allowed";
   EXPECT_STREQ(b.start_user_query("11 01"), not_allowed);
   EXPECT_STREQ(b.start_user_query("14 01 02 03"), "0x14 is only allowed as 14 FF FF FF (clear all DTCs)");
   EXPECT_STREQ(b.start_user_query("14 FF FF"), "0x14 is only allowed as 14 FF FF FF (clear all DTCs)");
@@ -1014,17 +1014,17 @@ static void start_write_until_read(TestTwingo& b, const char* hex, uint64_t& t, 
 }
 
 TEST(TwingoFreeWrite, OnlyTheListedIdentifiersCanBeWritten) {
-  for (const char* ok :
-       {"2E 92 61 00 00 03", "2E 91 C1 00 00 03", "2E 91 CF 00 00 00 00", "2E 92 5F 00 00 00 00", "2E 92 81 00"}) {
+  for (const char* ok : {"2E 92 61 00 00 03", "2E 91 C1 00 00 03", "2E 91 CF 00 00 00 00", "2E 92 5F 00 00 00 00",
+                         "2E 92 81 00", "2E 92 5E 13 88 6F"}) {  // 925E: the vehicle ID (11.10.)
     TestTwingo b;
     b.setup();
     EXPECT_STREQ(b.start_user_query(ok), "OK") << ok;
   }
   TestTwingo b;
   b.setup();
-  const char* refused = "0x2E is only allowed for 9261, 9264, 926B, 91C1, 91CF, 925F and 9281";
+  const char* refused = "0x2E is only allowed for 9261, 9264, 926B, 91C1, 91CF, 925F, 9281 and 925E";
   EXPECT_STREQ(b.start_user_query("2E 90 21 00"), refused);        // a cell voltage
-  EXPECT_STREQ(b.start_user_query("2E 92 5E 13 88 6F"), refused);  // the vehicle ID
+  EXPECT_STREQ(b.start_user_query("2E 92 5D 13 88 6F"), refused);  // neighbour of 925E
   EXPECT_STREQ(b.start_user_query("2E 92 60 00"), refused);        // neighbour of 9261
   EXPECT_STREQ(b.start_user_query("2E 92 61"), "0x2E needs a 2-byte identifier and 1 to 4 data bytes");
   EXPECT_STREQ(b.start_user_query("2E 92"), "0x2E needs a 2-byte identifier and 1 to 4 data bytes");

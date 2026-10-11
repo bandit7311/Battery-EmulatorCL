@@ -890,6 +890,22 @@ TEST(TwingoStateSequence, SleepWalksDownLikeTheCarAndWakeUpWalksUpAgain) {
   datalayer_extended.twingoGen1.bus_state_manual = true;
 }
 
+TEST(TwingoBusFormat, Counter69FCountsTheSentFramesAndShowsInStatusJson) {
+  BusTwingo b;
+  b.setup();
+  only_rows({0x69F});
+  const uint32_t before = Bat::tx_69f_count;
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 5000, 10, log);
+  auto f = with_id(log, 0x69F);
+  ASSERT_GE(f.size(), 4u);
+  EXPECT_EQ(Bat::tx_69f_count - before, (uint32_t)f.size());
+  EXPECT_EQ(hex_of(f[0].f.data.u8, 4), "46 13 88 6F");
+  std::string j = Bat::rx_status_json(t).c_str();
+  EXPECT_NE(j.find("\"t69\":" + std::to_string(Bat::tx_69f_count)), std::string::npos);
+}
+
 TEST(TwingoStateSequence, TenMillisecondFramesRunDuringTheWakeUpBurstToo) {
   BusTwingo b;
   b.setup();

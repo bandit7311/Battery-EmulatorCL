@@ -206,6 +206,8 @@ String simulator_processor(const String& var) {
             "<span class='note'>- aus: der Zustand l&auml;uft von selbst (nach Start und Aufwecken von zu bis driving, "
             "bei Sleep/NVROL zur&uuml;ck bis zu); an: das Feld bestimmt den Zustand. Bestimmt den Inhalt der "
             "Block-1-Zeilen.</span><br>";
+        content += "<b>0x69F gesendet:</b> <span id='tx69f'>" + String((unsigned long)Bat::tx_69f_count) +
+                   "</span> Frames (Fahrzeug-ID <code>46 13 88 6F</code>, 1 s)<br>";
         content += "<b>Zellwerte-Quelle:</b> <label><input type='radio' name='cellsrc' id='cellsrc0' ";
         content += tg.cell_source_broadcast ? "" : "checked ";
         content += "onclick=\"fetch('/twingoCellSource?value=0')\"> UDS (heute)</label> ";
@@ -430,6 +432,7 @@ String simulator_processor(const String& var) {
       content += "h+='<tr><td>0x'+o[0].toString(16).toUpperCase()+'</td><td>'+T(o[1])+'</td><td>'+";
       content += "((j.now-o[2])/1000).toFixed(1).replace('.',',')+' s</td><td>'+o[3]+'</td></tr>';}";
       content += "var sel=document.getElementById('busstate');if(sel&&j.bm===0){sel.value=j.bs;}";
+      content += "var t69=document.getElementById('tx69f');if(t69&&j.t69!==undefined){t69.textContent=j.t69;}";
       content += "document.getElementById('othRows').innerHTML=h;}).catch(function(){});}";
       content += "poll();setInterval(poll,1000);";
       content += "</script>";
