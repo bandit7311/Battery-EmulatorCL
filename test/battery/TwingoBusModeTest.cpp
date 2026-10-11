@@ -30,6 +30,7 @@ class BusTwingo : public RenaultTwingoGen1Battery {
     t.age_last_sent = 0;
     t.age_source = 0;
     t.bus_format_zoe_old = false;
+    t.bus_state_manual = true;  // the tests choose the state themselves
     t.bus_state = twingo_bus::BUS_WACH;
     t.cell_source_broadcast = false;
     t.simulator_enabled_mask = 0x3FF;
@@ -140,7 +141,7 @@ TEST(TwingoCellBroadcast, CarFrameOf5F7DecodesTo3539ForAllFiveCells) {
 
 TEST(TwingoCellBroadcast, PlaceholdersOfTheWakeUpAreIgnored) {
   const uint8_t ff[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};  // car log T+84.67 s
-  const uint8_t zero[8] = {0, 0, 0, 0, 0, 0, 0, 0x0F};                      // car log T+87.67 s
+  const uint8_t zero[8] = {0, 0, 0, 0, 0, 0, 0, 0x0F};                     // car log T+87.67 s
   uint16_t mv[5];
   twingo_bus::decode_cell_frame(0, ff, mv);
   for (int k = 0; k < 5; k++) {
@@ -540,7 +541,8 @@ TEST(TwingoBusPage, Block1ShowsThirtyRowsAndBlock2FortyOne) {
 TEST(TwingoWakeForm, Frame0ECStartsWithSixFramesOf10ThenTheStateValue) {
   const twingo_bus::FrameDef* def = twingo_bus::find_frame(0x0EC);
   ASSERT_NE(def, nullptr);
-  const char* real[8] = {"10 01 17", "10 11 DA", "10 21 90", "10 31 5D", "10 41 04", "10 51 C9", "1C 61 F4", "1C 71 39"};
+  const char* real[8] = {"10 01 17", "10 11 DA", "10 21 90", "10 31 5D",
+                         "10 41 04", "10 51 C9", "1C 61 F4", "1C 71 39"};
   for (uint32_t seq = 0; seq < 8; seq++) {
     uint8_t out[8];
     twingo_bus::build_frame(*def, twingo_bus::BUS_WACH, seq, 0, 0, out);
@@ -605,17 +607,17 @@ TEST(TwingoDriveRamp, Byte0Of0ECWalksTheRampOfTheFirstDriveAndSettlesAt29) {
   using twingo_bus::ec_drive_b0;
   EXPECT_EQ(ec_drive_b0(0), 0x25);
   EXPECT_EQ(ec_drive_b0(89), 0x25);
-  EXPECT_EQ(ec_drive_b0(90), 0x27);    // 25 x90
-  EXPECT_EQ(ec_drive_b0(102), 0x27);   // 27 x13
-  EXPECT_EQ(ec_drive_b0(103), 0x26);   // 26 x4
-  EXPECT_EQ(ec_drive_b0(107), 0x2A);   // 2A x6
-  EXPECT_EQ(ec_drive_b0(113), 0x22);   // 22 x1
-  EXPECT_EQ(ec_drive_b0(114), 0x21);   // 21 x328
+  EXPECT_EQ(ec_drive_b0(90), 0x27);   // 25 x90
+  EXPECT_EQ(ec_drive_b0(102), 0x27);  // 27 x13
+  EXPECT_EQ(ec_drive_b0(103), 0x26);  // 26 x4
+  EXPECT_EQ(ec_drive_b0(107), 0x2A);  // 2A x6
+  EXPECT_EQ(ec_drive_b0(113), 0x22);  // 22 x1
+  EXPECT_EQ(ec_drive_b0(114), 0x21);  // 21 x328
   EXPECT_EQ(ec_drive_b0(441), 0x21);
-  EXPECT_EQ(ec_drive_b0(442), 0x2B);   // 2B x3
-  EXPECT_EQ(ec_drive_b0(445), 0x29);   // 29 x212
-  EXPECT_EQ(ec_drive_b0(657), 0x28);   // 28 x26
-  EXPECT_EQ(ec_drive_b0(683), 0x29);   // then 29 for good
+  EXPECT_EQ(ec_drive_b0(442), 0x2B);  // 2B x3
+  EXPECT_EQ(ec_drive_b0(445), 0x29);  // 29 x212
+  EXPECT_EQ(ec_drive_b0(657), 0x28);  // 28 x26
+  EXPECT_EQ(ec_drive_b0(683), 0x29);  // then 29 for good
   EXPECT_EQ(ec_drive_b0(100000), 0x29);
 }
 
@@ -767,4 +769,232 @@ TEST(TwingoBusSleep, AfterTheWakeUpEveryFrameStartsWithItsWakeForm) {
   EXPECT_EQ(hex_of(ed[0].f.data.u8, 3), "A3 FF 00");
   EXPECT_EQ(hex_of(ed[10].f.data.u8, 3), "A3 FF 80");
   EXPECT_EQ(hex_of(ed[31].f.data.u8, 3), "63 FF 80");
+}
+
+// ---------------------------------------------------------------------------
+// Automatic state sequence and the checkbox "manual" (11.10.)
+// ---------------------------------------------------------------------------
+
+namespace {
+std::string pair_of(const Tx& x) {
+  char b[8];
+  snprintf(b, sizeof(b), "%02X/%02X", x.f.data.u8[1], x.f.data.u8[2]);
+  return b;
+}
+// Frames of 0x426 as a list of the pairs B1/B2 without repeats.
+std::vector<std::string> pair_changes(const std::vector<Tx>& v) {
+  std::vector<std::string> out;
+  for (const Tx& x : with_id(v, 0x426)) {
+    const std::string p = pair_of(x);
+    if (out.empty() || out.back() != p) {
+      out.push_back(p);
+    }
+  }
+  return out;
+}
+bool contains_in_order(const std::vector<std::string>& hay, std::initializer_list<const char*> want) {
+  size_t i = 0;
+  for (const std::string& h : hay) {
+    if (i < want.size() && h == *(want.begin() + i)) {
+      i++;
+    }
+  }
+  return i == want.size();
+}
+}  // namespace
+
+TEST(TwingoStateSequence, AfterTheStartTheStateWalksFromClosedToDriving) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = false;
+  Bat::bus_state_shown = 1;
+  only_rows({0x426});
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 25000, 10, log);
+  auto changes = pair_changes(log);
+  EXPECT_TRUE(contains_in_order(
+      changes, {"00/02", "08/02", "08/06", "00/06", "60/67", "60/65", "60/69", "60/61", "70/61", "70/69"}))
+      << changes.size();
+  // at the end it stays at driving
+  EXPECT_EQ(changes.back(), "70/69");
+  EXPECT_EQ(Bat::bus_state_shown, twingo_bus::BUS_FAHRT);
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+}
+
+TEST(TwingoStateSequence, TheStepsKeepTheTimesOfTheCar) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = false;
+  only_rows({0x426});
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 22000, 10, log);
+  auto at = [&](uint64_t ms) {
+    std::string last;
+    for (const Tx& x : with_id(log, 0x426)) {
+      if (x.t <= 1000 + ms) {
+        last = pair_of(x);
+      }
+    }
+    return last;
+  };
+  EXPECT_EQ(at(500), "00/02");
+  EXPECT_EQ(at(1500), "08/02");
+  EXPECT_EQ(at(2200), "08/06");
+  EXPECT_EQ(at(8000), "00/06");
+  EXPECT_EQ(at(14000), "60/65");
+  EXPECT_EQ(at(16000), "60/69");
+  EXPECT_EQ(at(18000), "60/61");
+  EXPECT_EQ(at(19000), "70/61");
+  EXPECT_EQ(at(21500), "70/69");
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+}
+
+TEST(TwingoStateSequence, ManualHoldsTheSelectedState) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+  datalayer_extended.twingoGen1.bus_state = twingo_bus::BUS_GO;
+  only_rows({0x426});
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 25000, 10, log);
+  auto changes = pair_changes(log);
+  ASSERT_EQ(changes.size(), 1u);
+  EXPECT_EQ(changes[0], "60/61");
+  datalayer_extended.twingoGen1.bus_state = twingo_bus::BUS_WACH;
+}
+
+TEST(TwingoStateSequence, SleepWalksDownLikeTheCarAndWakeUpWalksUpAgain) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = false;
+  only_rows({0x426});
+  uint64_t t = 1000;
+  std::vector<Tx> up;
+  run(b, t, 25000, 10, up);  // driving
+  b.request_sleep();
+  std::vector<Tx> down;
+  run(b, t, 140000, 10, down);
+  auto changes = pair_changes(down);
+  EXPECT_TRUE(contains_in_order(changes, {"70/65", "60/65", "00/05", "00/07", "00/06", "00/02"}));
+  // after the silence the wake-up starts the sequence again
+  std::vector<Tx> silent;
+  run(b, t, 3000, 10, silent);
+  b.request_wake_up();
+  std::vector<Tx> wake;
+  run(b, t, 60000, 10, wake);
+  auto after = pair_changes(wake);
+  EXPECT_TRUE(contains_in_order(after, {"00/02", "08/02", "08/06", "00/06", "60/65", "60/69", "60/61", "70/69"}));
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+}
+
+TEST(TwingoStateSequence, ManualSleepOnlyClosesInTheLastStage) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+  datalayer_extended.twingoGen1.bus_state = twingo_bus::BUS_GO;
+  only_rows({0x426});
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 2000, 10, log);
+  b.request_sleep();
+  run(b, t, 140000, 10, log);
+  auto changes = pair_changes(log);
+  ASSERT_EQ(changes.size(), 2u);
+  EXPECT_EQ(changes[0], "60/61");
+  EXPECT_EQ(changes[1], "00/02");
+  datalayer_extended.twingoGen1.bus_state = twingo_bus::BUS_WACH;
+}
+
+TEST(TwingoStateSequence, Byte7OfFrame426FollowsTheFieldInTheVehicleFormat) {
+  const uint8_t save = Bat::odo_426_b7;
+  Bat::odo_426_b7 = 0x55;
+  BusTwingo b;
+  b.setup();
+  only_rows({0x426});
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 500, 10, log);
+  auto f = with_id(log, 0x426);
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(f[0].f.data.u8[7], 0x55);
+  Bat::odo_426_b7 = save;
+}
+
+TEST(TwingoStateSequence, StatusJsonCarriesTheStateAndTheManualFlag) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = false;
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 100, 10, log);
+  std::string j = Bat::rx_status_json(2000).c_str();
+  EXPECT_NE(j.find("\"bm\":0"), std::string::npos) << j;
+  EXPECT_NE(j.find("\"bs\":0"), std::string::npos) << j;  // closed at the start
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+  j = Bat::rx_status_json(2000).c_str();
+  EXPECT_NE(j.find("\"bm\":1"), std::string::npos) << j;
+}
+
+TEST(TwingoStateSequence, PageHasTheManualCheckboxAndTheFieldIsLockedWhileAutomatic) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = false;
+  std::string page(simulator_processor(String("A")).c_str());
+  EXPECT_NE(page.find("id='busmanual'"), std::string::npos);
+  EXPECT_NE(page.find("<select id='busstate' disabled"), std::string::npos);
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+  page = simulator_processor(String("A")).c_str();
+  EXPECT_EQ(page.find("<select id='busstate' disabled"), std::string::npos);
+  EXPECT_NE(page.find("id='busmanual' checked"), std::string::npos);
+}
+
+TEST(TwingoStateSequence, FreeRequestAnswerHoldsAMissionList) {
+  BusTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  for (; t < 1700; t += 10) {
+    set_millis64(t);
+    b.transmit_can((unsigned long)t);
+  }
+  ASSERT_STREQ(b.start_user_query("22 92 77"), "OK");
+  auto reply = [&](std::initializer_list<uint8_t> d) {
+    CAN_frame r = {};
+    r.ext_ID = true;
+    r.DLC = 8;
+    r.ID = 0x18DAF1DB;
+    int i = 0;
+    for (uint8_t v : d) {
+      r.data.u8[i++] = v;
+    }
+    b.handle_incoming_can_frame(r);
+  };
+  // 131 bytes: 62 92 77 and 32 entries of 4 bytes (the last one 80 00 01 A0)
+  std::vector<uint8_t> data = {0x62, 0x92, 0x77};
+  for (int i = 0; i < 32; i++) {
+    data.push_back(0x80);
+    data.push_back(0x00);
+    data.push_back(i == 31 ? 0x01 : 0x00);
+    data.push_back(i == 31 ? 0xA0 : 0x00);
+  }
+  reply({0x10, 0x83, data[0], data[1], data[2], data[3], data[4], data[5]});
+  size_t pos = 6;
+  uint8_t sn = 1;
+  while (pos < data.size()) {
+    CAN_frame r = {};
+    r.ext_ID = true;
+    r.DLC = 8;
+    r.ID = 0x18DAF1DB;
+    r.data.u8[0] = (uint8_t)(0x20 | (sn & 0x0F));
+    for (int k = 1; k < 8; k++) {
+      r.data.u8[k] = pos < data.size() ? data[pos++] : 0xAA;
+    }
+    sn++;
+    b.handle_incoming_can_frame(r);
+  }
+  std::string res = b.user_query_result();
+  EXPECT_NE(res.find("80 00 01 A0"), std::string::npos) << "the end of the list is cut off: " << res.size();
+  EXPECT_EQ(res.find("..."), std::string::npos);
 }

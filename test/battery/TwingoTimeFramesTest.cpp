@@ -34,6 +34,7 @@ class TestTwingo : public RenaultTwingoGen1Battery {
     t.age_last_sent = 0;
     t.age_source = 0;
     t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
+    t.bus_state_manual = true;    // the tests choose the state themselves
   }
 
   bool network_ready() override { return network_up; }
@@ -875,7 +876,7 @@ TEST(TwingoNewDisplayPidsTests, PackMileageFormula) {
   RenaultTwingoGen1Battery b;
   b.setup();
   b.handle_incoming_can_frame(uds_reply(0x91CF, {0x80, 0x08, 0x95, 0x60}));  // real dump: 17579 km
-  EXPECT_TRUE(contains(b.get_uds_info_html(), "Pack Mileage (0x91CF): 17579.000 km"));
+  EXPECT_TRUE(contains(b.get_uds_info_html(), "Pack Mileage (0x91CF): 17579.00 km"));
 }
 
 TEST(TwingoNewDisplayPidsTests, VehicleDistanceTotalizerFormula) {
@@ -883,7 +884,7 @@ TEST(TwingoNewDisplayPidsTests, VehicleDistanceTotalizerFormula) {
   RenaultTwingoGen1Battery b;
   b.setup();
   b.handle_incoming_can_frame(uds_reply(0x925F, {0x00, 0x82, 0x68, 0xC4}));  // real dump: 85465 km
-  EXPECT_TRUE(contains(b.get_uds_info_html(), "Vehicle Distance Totalizer (0x925F): 85465.000 km"));
+  EXPECT_TRUE(contains(b.get_uds_info_html(), "Vehicle Distance Totalizer (0x925F): 85465.00 km"));
 }
 
 TEST(TwingoNewDisplayPidsTests, LowVoltageSupplyFormula) {

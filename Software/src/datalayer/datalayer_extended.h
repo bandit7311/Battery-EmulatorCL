@@ -251,6 +251,11 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
    *  (0 closed, 1 awake, 2 ignition 1, 3 ignition 3, 4 GO, 5 driving, 6 ignition off, see RENAULT-TWINGO-GEN1-BUS.h).
    *  NVM key TWBUSSTATE. */
   uint8_t bus_state;
+  /** false (default) = the state walks by itself: after the start and after every wake-up from closed to driving, at Sleep /
+   *  NVROL reset back down to closed; true = "manual", the selection field above sets the state (11.10.). Runtime only. */
+  bool bus_state_manual;
+  /** Set by the web server to start the automatic state sequence from the beginning (switching "manual" off). */
+  bool bus_session_restart;
   /** true = the five Zoe-form frames (0x423, 0x426, 0x436, 0x19F, 0x69F) in the old Zoe form (all 100 ms), false = in the
    *  format of the real LBC<>EVC bus (default). NVM key TWBUSFMT. */
   bool bus_format_zoe_old;

@@ -58,7 +58,7 @@ void RenaultTwingoGen1Battery::
     uint8_t mask = datalayer_battery->status.temperature_sensors_valid_mask;
     for (uint8_t i = 0; i < EXT_TEMP_SENSOR_COUNT; i++) {
       if ((mask & (1u << i)) && ((now - ext_temp_last_ms[i]) > EXT_TEMP_STALE_MS)) {
-        mask &= (uint8_t)~(1u << i);
+        mask &= (uint8_t) ~(1u << i);
       }
     }
     datalayer_battery->status.temperature_sensors_valid_mask = mask;
@@ -278,7 +278,7 @@ void RenaultTwingoGen1Battery::handle_extended_single_frame(uint16_t pid, const 
       datalayer_battery->status.temperature_sensors_valid_mask |= (uint8_t)(1u << sensor);
       ext_temp_last_ms[sensor] = millis();
     } else {
-      datalayer_battery->status.temperature_sensors_valid_mask &= (uint8_t)~(1u << sensor);
+      datalayer_battery->status.temperature_sensors_valid_mask &= (uint8_t) ~(1u << sensor);
     }
     return;
   }
@@ -696,6 +696,7 @@ void RenaultTwingoGen1Battery::start_powerdown(void) {
   powerdown_start_ms = millis();
   powerdown_stage_start_ms = powerdown_start_ms;
   previousMillis_350 = 0;
+  bus_sleep_start_state = bus_state_shown;  // the shutdown walk down starts from here
   NVROLstateMachine = 7;
 }
 
@@ -1004,6 +1005,7 @@ bool RenaultTwingoGen1Battery::sim_mask_saved_valid = false;
 bool RenaultTwingoGen1Battery::time_436_active = false;
 uint32_t RenaultTwingoGen1Battery::time_436_value = 0;
 uint32_t RenaultTwingoGen1Battery::odo_5d7_km = 19400;
+uint8_t RenaultTwingoGen1Battery::bus_state_shown = 1;
 uint32_t RenaultTwingoGen1Battery::odo_426_km = 6844;  // pack mileage $91CF of this bench pack (10.10.)
 uint8_t RenaultTwingoGen1Battery::odo_426_b7 = 0x40;
 bool RenaultTwingoGen1Battery::age_manual_active = false;
@@ -1148,8 +1150,8 @@ String RenaultTwingoGen1Battery::rx_status_json(uint32_t now_ms) {
     unix_now = 0;
   }
   String s = "{\"now\":" + String((long)((int32_t)(now_ms - rx_t0_ms))) + ",\"u\":" + String((long)unix_now) +
-             ",\"act\":" +
-             String((long)(rx_action_ms == 0 ? -1L : (long)((int32_t)(rx_action_ms - rx_t0_ms)))) + ",\"acttxt\":\"";
+             ",\"act\":" + String((long)(rx_action_ms == 0 ? -1L : (long)((int32_t)(rx_action_ms - rx_t0_ms)))) +
+             ",\"acttxt\":\"";
   char txt[sizeof(rx_action_text)];
   uint8_t n = 0;
   for (const char* c = rx_action_text; *c && n + 1 < sizeof(txt); c++) {
@@ -1174,7 +1176,8 @@ String RenaultTwingoGen1Battery::rx_status_json(uint32_t now_ms) {
   for (uint8_t i = 0; i < rx_other_count; i++) {
     rx_json_entry(s, first_entry, rx_other_id[i], rx_other[i], rx_t0_ms);
   }
-  s += "]}";
+  s += "],\"bs\":" + String((int)bus_state_shown) +
+       ",\"bm\":" + String(datalayer_extended.twingoGen1.bus_state_manual ? 1 : 0) + "}";
   return s;
 }
 
@@ -1639,8 +1642,9 @@ void RenaultTwingoGen1Battery::append_live_html(String& s) {
     s += " &#37;";  // never a raw percent sign in this page, see append_ext_value()
   }
   s += "<br>";
-  append_ext_value(s, "Pack Mileage (0x91CF)", ext_mileage_pack, (ext_mileage_pack.raw ^ 0x80000000u) / 32.0, "km");
-  append_ext_value(s, "Vehicle Distance Totalizer (0x925F)", ext_mileage_vehicle, ext_mileage_vehicle.raw * 0.01, "km");
+  append_ext_value(s, "Pack Mileage (0x91CF)", ext_mileage_pack, (ext_mileage_pack.raw ^ 0x80000000u) / 32.0, "km", 2);
+  append_ext_value(s, "Vehicle Distance Totalizer (0x925F)", ext_mileage_vehicle, ext_mileage_vehicle.raw * 0.01, "km",
+                   2);
   append_ext_value(s, "Low Voltage Supply (0x9011)", ext_lv_supply, ext_lv_supply.raw / 1024.0, "V");
   append_ext_value(s, "Pack Voltage, cell sum (0x9006)", ext_pack_voltage, ext_pack_voltage.raw * 0.976563 / 1000.0,
                    "V");
@@ -1677,14 +1681,14 @@ void RenaultTwingoGen1Battery::append_live_html(String& s) {
 }
 
 void RenaultTwingoGen1Battery::append_ext_value(String& s, const char* label, const ExtValue& v, double value,
-                                                const char* unit) {
+                                                const char* unit, int decimals) {
   s += label;
   s += ": ";
   if (!v.valid) {
     s += "not yet read<br>";
     return;
   }
-  s += String(value, 3);
+  s += String(value, decimals);
   if (unit[0] != '\0') {
     s += " ";
     // A raw '%' must never appear in this page: the web server's template engine takes the text between two '%'
@@ -1707,7 +1711,7 @@ void RenaultTwingoGen1Battery::append_ext_value(String& s, const char* label, co
 }
 
 void RenaultTwingoGen1Battery::priority_answered(uint8_t bit) {
-  ext_priority_pending_mask &= (uint8_t)~(1u << bit);
+  ext_priority_pending_mask &= (uint8_t) ~(1u << bit);
   if (ext_priority_pending_mask == 0 && wake_tracking && wake_priority_done < 0) {
     wake_priority_done = (int32_t)(millis() - wake_start_ms);
   }
@@ -3363,7 +3367,8 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
       if (sim_signals[i].tag == 'R') {
         const twingo_bus::FrameDef* off_def = twingo_bus::find_frame((uint16_t)sim_signals[i].id);
         if (off_def != nullptr) {
-          bus_seq[off_def - twingo_bus::FRAMES] = 0;  // switched on again = a new session: 0x0EC / 0x0ED start with the wake-up form
+          bus_seq[off_def - twingo_bus::FRAMES] =
+              0;  // switched on again = a new session: 0x0EC / 0x0ED start with the wake-up form
         }
       }
       continue;
@@ -3392,7 +3397,8 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
       if (def == nullptr) {
         continue;
       }
-      const uint8_t state = datalayer_extended.twingoGen1.bus_state;
+      int32_t o426_unused;
+      const uint8_t state = bus_state_now(currentMillis, o426_unused);
       if (!twingo_bus::active_in_state(*def, state)) {
         continue;
       }
@@ -3596,7 +3602,8 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
     uint8_t slot;
   };
   static const Item ITEMS[4] = {{0x19F, 3, 0}, {0x423, 6, 1}, {0x426, 4, 2}, {0x436, 5, 3}};
-  const uint8_t state = in_00_stage ? (uint8_t)twingo_bus::BUS_ZU : datalayer_extended.twingoGen1.bus_state;
+  int32_t o426 = -1;
+  const uint8_t state = in_00_stage ? (uint8_t)twingo_bus::BUS_ZU : bus_state_now(now, o426);
   for (const Item& it : ITEMS) {
     if (!sim_enabled(it.row)) {
       continue;
@@ -3621,9 +3628,39 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
       }
     }
     CAN_frame f = {.FD = false, .ext_ID = false, .DLC = def->dlc, .ID = def->id};
-    twingo_bus::build_frame(*def, state, bus_seq[def - twingo_bus::FRAMES]++, age_min, odo_426_km, f.data.u8);
+    twingo_bus::build_frame(*def, state, bus_seq[def - twingo_bus::FRAMES]++, age_min, odo_426_km, f.data.u8, 0, o426,
+                            odo_426_b7);
     transmit_can_frame(&f);
   }
+}
+
+uint8_t RenaultTwingoGen1Battery::bus_state_now(unsigned long now, int32_t& o426) {
+  auto& tg = datalayer_extended.twingoGen1;
+  o426 = -1;
+  uint8_t state = tg.bus_state;
+  if (tg.bus_session_restart) {
+    tg.bus_session_restart = false;
+    bus_session_started = false;  // "manual" switched off: the sequence starts again
+  }
+  if (!tg.bus_state_manual) {
+#ifdef TWINGO_EXTENDED_CELL_POLLING
+    if (NVROLstateMachine == 7) {
+      state = twingo_bus::sleep_state((uint32_t)(now - powerdown_start_ms), bus_sleep_start_state, o426);
+    } else
+#endif
+    {
+      if (!bus_session_started) {
+        bus_session_started = true;
+        bus_session_start_ms = now;
+      }
+      state = twingo_bus::wake_state((uint32_t)(now - bus_session_start_ms), o426);
+    }
+  }
+  if (state >= twingo_bus::BUS_STATE_COUNT) {
+    state = twingo_bus::BUS_WACH;
+  }
+  bus_state_shown = state;
+  return state;
 }
 
 // A new session of the bus (the wake-up after Sleep / NVROL reset): every frame starts again with its wake-up form
@@ -3634,6 +3671,7 @@ void RenaultTwingoGen1Battery::bus_restart_sessions() {
     bus_state_frames[i] = 0;
     bus_state_seen[i] = 255;
   }
+  bus_session_started = false;  // the state sequence walks from "closed" to "driving" again
 }
 
 // The 00 stage of the shutdown sequence on the bus (log 22aaf176: 0x426 goes to "zu", 0x0EC ends with it, 0x0ED is the
@@ -3661,6 +3699,10 @@ void RenaultTwingoGen1Battery::send_bus_closing(unsigned long now) {
 }
 
 void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
+  {
+    int32_t o426_tick;
+    bus_state_now(currentMillis, o426_tick);  // keeps the state sequence and the page display running
+  }
 #ifdef TWINGO_TIME_FRAMES
   time_service(currentMillis);  // NTP start / fallback clock, transmits nothing itself
 #endif
@@ -3695,8 +3737,8 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
 #endif
   if (in_00_stage) {
     datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;
-    send_bus_closing(currentMillis);                     // the bus closes: 0x426 = zu, 0x0EC ends, 0x0ED goes on
-    send_bus_vehicle_frames(currentMillis, true);        // 0x19F/0x423/0x426/0x436 in the state "closed"
+    send_bus_closing(currentMillis);               // the bus closes: 0x426 = zu, 0x0EC ends, 0x0ED goes on
+    send_bus_vehicle_frames(currentMillis, true);  // 0x19F/0x423/0x426/0x436 in the state "closed"
   }
   if (!suppress_own_broadcast) {
     // Send 100ms CAN Message (the BMS only answers diagnostic requests while it
@@ -3999,7 +4041,8 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
 
     content +=
         "<h4><button onclick=\"window.open('/simulator','_blank')\">Open CAN Signal Simulator page</button>"
-        " - 46 individually toggleable cyclic signals</h4>";
+        " - " +
+        String((int)SIM_SIGNAL_COUNT) + " individually toggleable cyclic signals</h4>";
 
     // Free request (03.10., write added 05.10.): input field, Query button and answer field. The read services
     // 0x22 and 0x19 and the write service 0x2E for a fixed list of identifiers are accepted (see

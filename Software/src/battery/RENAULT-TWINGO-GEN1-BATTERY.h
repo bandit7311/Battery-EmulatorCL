@@ -140,8 +140,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // 0x426 (I row 4, bytes 4-6 = km * 256, so 0 .. 65,535 km; byte 7 free). Defaults: 19,400 km (the value the pack
   // showed as $925F), byte 7 = 0x40.
   static const uint32_t ODO_5D7_MAX_KM = 2684354UL;
-  static const uint32_t ODO_426_MAX_KM = 65535UL;           // old Zoe form: km * 256 in 24 bit
-  static const uint32_t ODO_426_BUS_MAX_KM = 16777215UL;    // vehicle form: km in 24 bit (bytes 3-5)
+  static const uint32_t ODO_426_MAX_KM = 65535UL;         // old Zoe form: km * 256 in 24 bit
+  static const uint32_t ODO_426_BUS_MAX_KM = 16777215UL;  // vehicle form: km in 24 bit (bytes 3-5)
   static uint32_t odo_5d7_km;
   static uint32_t odo_426_km;
   static uint8_t odo_426_b7;
@@ -373,6 +373,18 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // is over. The next wake-up starts every frame with its wake-up form again.
   void send_bus_closing(unsigned long now);
   void bus_restart_sessions();
+  // State of the bus now (11.10.): in "manual" the selected one; automatic: after the start and every wake-up the
+  // sequence closed -> ... -> driving (twingo_bus::wake_state), at Sleep / NVROL reset back down (twingo_bus::sleep_state).
+  // o426 = transitional B1/B2 of 0x426 (-1 = none).
+  uint8_t bus_state_now(unsigned long now, int32_t& o426);
+  bool bus_session_started = false;
+  unsigned long bus_session_start_ms = 0;
+  uint8_t bus_sleep_start_state = 1;
+
+ public:
+  static uint8_t bus_state_shown;  // state of the last frames, for the page (JSON "bs")
+
+ private:
   bool bus_fast_frames_allowed() const;  // 10 ms frames only after the wake-up burst
   void send_simulator_signals(unsigned long currentMillis);
 
@@ -622,7 +634,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
       ext_cell_v_a_nr, ext_cell_v_b_nr, ext_soh_avg, ext_max_charge_power, ext_max_gen_power, ext_max_avail_power,
       ext_soc_avg, ext_usoc_avg, ext_soc_min, ext_soc_max, ext_battery_current;
   // One line for a display-only ExtValue: "label: value unit<br>" or "label: not yet read<br>".
-  static void append_ext_value(String& s, const char* label, const ExtValue& v, double value, const char* unit);
+  static void append_ext_value(String& s, const char* label, const ExtValue& v, double value, const char* unit,
+                               int decimals = 3);
 
   // 96 cell-voltage PIDs (0x9021-0x9083, skipping 0x9040/0x9060/0x9080) + the
   // 6 PIDs above + the 8 pack temperature PIDs + BMS state + 4 balancing counters
@@ -894,6 +907,10 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // "response pending" (NRC 0x78) and fills the result text of the mode that started it.
   enum UqMode : uint8_t { UQ_FREE = 0, UQ_FDC, UQ_DETAILS };
   uint8_t uq_mode = UQ_FREE;
+  // Text buffers of the free request: 832 characters hold a 256 byte answer as "XX XX ..." (the mission lists have 128
+  // bytes; 336 cut them off after about 100 bytes). uq_write_line and fdc_result have the same size because the code copies
+  // by sizeof(uq_result).
+  static const size_t UQ_TEXT_SIZE = 832;
   uint8_t uq_req[8] = {0};  // request bytes without the PCI byte
   uint8_t uq_req_len = 0;
   bool uq_needs_session = false;
@@ -905,15 +922,15 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Write (0x2E) of UQ_FREE: the request is preceded by a read of the same identifier ("before" value).
   // uq_pre_read = the read is on the bus and its answer is awaited; uq_before holds that answer's data bytes.
   bool uq_pre_read = false;
-  char uq_write_line[336] = "";  // result line of the write, kept while the read back is awaited
-  bool uq_post_read = false;     // the read back after a positive write answer is awaited (point 10)
+  char uq_write_line[UQ_TEXT_SIZE] = "";  // result line of the write, kept while the read back is awaited
+  bool uq_post_read = false;              // the read back after a positive write answer is awaited (point 10)
   uint8_t uq_before[4] = {0};
   uint8_t uq_before_len = 0;
   static const uint8_t UQ_WRITE_DID_COUNT = 7;
   static const uint16_t UQ_WRITE_DIDS[UQ_WRITE_DID_COUNT];
   static const char* uq_nrc_text(uint8_t nrc);  // short meaning of a negative response code, "" when not known
-  char uq_result[336] = "not run yet";
-  char fdc_result[336] = "not run yet";
+  char uq_result[UQ_TEXT_SIZE] = "not run yet";
+  char fdc_result[UQ_TEXT_SIZE] = "not run yet";
   bool uq_begin(uint8_t mode, const uint8_t* req, uint8_t len, bool needs_session);
   void uq_send_pre_read();
   bool handle_pre_read_reply(const CAN_frame& f);

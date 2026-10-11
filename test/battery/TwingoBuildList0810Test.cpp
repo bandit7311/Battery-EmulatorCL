@@ -34,6 +34,7 @@ class TestTwingo : public RenaultTwingoGen1Battery {
     t.age_last_sent = 0;
     t.age_source = 0;
     t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
+    t.bus_state_manual = true;    // the tests choose the state themselves
   }
   bool network_ready() override { return false; }
   void start_ntp() override {}

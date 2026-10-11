@@ -32,6 +32,7 @@ class TestTwingo : public RenaultTwingoGen1Battery {
     t.age_last_sent = 0;
     t.age_source = 0;
     t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
+    t.bus_state_manual = true;    // the tests choose the state themselves
   }
   bool clock_set = true;
   uint32_t clock_secs = 12 * 3600;
@@ -229,6 +230,7 @@ void reset_age_state() {
   t.age_last_sent = 0;
   t.age_source = 0;
   t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
+  t.bus_state_manual = true;    // the tests choose the state themselves
 }
 // A single-frame positive reply 62 <pid> <3 data bytes> from the MCPU.
 void feed_time_reply(RenaultTwingoGen1Battery& b, uint16_t pid, uint32_t v) {
@@ -924,22 +926,22 @@ TEST(TwingoFreeQuery, VeryLongAnswerIsCutAndNeverOverflowsTheTextBuffer) {
   TestTwingo b;
   b.setup();
   ASSERT_STREQ(b.start_user_query("22926C"), "OK");
-  // 300 bytes announced: 0x12C. First frame 6 bytes, then 42 consecutive frames of 7 bytes = 300.
-  CAN_frame ff = reply_frame({0x11, 0x2C, 0x62, 0x92, 0x6C, 0x80, 0x00, 0x00});
+  // 500 bytes announced: 0x1F4. First frame 6 bytes, then consecutive frames of 7 bytes.
+  CAN_frame ff = reply_frame({0x11, 0xF4, 0x62, 0x92, 0x6C, 0x80, 0x00, 0x00});
   b.handle_incoming_can_frame(ff);
   uint8_t sn = 1;
   int received = 6;
-  while (received < 300) {
+  while (received < 500) {
     CAN_frame cf = reply_frame({(uint8_t)(0x20 | (sn & 0x0F)), 1, 2, 3, 4, 5, 6, 7});
     b.handle_incoming_can_frame(cf);
     received += 7;
     sn++;
   }
   const char* r = b.user_query_result();
-  EXPECT_LT(strlen(r), 336u);
+  EXPECT_LT(strlen(r), 832u);
   EXPECT_NE(std::string(r).find("OK 62 92 6C"), std::string::npos);
-  EXPECT_NE(std::string(r).find("..."), std::string::npos);  // text cut
-  EXPECT_STREQ(b.start_user_query("22925E"), "OK");          // exchange finished, channel free
+  // the data buffer holds 256 bytes (768 characters), so the text always fits into UQ_TEXT_SIZE
+  EXPECT_STREQ(b.start_user_query("22925E"), "OK");  // exchange finished, channel free
 }
 
 TEST(TwingoFreeQuery, StrayConsecutiveFrameIsIgnored) {

@@ -215,8 +215,8 @@ void init_webserver() {
         uint64_t hi = prefs.getUInt("TWINGOSIMHI", (uint32_t)(current >> 32));
         datalayer_extended.twingoGen1.simulator_enabled_mask = (hi << 32) | lo;
         // 128 rows since 10.10.: bits 64-95 / 96-127, default 0 (off) - no migration of stored switches needed.
-        uint64_t lo2 = prefs.getUInt("TWINGOSIMHI2", (uint32_t)(datalayer_extended.twingoGen1.simulator_enabled_mask_hi &
-                                                                0xFFFFFFFFULL));
+        uint64_t lo2 = prefs.getUInt(
+            "TWINGOSIMHI2", (uint32_t)(datalayer_extended.twingoGen1.simulator_enabled_mask_hi & 0xFFFFFFFFULL));
         uint64_t hi2 =
             prefs.getUInt("TWINGOSIMHI3", (uint32_t)(datalayer_extended.twingoGen1.simulator_enabled_mask_hi >> 32));
         datalayer_extended.twingoGen1.simulator_enabled_mask_hi = (hi2 << 32) | lo2;
@@ -1040,6 +1040,27 @@ void init_webserver() {
   // relative to T+0 (see RenaultTwingoGen1Battery::rx_status_json).
   def_route_with_auth("/twingoRxStatus", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "application/json", RenaultTwingoGen1Battery::rx_status_json(millis()));
+  });
+
+  // Checkbox "manual" at the state field (11.10.): off = the state walks by itself (closed -> ... -> driving after the
+  // start and every wake-up, back down at Sleep / NVROL reset), on = the selection field sets the state. Runtime only.
+  def_route_with_auth("/twingoBusManual", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      const bool manual = request->getParam("value")->value().toInt() != 0;
+      auto& tg = datalayer_extended.twingoGen1;
+      if (manual && !tg.bus_state_manual) {
+        // the state of the moment stays standing, the field starts from it
+        tg.bus_state = (RenaultTwingoGen1Battery::bus_state_shown < twingo_bus::BUS_STATE_COUNT)
+                           ? RenaultTwingoGen1Battery::bus_state_shown
+                           : (uint8_t)twingo_bus::BUS_WACH;
+      }
+      if (!manual && tg.bus_state_manual) {
+        tg.bus_session_restart = true;  // the sequence starts again from "closed"
+      }
+      tg.bus_state_manual = manual;
+      RenaultTwingoGen1Battery::note_action(manual ? "state: manual" : "state: automatic");
+    }
+    request->send(200, "text/plain", "OK");
   });
 
   def_route_with_auth("/twingoBusFormat", server, HTTP_GET, [](AsyncWebServerRequest* request) {

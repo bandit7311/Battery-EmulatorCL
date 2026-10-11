@@ -209,3 +209,79 @@ TEST(TwingoBus, OutOfRangeStateFallsBackToAwake) {
 }
 
 }  // namespace
+
+// ---------------------------------------------------------------------------
+// State sequence (11.10.): wake-up of session 3 and shutdown of session 1 of the car log 22aaf176
+// ---------------------------------------------------------------------------
+
+TEST(TwingoBusSequence, WakeUpWalksTheStatesOfTheCarAndStaysAtDriving) {
+  struct {
+    uint32_t t;
+    uint8_t state;
+    int32_t o426;
+  } want[] = {{0, BUS_ZU, -1},
+              {1299, BUS_ZU, -1},
+              {1300, BUS_WACH, 0x0802},
+              {1999, BUS_WACH, 0x0802},
+              {2000, BUS_WACH, 0x0806},
+              {2399, BUS_WACH, 0x0806},
+              {2400, BUS_WACH, -1},
+              {13199, BUS_WACH, -1},
+              {13200, BUS_ZUENDUNG1, 0x6067},
+              {13700, BUS_ZUENDUNG1, -1},
+              {15200, BUS_ZUENDUNG3, -1},
+              {16900, BUS_GO, -1},
+              {18800, BUS_FAHRT, 0x7061},
+              {20000, BUS_FAHRT, -1},
+              {600000, BUS_FAHRT, -1}};
+  for (const auto& w : want) {
+    int32_t o = 123;
+    EXPECT_EQ(wake_state(w.t, o), w.state) << "t=" << w.t;
+    EXPECT_EQ(o, w.o426) << "t=" << w.t;
+  }
+}
+
+TEST(TwingoBusSequence, ShutdownFromDrivingWalksDownToAwake) {
+  struct {
+    uint32_t t;
+    uint8_t state;
+    int32_t o426;
+  } want[] = {{0, BUS_ZUENDUNG1, 0x7065}, {99, BUS_ZUENDUNG1, 0x7065}, {100, BUS_ZUENDUNG1, -1},
+              {199, BUS_ZUENDUNG1, -1},   {200, BUS_AUS, -1},          {2099, BUS_AUS, -1},
+              {2100, BUS_AUS, 0x0007},    {4699, BUS_AUS, 0x0007},     {4700, BUS_WACH, -1},
+              {120000, BUS_WACH, -1}};
+  for (const auto& w : want) {
+    int32_t o = 123;
+    EXPECT_EQ(sleep_state(w.t, BUS_FAHRT, o), w.state) << "t=" << w.t;
+    EXPECT_EQ(o, w.o426) << "t=" << w.t;
+  }
+}
+
+TEST(TwingoBusSequence, ShutdownFromAnyOtherStateStartsAtIgnitionOff) {
+  int32_t o = 123;
+  EXPECT_EQ(sleep_state(0, BUS_WACH, o), BUS_AUS);
+  EXPECT_EQ(o, -1);
+  EXPECT_EQ(sleep_state(1900, BUS_GO, o), BUS_AUS);
+  EXPECT_EQ(o, 0x0007);
+  EXPECT_EQ(sleep_state(4500, BUS_ZU, o), BUS_WACH);
+  EXPECT_EQ(o, -1);
+}
+
+TEST(TwingoBusSequence, Frame426TakesTheTransitionalValuesAndByte7) {
+  const FrameDef& d = *find_frame(0x426);
+  uint8_t out[8];
+  build_frame(d, BUS_WACH, 0, 0, 6844, out, 0, 0x0802);  // wake-up step 2: 00 08 02 00 1A BC 00 40
+  const uint8_t step2[8] = {0x00, 0x08, 0x02, 0x00, 0x1A, 0xBC, 0x00, 0x40};
+  for (int i = 0; i < 8; i++) {
+    EXPECT_EQ(out[i], step2[i]) << i;
+  }
+  build_frame(d, BUS_AUS, 0, 0, 92784, out, 0, 0x0007);  // 00 00 07 01 6A 70 00 40 as in the car
+  const uint8_t aus7[8] = {0x00, 0x00, 0x07, 0x01, 0x6A, 0x70, 0x00, 0x40};
+  for (int i = 0; i < 8; i++) {
+    EXPECT_EQ(out[i], aus7[i]) << i;
+  }
+  build_frame(d, BUS_WACH, 0, 0, 6844, out, 0, -1, 0x55);  // byte 7 from the field
+  EXPECT_EQ(out[7], 0x55);
+  EXPECT_EQ(out[1], 0x00);
+  EXPECT_EQ(out[2], 0x06);
+}
