@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cstdio>
 #include <set>
 
 #include "../../Software/src/battery/RENAULT-TWINGO-GEN1-BUS.h"
@@ -45,13 +46,69 @@ TEST(TwingoBus, CycleTimesAndLengthsOfTheFiveZoeFrames) {
 TEST(TwingoBus, Frame19fCounterStepsFiveModuloSixteen) {
   const FrameDef& d = *find_frame(0x19F);
   uint8_t out[8];
-  const uint8_t want[6] = {0x0, 0x5, 0xA, 0xF, 0x4, 0x9};
-  for (uint32_t s = 0; s < 6; s++) {
+  // the counter starts with F in the first frame of the session and runs through the wake-up form
+  for (uint32_t s = 22; s < 30; s++) {
     build_frame(d, BUS_WACH, s, 0, 0, out);
-    EXPECT_EQ(out[3] & 0x0F, want[s]) << s;
+    EXPECT_EQ(out[3] & 0x0F, (0x0F + 5 * s) & 0x0F) << s;
     EXPECT_EQ(out[2], 0x7D);
     EXPECT_EQ(out[7], 0xFE);
+    EXPECT_EQ(out[5], 0x6A);
   }
+}
+
+TEST(TwingoBus, Frame19fChecksumIsTheCrcOfTheTwelveBitValue) {
+  EXPECT_EQ(crc19f(0x7D, 0x0), 0x6A);
+  EXPECT_EQ(crc19f(0x7D, 0x1), 0x45);
+  EXPECT_EQ(crc19f(0x7D, 0x2), 0x34);
+  EXPECT_EQ(crc19f(0x7D, 0x3), 0x1B);
+  EXPECT_EQ(crc19f(0xB7, 0x3), 0xDB);
+  EXPECT_EQ(crc19f(0x7C, 0xF), 0x5E);
+  EXPECT_EQ(crc19f(0xFF, 0xF), 0x06);
+}
+
+TEST(TwingoBus, Frame19fWakeFormIsTheOneOfTheCarLog) {
+  const FrameDef& d = *find_frame(0x19F);
+  const char* want[24] = {
+      "FF FF FF FF 00 06 00 FE", "FF FF FF F4 00 06 00 FE", "FF FF FF F9 00 06 00 FE", "FF FF FF FE 00 06 00 FE",
+      "FF FF FF F3 00 06 00 FE", "FF FF FF F8 00 06 00 FE", "FF FF FF FD 00 06 00 FE", "FF FF FF F2 00 06 00 FE",
+      "FF FF FF F7 00 06 00 FE", "FF FF FF FC 00 06 00 FE", "FF FF FF F1 00 06 00 FE", "FF FF FF F6 00 06 00 FE",
+      "00 00 42 DB 00 62 90 FE", "00 00 62 70 00 96 90 FE", "00 00 70 E5 00 74 90 FE", "00 00 77 7A 00 37 90 FE",
+      "00 00 7A 8F 00 06 90 FE", "00 00 7B E4 00 4A 90 FE", "00 00 7C 89 00 93 90 FE", "00 00 7C CE 00 2F 90 FE",
+      "00 00 7C E3 00 71 90 FE", "00 00 7C F8 00 5E 90 FE", "00 00 7D 0D 00 6A 90 FE", "00 00 7D 02 00 6A 90 FE"};
+  uint8_t out[8];
+  for (uint32_t s = 0; s < 24; s++) {
+    build_frame(d, BUS_ZU, s, 0, 0, out);
+    char buf[40];
+    snprintf(buf, sizeof(buf), "%02X %02X %02X %02X %02X %02X %02X %02X", out[0], out[1], out[2], out[3], out[4],
+             out[5], out[6], out[7]);
+    EXPECT_STREQ(buf, want[s]) << s;
+  }
+}
+
+TEST(TwingoBus, Frame19fIgnitionOneRampsBytesZeroAndOneUpToA0) {
+  const FrameDef& d = *find_frame(0x19F);
+  uint8_t out[8];
+  build_frame(d, BUS_ZUENDUNG1, 100, 0, 0, out, 12);
+  EXPECT_EQ(out[6], 0x90);
+  EXPECT_EQ(out[0], 0x00);
+  build_frame(d, BUS_ZUENDUNG1, 101, 0, 0, out, 13);
+  EXPECT_EQ(out[6], 0x50);
+  EXPECT_EQ(out[0], 0x00);
+  build_frame(d, BUS_ZUENDUNG1, 200, 0, 0, out, 114);
+  EXPECT_EQ(out[0], 0x00);
+  build_frame(d, BUS_ZUENDUNG1, 201, 0, 0, out, 115);
+  EXPECT_EQ(out[0], 0x01);
+  EXPECT_EQ(out[1], 0x01);
+  build_frame(d, BUS_ZUENDUNG1, 202, 0, 0, out, 125);
+  EXPECT_EQ(out[0], 0x18);
+  build_frame(d, BUS_ZUENDUNG1, 203, 0, 0, out, 146);
+  EXPECT_EQ(out[0], 0xA0);
+  EXPECT_EQ(out[1], 0xA0);
+  build_frame(d, BUS_ZUENDUNG1, 204, 0, 0, out, Z1_19F_RAMP_DONE);
+  EXPECT_EQ(out[0], 0xA0);
+  EXPECT_EQ(out[1], 0xA0);
+  EXPECT_EQ(out[2], 0x7D);
+  EXPECT_EQ(out[6], 0x50);
 }
 
 TEST(TwingoBus, Frame0ecCounterAndCrcAreConsistent) {

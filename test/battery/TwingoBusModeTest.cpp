@@ -890,6 +890,35 @@ TEST(TwingoStateSequence, SleepWalksDownLikeTheCarAndWakeUpWalksUpAgain) {
   datalayer_extended.twingoGen1.bus_state_manual = true;
 }
 
+TEST(TwingoStateSequence, Frame19FStartsWithTheWakeFormRampsInIgnitionOneAndKeepsA0OnTheWayDown) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = false;
+  only_rows({0x19F});
+  uint64_t t = 1000;
+  std::vector<Tx> up;
+  run(b, t, 25000, 10, up);
+  auto f = with_id(up, 0x19F);
+  ASSERT_GT(f.size(), 200u);
+  EXPECT_EQ(hex_of(f[0].f.data.u8, 8), "FF FF FF FF 00 06 00 FE");
+  EXPECT_EQ(hex_of(f[12].f.data.u8, 8), "00 00 42 DB 00 62 90 FE");
+  EXPECT_EQ(f.back().f.data.u8[0], 0xA0);  // driving: A0 A0 ... 50
+  EXPECT_EQ(f.back().f.data.u8[6], 0x50);
+  bool ramp_seen = false;
+  for (const auto& x : f) {
+    uint8_t b0 = x.f.data.u8[0];
+    ramp_seen = ramp_seen || (b0 > 0x00 && b0 < 0xA0 && b0 != 0xFF);
+  }
+  EXPECT_TRUE(ramp_seen);  // the ramp 01 04 08 ... 92 of ignition 1
+  b.request_sleep();
+  std::vector<Tx> down;
+  run(b, t, 3000, 10, down);
+  for (const auto& x : with_id(down, 0x19F)) {
+    EXPECT_EQ(x.f.data.u8[0], 0xA0);  // no ramp on the way down
+  }
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+}
+
 TEST(TwingoStateSequence, ManualSleepOnlyClosesInTheLastStage) {
   BusTwingo b;
   b.setup();

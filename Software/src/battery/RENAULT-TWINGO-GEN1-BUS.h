@@ -38,6 +38,23 @@ inline constexpr uint32_t WAKE_0EC_FRAMES = 6;
 inline constexpr uint32_t WAKE_0ED_FRAMES_A = 10;
 inline constexpr uint32_t WAKE_0ED_FRAMES_B = 21;
 
+// 0x19F (log 22aaf176, the same in sessions 2 and 3; session 1 starts its ramp from the other side): 12 frames of the
+// wake-up form FF FF FF Fx 00 06 00 FE, then 10 frames of a ramp of bytes 2/3 (B2 and the high nibble of B3, listed
+// here) towards the idle value 7D 0x, byte 6 = 90 from the ramp on; the counter in the low nibble of B3 runs through
+// all of it (first frame: F, +5 each frame). Byte 5 is the checksum, see crc19f().
+inline constexpr uint32_t WAKE_19F_FRAMES_A = 12;
+inline constexpr uint32_t WAKE_19F_FRAMES = 22;
+inline constexpr uint8_t WAKE_19F_RAMP[10][2] = {{0x42, 0xD}, {0x62, 0x7}, {0x70, 0xE}, {0x77, 0x7}, {0x7A, 0x8},
+                                                 {0x7B, 0xE}, {0x7C, 0x8}, {0x7C, 0xC}, {0x7C, 0xE}, {0x7C, 0xF}};
+// Ignition stage 1 (session 3): byte 6 goes 90 -> 50 after 13 frames (0.13 s), after 115 frames (1.15 s) bytes 0/1 run
+// in 32 frames from 00 up to A0 (the same value in both bytes). Coming down from a higher state A0 stays.
+inline constexpr uint32_t Z1_19F_B6_FRAME = 13;
+inline constexpr uint32_t Z1_19F_RAMP_START = 115;
+inline constexpr uint32_t Z1_19F_RAMP_DONE = 147;
+inline constexpr uint8_t Z1_19F_RAMP[32] = {0x01, 0x04, 0x08, 0x0B, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x18,
+                                            0x22, 0x29, 0x2C, 0x2F, 0x32, 0x35, 0x38, 0x3B, 0x3E, 0x41, 0x44,
+                                            0x47, 0x4A, 0x4C, 0x4F, 0x5C, 0x6A, 0x78, 0x85, 0x92, 0xA0};
+
 enum FrameKind : uint8_t {
   K_PLAIN = 0,
   K_0ED = 9,  // like K_PLAIN, but with the wake-up form at the start (see build_frame)
@@ -584,6 +601,14 @@ inline uint8_t crc8(const uint8_t* d, uint8_t n, uint8_t poly) {
   return c;
 }
 
+// 0x19F byte 5: CRC-8 (polynomial 0x2F, start 0, no final XOR) over the 12-bit value B2:B3hi as two bytes
+// (V >> 8, V & 0xFF with V = B2 << 4 | high nibble of B3). Checked against every pair of the car log 22aaf176.
+inline uint8_t crc19f(uint8_t b2, uint8_t b3_high_nibble) {
+  const uint16_t v = (uint16_t)(((uint16_t)b2 << 4) | (b3_high_nibble & 0x0F));
+  const uint8_t d[2] = {(uint8_t)(v >> 8), (uint8_t)(v & 0xFF)};
+  return crc8(d, 2, 0x2F);
+}
+
 // 0x500 is only sent while the ignition is on (starts about 15 s after ignition 1 in the car).
 inline bool active_in_state(const FrameDef& d, uint8_t state) {
   if (d.kind == K_500) {
@@ -642,7 +667,29 @@ inline void build_frame(const FrameDef& d, uint8_t state, uint32_t seq, uint32_t
   }
   switch (d.kind) {
     case K_19F:
-      out[3] = (uint8_t)((out[3] & 0xF0) | ((5U * seq) & 0x0F));
+      if (seq < WAKE_19F_FRAMES_A) {
+        out[0] = out[1] = out[2] = 0xFF;
+        out[3] = 0xF0;
+        out[6] = 0x00;
+      } else if (seq < WAKE_19F_FRAMES) {
+        const uint8_t* r = WAKE_19F_RAMP[seq - WAKE_19F_FRAMES_A];
+        out[0] = out[1] = 0x00;
+        out[2] = r[0];
+        out[3] = (uint8_t)(r[1] << 4);
+        out[6] = 0x90;
+      } else if (state == BUS_ZUENDUNG1 && state_seq < Z1_19F_RAMP_DONE) {
+        if (state_seq >= Z1_19F_B6_FRAME) {
+          out[6] = 0x50;
+        }
+        if (state_seq >= Z1_19F_RAMP_START) {
+          out[0] = out[1] = Z1_19F_RAMP[state_seq - Z1_19F_RAMP_START];
+        }
+      } else if (state == BUS_ZUENDUNG1) {
+        out[0] = out[1] = 0xA0;
+        out[6] = 0x50;
+      }
+      out[3] = (uint8_t)((out[3] & 0xF0) | ((0x0FU + 5U * seq) & 0x0F));
+      out[5] = crc19f(out[2], (uint8_t)(out[3] >> 4));
       break;
     case K_157:
       out[1] = (uint8_t)((out[1] & 0x0F) | (((5U * seq) & 0x0F) << 4));

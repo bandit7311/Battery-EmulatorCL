@@ -3628,7 +3628,14 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
       }
     }
     CAN_frame f = {.FD = false, .ext_ID = false, .DLC = def->dlc, .ID = def->id};
-    twingo_bus::build_frame(*def, state, bus_seq[def - twingo_bus::FRAMES]++, age_min, odo_426_km, f.data.u8, 0, o426,
+    const size_t idx = def - twingo_bus::FRAMES;
+    if (bus_state_seen[idx] != state) {
+      const uint8_t prev = bus_state_seen[idx];
+      bus_state_seen[idx] = state;
+      // 0x19F: the ignition ramp is only run on the way up; coming down from a higher state A0 stays
+      bus_state_frames[idx] = (prev != 255 && prev > twingo_bus::BUS_ZUENDUNG1) ? twingo_bus::Z1_19F_RAMP_DONE : 0;
+    }
+    twingo_bus::build_frame(*def, state, bus_seq[idx]++, age_min, odo_426_km, f.data.u8, bus_state_frames[idx]++, o426,
                             odo_426_b7);
     transmit_can_frame(&f);
   }
