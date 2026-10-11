@@ -890,6 +890,29 @@ TEST(TwingoStateSequence, SleepWalksDownLikeTheCarAndWakeUpWalksUpAgain) {
   datalayer_extended.twingoGen1.bus_state_manual = true;
 }
 
+TEST(TwingoStateSequence, TenMillisecondFramesRunDuringTheWakeUpBurstToo) {
+  BusTwingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.bus_state_manual = false;
+  only_rows({0x19F});
+  uint64_t t = 1000;
+  std::vector<Tx> up;
+  run(b, t, 5000, 10, up);
+  b.request_sleep();
+  std::vector<Tx> down;
+  run(b, t, 140000, 10, down);
+  std::vector<Tx> silent;
+  run(b, t, 3000, 10, silent);
+  b.request_wake_up();
+  std::vector<Tx> wake;
+  run(b, t, 1500, 10, wake);  // the wake-up burst lasts about 2.2 s
+  auto f = with_id(wake, 0x19F);
+  EXPECT_GT(f.size(), 100u);  // no hold-back any more: about one frame per 10 ms
+  ASSERT_FALSE(f.empty());
+  EXPECT_EQ(hex_of(f[0].f.data.u8, 8), "FF FF FF FF 00 06 00 FE");
+  datalayer_extended.twingoGen1.bus_state_manual = true;
+}
+
 TEST(TwingoStateSequence, Frame19FStartsWithTheWakeFormRampsInIgnitionOneAndKeepsA0OnTheWayDown) {
   BusTwingo b;
   b.setup();

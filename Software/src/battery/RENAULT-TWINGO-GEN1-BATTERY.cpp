@@ -1030,6 +1030,32 @@ void RenaultTwingoGen1Battery::age_load_from_nvm() {
     age_manual_anchor_unix = (int64_t)prefs.getUInt("TWAGEMT", 0);
     age_manual_ms_valid = false;  // counts by the clock after a restart
   }
+  // settings of the /simulator page (11.10.): the typed values stay over a restart, as they were set
+  time_436_active = prefs.getBool("TW436ACT", false);
+  time_436_value = prefs.getUInt("TW436VAL", 0);
+  if (time_436_value > AGE_MANUAL_MAX) {
+    time_436_value = AGE_MANUAL_MAX;
+  }
+  odo_426_km = prefs.getUInt("TWO426KM", odo_426_km);
+  odo_426_b7 = (uint8_t)prefs.getUInt("TWO426B7", odo_426_b7);
+  odo_5d7_km = prefs.getUInt("TWO5D7KM", odo_5d7_km);
+  t.bus_state_manual = prefs.getBool("TWBUSMAN", t.bus_state_manual);
+  prefs.end();
+#endif
+}
+
+void RenaultTwingoGen1Battery::sim_settings_save() {
+#ifndef UNIT_TEST
+  Preferences prefs;
+  if (!prefs.begin("batterySettings", false)) {
+    return;
+  }
+  prefs.putBool("TW436ACT", time_436_active);
+  prefs.putUInt("TW436VAL", time_436_value);
+  prefs.putUInt("TWO426KM", odo_426_km);
+  prefs.putUInt("TWO426B7", odo_426_b7);
+  prefs.putUInt("TWO5D7KM", odo_5d7_km);
+  prefs.putBool("TWBUSMAN", datalayer_extended.twingoGen1.bus_state_manual);
   prefs.end();
 #endif
 }
@@ -1217,6 +1243,7 @@ void RenaultTwingoGen1Battery::time_436_set(uint32_t minutes) {
   ZOE_436_VEHICLE_STATUS.data.u8[1] = (uint8_t)(time_436_value >> 16);
   ZOE_436_VEHICLE_STATUS.data.u8[2] = (uint8_t)(time_436_value >> 8);
   ZOE_436_VEHICLE_STATUS.data.u8[3] = (uint8_t)time_436_value;
+  sim_settings_save();
 }
 
 void RenaultTwingoGen1Battery::time_436_clear() {
@@ -1224,6 +1251,7 @@ void RenaultTwingoGen1Battery::time_436_clear() {
   ZOE_436_VEHICLE_STATUS.data.u8[1] = 0x14;
   ZOE_436_VEHICLE_STATUS.data.u8[2] = (zoe_436_counter >> 8) & 0xFF;
   ZOE_436_VEHICLE_STATUS.data.u8[3] = zoe_436_counter & 0xFF;
+  sim_settings_save();
 }
 
 void RenaultTwingoGen1Battery::age_manual_clear() {
@@ -3402,9 +3430,6 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
       if (!twingo_bus::active_in_state(*def, state)) {
         continue;
       }
-      if (def->interval_ms <= 10 && !bus_fast_frames_allowed()) {
-        continue;  // the 10 ms frames start only after the wake-up burst
-      }
       const uint8_t def_idx = (uint8_t)(def - twingo_bus::FRAMES);
       if (bus_state_seen[def_idx] != state) {
         bus_state_seen[def_idx] = state;
@@ -3578,16 +3603,6 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
   }
 }
 
-// 10 ms frames of the bus mode start only after the wake-up burst (decision of the user, 10.10.; the CAN NATIVE BUS
-// ERROR of 29.09. came with 0x090/0x242 running during the burst).
-bool RenaultTwingoGen1Battery::bus_fast_frames_allowed() const {
-#ifdef TWINGO_EXTENDED_CELL_POLLING
-  return NVROLstateMachine != 8;
-#else
-  return true;
-#endif
-}
-
 // The five Zoe-form frames in the format of the real bus (global switch "like the car", default): 0x19F every 10 ms,
 // 0x423/0x426/0x436 every 100 ms (0x69F is the same in both formats and is sent by the 1 s block). Content per state
 // from twingo_bus::FRAMES, kilometres from the 0x426 field, age (0x436) from the manual 0x436 time or the vehicle
@@ -3610,9 +3625,6 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
     }
     const twingo_bus::FrameDef* def = twingo_bus::find_frame(it.id);
     if (def == nullptr) {
-      continue;
-    }
-    if (def->interval_ms <= 10 && !bus_fast_frames_allowed()) {
       continue;
     }
     if (now - bus_last_ms[it.slot] < def->interval_ms) {
@@ -4174,6 +4186,9 @@ void RenaultTwingoGen1Battery::setup(void) {  // Performs one time setup at star
   // their own BMS-reset moments (02.10. phantom BATTERY_OVERVOLTAGE investigation).
   ignore_can_errors_for(can_interface, EXT_425_BOOT_FILTER_TIMEOUT_MS);
   age_load_from_nvm();
+  if (time_436_active) {
+    time_436_set(time_436_value);  // the typed time of 0x436 carries on from the stored value
+  }
 
   // UDS: send requests/flow control to 0x79B, accept replies from the BMS on 0x7BB.
   setup_uds(0x79B, 0x7BB);

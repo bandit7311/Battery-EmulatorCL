@@ -911,7 +911,7 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
-  // Time in 0x436 bytes 1-3: value=<minutes, 0..16777215> or value=off (runtime only).
+  // Time in 0x436 bytes 1-3: value=<minutes, 0..16777215> or value=off (kept over a restart since 11.10.).
   def_route_with_auth("/editTwingoTime436", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (!request->hasParam("value")) {
       request->send(200, "text/plain", "missing value");
@@ -939,7 +939,7 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
-  // Odometer (runtime only): which=5d7 (kilometres up to 2684354) or which=426 (kilometres 0..65535, plus b7 = byte 7,
+  // Odometer (kept over a restart since 11.10.): which=5d7 (kilometres up to 2684354) or which=426 (kilometres 0..65535, plus b7 = byte 7,
   // decimal 0..255).
   def_route_with_auth("/editTwingoOdo", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (!request->hasParam("which") || !request->hasParam("km")) {
@@ -984,6 +984,7 @@ void init_webserver() {
       request->send(200, "text/plain", "which: 5d7 or 426");
       return;
     }
+    RenaultTwingoGen1Battery::sim_settings_save();
     request->send(200, "text/plain", "OK");
   });
 
@@ -1000,6 +1001,11 @@ void init_webserver() {
           snprintf(buf, sizeof(buf), "0x%03X %s", (unsigned)RenaultTwingoGen1Battery::sim_signals[index].id,
                    enable ? "on" : "off");
           RenaultTwingoGen1Battery::note_action(buf);
+        }
+        if (RenaultTwingoGen1Battery::sim_mask_saved_valid) {
+          // "All rows off" is active (runtime only): the stored switches stay as they were before it
+          request->send(200, "text/plain", "OK");
+          return;
         }
         uint64_t mask = datalayer_extended.twingoGen1.simulator_enabled_mask;
         Preferences prefs;
@@ -1043,7 +1049,7 @@ void init_webserver() {
   });
 
   // Checkbox "manual" at the state field (11.10.): off = the state walks by itself (closed -> ... -> driving after the
-  // start and every wake-up, back down at Sleep / NVROL reset), on = the selection field sets the state. Runtime only.
+  // start and every wake-up, back down at Sleep / NVROL reset), on = the selection field sets the state. Kept over a restart.
   def_route_with_auth("/twingoBusManual", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (request->hasParam("value")) {
       const bool manual = request->getParam("value")->value().toInt() != 0;
@@ -1058,6 +1064,7 @@ void init_webserver() {
         tg.bus_session_restart = true;  // the sequence starts again from "closed"
       }
       tg.bus_state_manual = manual;
+      RenaultTwingoGen1Battery::sim_settings_save();
       RenaultTwingoGen1Battery::note_action(manual ? "state: manual" : "state: automatic");
     }
     request->send(200, "text/plain", "OK");

@@ -189,6 +189,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   void time_436_clear();
   static void age_load_from_nvm();  // no-op in the unit tests
   static void age_save_to_nvm();    // no-op in the unit tests
+  // Settings of the /simulator page that are kept over a restart (11.10.): time in 0x436, kilometres/byte 7 of 0x426 and
+  // 0x5D7, checkbox "manual". Loaded in age_load_from_nvm(); no-op in the unit tests.
+  static void sim_settings_save();
 
   // Free request on the extended 29-bit protocol (03.10.), "More Battery Info" page: input field,
   // Query button, answer field. Read services are accepted (0x22 ReadDataByIdentifier, 0x19
@@ -385,7 +388,6 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static uint8_t bus_state_shown;  // state of the last frames, for the page (JSON "bs")
 
  private:
-  bool bus_fast_frames_allowed() const;  // 10 ms frames only after the wake-up burst
   void send_simulator_signals(unsigned long currentMillis);
 
   // EXPERIMENTAL (02.10.): staged precharge/main-relay sequence for 0x55D, auto-triggered by the rising

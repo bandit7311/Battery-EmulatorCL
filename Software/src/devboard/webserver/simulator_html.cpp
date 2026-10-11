@@ -295,7 +295,8 @@ String simulator_processor(const String& var) {
       content += "<button onclick=\"t436Off()\">Off</button> <span id='t436State'>";
       content += RenaultTwingoGen1Battery::time_436_active ? "ACTIVE - counts +1 per minute" : "off - default 14 00 xx";
       content +=
-          "</span> <span class='note'>- runtime only. The row 0x436 must be on. Default: 14 00 xx (xx = minutes since "
+          "</span> <span class='note'>- stored, comes back after a restart. The row 0x436 must be on. Default: 14 00 "
+          "xx (xx = minutes since "
           "the start of the emulator).</span></p>";
       content += "<p><label><input type='checkbox' id='t436follow' ";
       content += RenaultTwingoGen1Battery::time_436_follow_age ? "checked " : "";
@@ -316,7 +317,7 @@ String simulator_processor(const String& var) {
       content += "function t436Off(){fetch('/editTwingoTime436?value=off').then(function(){";
       content += "document.getElementById('t436State').textContent='off - default 14 00 xx';});}</script>";
 
-      // Odometer (runtime only): 0x5D7 (row 0x5D7) and the Zoe frame 0x426.
+      // Odometer (stored since 11.10.): 0x5D7 (row 0x5D7) and the Zoe frame 0x426.
       content += "<p><b>Odometer 0x5D7:</b> <input type='number' id='odo5d7' min='0' max='2684354' value='";
       content += String(RenaultTwingoGen1Battery::odo_5d7_km);
       content += "' style='width:8em'> km <button onclick=\"odoSet('5d7')\">Set</button> &nbsp; ";
@@ -326,7 +327,8 @@ String simulator_processor(const String& var) {
       content += String(RenaultTwingoGen1Battery::odo_426_b7);
       content += "' style='width:4em'> <button onclick=\"odoSet('426')\">Set</button> <span id='odoState'></span> ";
       content +=
-          "<span class='note'>- runtime only. 0x426 holds the km in 24 bit (bytes 3-5) in the vehicle form, the old "
+          "<span class='note'>- stored, comes back after a restart. 0x426 holds the km in 24 bit (bytes 3-5) in the "
+          "vehicle form, the old "
           "Zoe form only up to 65,535 km and it triggers "
           "E14381; 0x5D7 reaches 2,684,354 km. Defaults: 0x5D7 19,400 km; 0x426 6,844 km (pack value 91CF), byte 7 = "
           "64 (0x40).</span></p>";
