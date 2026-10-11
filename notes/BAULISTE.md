@@ -58,6 +58,22 @@ Neuer Branch ab `e3988cb` (z. B. `twingo-echter-bus-modus`, ohne Modellnamen); `
   - ~~Verbindung der Knoepfe Sleep / Sleep 0x9281=1 / NVROL reset~~ **gebaut** (`4d5fd8d`): alle drei laufen durch dieselbe 00-Stufe. Nur eingeschaltete Zeilen schliessen mit. Die Zustandswahl am Bildschirm bleibt unveraendert (nach dem Wecken Weck-Form im gewaehlten Zustand).
 - **Zu pruefen vorher:** was haengt wovon ab (Reihenfolge `0x0EC` -> `0x423` -> Rest; Wake-Buendel; Gate der 10-ms-Frames nach dem Wake-Buendel; Zeilen mit Ende "bis Busende"; Zustand und Format-Schalter). **Bench-Ergebnis 10.10. (vom Nutzer berichtet, kein Log):** `0x0EC` und `0x0ED` allein (Format Fahrzeug, Weck-Form) wecken den Akku **nicht**; erst mit `0x423` kommen alle 13 Akku-Frames (`0x155`, `0x0C5`, `0x1C9`, `0x424`, `0x425`, `0x43A`, `0x445`, `0x464`, `0x588`, `0x4AE`, `0x4AF`, `0x659`, `0x6BE`) **und alle 20 Zellframes**. `0x423` ist also der Weck-Ausloeser. Offen: wofuer `0x0EC`/`0x0ED`/die uebrigen EVC-Frames sind (z. B. MCPU-Zeit und Kilometer).
 
+## Zum Bauen vorgemerkt (Stand 11.10., noch nicht gebaut, wartet auf "bauen")
+1. **Checkbox "manuell" am Auswahlfeld "Zustand" mit automatischer Zustandsfolge:** Aus (Standard): Zustand laeuft von selbst nach dem Ablauf aus Sitzung 3 des Auto-Logs (zu `00/02` 1,3 s, `08/02` 0,7 s, `08/06` 0,4 s, wach, ab 13,7 s Zuendung 1, 15,2 s Zuendung 3, 16,9 s GO, 20,0 s Fahrt) und bleibt auf "driving"; Auswahlfeld nur anzeigend. An: Auswahlfeld bedienbar. 0x426 folgt immer dem Zustand (auch beim Einschlafen "zu"). Start beim Geraetestart und nach jedem Aufwecken. Enthaelt die Weck-Form von 0x426 (Anlauf). Beim Einschalten von "manuell" bleibt der Zustand stehen, beim Ausschalten beginnt die Folge von vorn.
+2. **Antwortpuffer der freien Anfrage** von 336 auf mindestens 700 Zeichen (`uq_result`), damit Missionslisten (128 Byte) ganz erscheinen.
+3. **Text auf "More Battery Info":** "71 individually toggleable cyclic signals" statt der festen 46 (die 3 Zeilen liegen lokal im Arbeitsbaum, ungebaut).
+4. **Anzeige der km mit zwei Stellen** (Aufloesung 0,01 km) statt drei (`.000` irritiert); Pack-km (`91CF`, 1/32 km) mit einer oder zwei Stellen.
+5. **Feld "byte 7" von 0x426 im Fahrzeugformat wirksam machen** (heute nur im alten Zoe-Format, im Fahrzeugformat fest `0x40`).
+
+## Offen, nicht entschieden oder abhaengig vom Bench
+- **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
+- **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
+- **Zeitquelle der MCPU-Missionen** (0x350, 0x436, 0x523 oder 0x376) per Test mit weit auseinanderliegenden Altern (1.400.000 und 1.500.000) klaeren, danach evtl. nur die richtige Quelle senden.
+- **Pack-km auf 6.844 bringen:** von Hand per km-Feld (aktuell 13 km; +6.831 setzen), kein Bau noetig.
+- **Pack-Zeit** (`9261`/`91C1` am MCPU) bleibt 0; Missionen tragen Zeitstempel. Test: lange Laufzeit im Fahrmodus (10, 30, 60 min).
+- **E14381** mit `0x426` an (Test B: `0x157` und weitere EVC-Zeilen einzeln zuschalten).
+- **`1B0E41`** (Speicherfehler MCPU) aktiv `2F`: Loeschen und neu lesen.
+
 ## Offen beim Nutzer
 - **Bench-Test** in Schritten (Plan: `TEST_BENCH_10-10_Aufwecken_und_Zustaende.md`): erst nur `0x423`, dann die uebrigen BMS<>EVC-Frames nach und nach; `0x350` und die anderen Fahrzeug-CAN-Zeilen erst als Zusatz. Logger ohne Filter (RX und TX).
 - Pin-Belegung (CAN H/L) am LBC-Stecker, damit die Aderfarben aus dem Schaltplan zugeordnet werden koennen.
