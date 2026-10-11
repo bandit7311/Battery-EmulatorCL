@@ -68,3 +68,23 @@ SCPU (alle vier Dumps verglichen; `9270` gibt es in der SCPU nicht, weder in der
 - Logger ohne Drosselung (alle Frames drucken oder nur EVC-Frames mitschreiben), damit die ganze Ladephase im Log steht.
 - Dumps direkt vor dem Einstecken und direkt nach dem Schlaf, Uhren (PC und Logger) abgleichen.
 - Zusaetzlich `190209` an DB und DC vor und nach dem Laden.
+
+## 7. Vergleich der unbekannten EVC-Frames: Ladephase (A0/41) gegen unsere FRAMES-Tabelle
+
+Quelle: Log 598b197c (L1) und 445a1527 (L2, Tera Term), je Fenster mit 0x426 = `A0 41`. Unsere Werte: `FRAMES` in `RENAULT-TWINGO-GEN1-BUS.h`, Zeile "wach". Fenster L1: Wake 619,8-623,7 s, Ladephase 624,8-1149,6 s (525 s). Fenster L2: Wake 255,7-259,6 s, Ladephase 260,7-553,3 s (293 s). Nur Wertebereiche und Verlaeufe verglichen, nicht die Bedeutung. Nicht ausgewertet: 0x423 und 0x1A1 (nur Bereiche, siehe oben); 0x500 kommt beim Laden nicht vor.
+
+| ID | unsere Zeile (wach) | Wake-Phase im Laden | Ladephase |
+|---|---|---|---|
+| 0x428 | `00 00 00 00 00 06 00 00` | 1,2 s `... 06 80`, dann B5=04 und B6 +2 alle 0,1 s (81, 83 ... 8D) | konstant `... 04 8E 00` (L1), `... 04 8F 00` (L2) |
+| 0x435 | `FF FF 1E 0B 33 00 00 00` | B3 `A9`, dann `AA`; B4 35/36 | B3 konstant `6A`; B4 35/36; B5 kurze Pulse `FC` (L1 116 Frames, L2 34 Frames, ca. alle 10 s, ca. 0,2 s lang, nicht streng periodisch) |
+| 0x1C7 | `AA 23 00 08 FE 00` | `AA 23 00 02 36 00`, `02 34`, dann `04 34` | konstant `AA 23 00 04 34 00` (L1 43 202 Frames, L2 29 245 Frames) |
+| 0x4F7 | `00 1D 08 00 B0 40 06 F0` | B2=0C, B4 90/88/28 | B2=0C; B3 laeuft in der ersten Sekunde 48 -> 5D, danach 5D/5F; B4=28; B1 und B5 aendern sich (L1 B1 1E, spaeter 25-29, B5 48, spaeter 4C-64; L2 B1 26-2F, B5 84-80); 57 (L1) / 37 (L2) verschiedene Frames |
+| 0x42F | `00 20 FF 80 0F B0` | Start `00 20 00 0C 80 00`; B2 73/75, B3 0C, B4 81, B5 B8/C0; B0 1B, 23, 29, 2D, 30; B1 20/A0 | alle Bytes veraendern sich; 56 (L1) / 24 (L2) verschiedene Frames; B4 83 -> 84; B5 waechst anfangs um 0x10-0x28 je 0,1 s |
+| 0x419 | `55 00 28 00 3A 00` | `61 xx 2A 8F yy 00` (L2 anfangs B0=62) | B3=8F konstant, B2=2A (L2 zeitweise 32); B1 und B4 dynamisch; 101 (L1) / 71 (L2) verschiedene Frames |
+
+Fakten daraus:
+- Unsere festen Zeilen von 0x428, 0x435, 0x1C7, 0x4F7, 0x42F und 0x419 kommen in der Ladephase nicht vor.
+- 0x428, 0x435, 0x1C7 sind in der Ladephase bis auf die 0x435-Pulse konstant.
+- 0x4F7, 0x42F, 0x419 haben dynamische Bytes. Bedeutung und Pruefsumme unbekannt (Brute-Force ueber alle drei Logs fand keine, siehe oben).
+- Ein Zusammenhang mit E14381 ist **nicht belegt**; das sind nur die Unterschiede.
+- Das Fahrlog (22aaf176) enthaelt keine Ladephase; "wach" und "Fahrt" dort sind fuer diese Frames konstant.
