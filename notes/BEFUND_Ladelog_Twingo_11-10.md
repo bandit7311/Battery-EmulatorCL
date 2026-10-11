@@ -48,7 +48,7 @@ MCPU (148 von 335 Werten geaendert, davon 96 Zellspannungen):
 - Der neue `9261` ist **genau der letzte 0x436-Wert im Log** (`2D 5A D9` bei 1271,9 s). **Schluss:** die MCPU sichert die Zeit am Ende der Sitzung (Schlaf).
 - `9279` 16 -> 20 (+4 Missionen); die Listen `9275` bis `9278` sind **unveraendert** (gemessen).
 - `9270` (Modusverlauf): zwei neue Eintraege `04` (laut Definition "Non Isolated Charge").
-- `9259` `05` -> `04`, `925C` `01` -> `02`, `9243` +1255, `9245` +141, `9005`/`9007`/`9009`/`900D` (Spannung/Strom) geaendert, `9215` +1, `91CF` unveraendert (24.793 km Packkilometer).
+- `9259` `05` -> `04`, `925C` `01` -> `02`, `9243` +1255, `9245` +141, `9005`/`9007`/`9009`/`900D` (Spannung/Strom) geaendert, `9215` +1, `91CF` unveraendert (`80 0C 28 60` = 24.899 km Packkilometer).
 - `925E` bleibt `13 88 6F`.
 SCPU (nur 32 Kennungen in beiden Dumps verwertbar): `9261` `2D 5A A3` -> `2D 5A E4` (+65, folgt der Uhr live), `925B` `00` -> `06`, Spannungen/Temperaturen geaendert.
 
