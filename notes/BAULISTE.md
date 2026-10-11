@@ -71,14 +71,38 @@ Neuer Branch ab `e3988cb` (z. B. `twingo-echter-bus-modus`, ohne Modellnamen); `
 - `3752043`: Zaehler der gesendeten 0x69F-Frames auf der Simulator-Seite; `2E` darf 925E schreiben (Free request, Ziel DB).
 - `c6fb094`: 0x426-Wechsel um 0,1 s korrigiert (zu 1,2 s), Zeittests gegen Auto-Log (Aufwachen Sitzung 3, Einschlafen Sitzung 1).
 
-## Zum Bauen vorgemerkt (Stand 11.10. abends, aus dem Ladelog, siehe `BEFUND_Ladelog_Twingo_11-10.md`; noch nicht gebaut, wartet auf "bauen")
-1. **Neue 0x426-Zustaende** `00/03`, `60/63`, `68/61`, `A0/41`, `A8/41`, `00/01`, `08/07` und **Byte 7 = `80`** in der Zustandsfolge (Zeiten und Reihenfolge aus Abschnitt 3 des Befunds).
-2. **Folgezustand `A0/41`** (Auto aufgeschlossen, Stecker getrennt, wieder verschlossen): 530 s lang, danach `00/01` -> `00/03` -> `00/07` -> `08/07` -> `08/06` -> `00/06` (wach 120 s) -> `00/02`. Inhalt der anderen Frames in diesem Zustand: 0x19F Ruheform, 0x436 B0 `AD`, 0x1C7 `AA 23 00 04 34 00`, 0x428 `..04 8E 00`, 0x435 `FF FF 1E 6A 36 00 00 00`, 0x0ED `60 FF 80`, 0x0EC B0 `1C`, kein 0x500.
-3. **Ladebetrieb als eigener Zustand** (EVC-Seite: 0x0EC, 0x0ED, 0x157, 0x1A1, 0x1C7, 0x19F in Ignition-Form, 0x4F7, 0x428, 0x42F; ohne 0x423, 0x426, 0x435, 0x436): Bench-Test, ob der Akku damit ohne 0x423 aufwacht und was er speichert.
-4. **Sitzungsende wie im Auto**, damit die MCPU `9261`/`91C1` sichern kann (Annahme: Sicherung mit dem letzten 0x436-Wert; `91C1` = `9261` - 784.382).
-5. **Wake-Formen der uebrigen EVC-Frames** (0x1A1, 0x1C7, 0x419, 0x423, 0x435, 0x428, 0x42F, 0x4F7): im Log belegt, heute nur 0x0EC, 0x0ED, 0x19F und 0x426 nachgebildet.
-6. **Startversatz der Frames beim Aufwachen** (0x0EC zuerst, 0x423 +0,06 s, 0x19F +0,13 s, 0x426 +0,22 s) und der **kurze Einschlafweg** aus Sitzung 3 (Fahrt -> `00/07` -> `00/06`).
-7. **Standardwert 0x426 km** (bisher 6.844): erst nach Entscheidung, weil Pack-km und Missions-km dadurch beeinflusst werden koennen; `0x5D7` ist ein Fahrzeug-CAN-Frame und bleibt auf der Bench aus.
+## Zum Bauen vorgemerkt: Zustand "Laden" (Stand 11.10. abends, nur Messwerte; noch nicht gebaut, wartet auf "bauen")
+Quellen: Ladelog 1 (`598b197c-canmitlog.log`, PuTTY, Aufwachen bei 611,77 s, `A0/41` von 619,80 bis 1149,60 s = 529,8 s) und Ladelog 2 (`445a1527-teraterm.log`, Tera Term, vollstaendig ohne "not printed"; Stille von 203,26 bis 247,64 s; Aufwachen durch den Ladestecker bei 247,64 s; `A0/41` von 255,67 bis 553,27 s = 297,6 s; Ende mit der Fernbedienung). Dumps: MCPU `1791728231` / `1791731801`, SCPU `1791728260` / `1791732192`. Alles nur Gemessenes, keine Annahmen. Zum Befund siehe `BEFUND_Ladelog_Twingo_11-10.md`.
+
+**Gemessen, Aufwachen durch den Stecker (Log 2, Versatz zu 247,64 s)**
+- Erste Frames nach der Stille (Versatz, erster Inhalt): 0x423 +0,00 `30 7F FF FF FF E0 FF FF`; 0x445 +0,03 `80 FF FF FF FF FF 80`; 0x464 +0,03 `F0 1F C0`; 0x588 +0,03 `FF FC 10 36`; 0x1C7 +0,05 `AA 23 00 02 36 00`; 0x4F7 +0,05 `00 7F 00 00 09 FC 06 F0`; 0x428 +0,05 `00 00 00 00 00 07 C0 00`; 0x42F +0,05 `00 00 00 00 00 00`; 0x155 +0,06 `49 87 D0 54 3D 6A 02 C2`; 0x157 +0,06 `D5 A7 09 C4 FF E0 00 80`; 0x0ED +0,06 `A0 FF 80` (18 Frames, dann `60 FF 80`); 0x424 +0,06 `FF FF FF FF 7F 7F FF 7F`; 0x425 +0,06 `05 FF CC FF FF FF FD FF`; 0x6BE +0,06 `FF FF FF FF FF 00`; 0x43A +0,07 `3C 7F FF 5C C6 00`; 0x1C9 +0,07 `B6 14`; 0x1A1 +0,17 `FF FF FF FF FE FC 00 20`; 0x19F +0,17 `FF FF FF FF 00 06 00 FE`; 0x419 +0,18 `00 00 00 00 00 00`; 0x426 +0,13 `00 00 02 01 6A 71 00 40`; 0x435 +0,13 `FF FF 1E EB 35 FC 00 00`; 0x436 +0,13 `80 2D 5B 1F 00 00`; 0x69F +0,73 `46 13 88 6F`; **0x0EC erst +2,05** `10 01 17`, `10 11 DA`, `10 21 90`, `10 31 5D`, `10 41 04`, `10 51 C9`, danach `1C 61 F4`, `1C 71 39`, ...
+- 0x426, 0x435 und 0x436 beginnen im selben Zeitstempel (247,77 s); 0x423 beginnt 0,13 s vorher.
+- 0x426-Folge Log 2: `00/02` 247,77 -> `08/02` 247,97 -> `00/02` 249,07 -> `00/03` 249,67 -> `60/63` 249,77 -> `60/61` 250,27 (B7 `40`) -> `60/61` B7 `80` 250,37 -> `A0/41` 255,67 -> `A8/41` 259,57 -> `A0/41` 260,67 (bis 553,27).
+- 0x426-Folge Log 1: `00/02` 611,90 -> `00/03` 613,80 -> `60/63` 613,90 -> `60/61` B7 `80` 614,50 -> `68/61` 615,00 -> `60/61` 616,10 -> `A0/41` 619,80 -> `A8/41` 623,70 -> `A0/41` 624,80 (bis 1149,60). In Log 1 kommt kein `08/02`.
+- 0x426 Byte 3 bis 5 (km) in beiden Logs konstant `01 6A 71`; Byte 6 `00`.
+- Byte 7 von 0x426 (alle drei Auto-Logs gezaehlt): `80` kommt nur vor in `60/61` (35- und 53-mal), `68/61`, `00/01` (kurz), `A0/41` (7.324 Frames) und `A8/41`; in allen anderen Zustaenden und in den Fahr-Zustaenden (auch `60/61` im Fahr-Log, 48 Frames) ist Byte 7 `40`.
+
+**Gemessen, Zustand `A0/41` (Log 2, 255,67 bis 553,27 s; konstante Bytes, haeufigster Frame)**
+- 0x426 `00 A0 41 01 6A 71 00 80`; 0x436 B0 `AD`, B1 `2D`, B2 `5B`, B3 zaehlt +1 pro Minute (`1F` bis `26` im Log), B4/B5 `00`; 0x0ED `60 FF 80`; 0x0EC B0 `1C`; 0x19F `00 00 7D xx 00 6A 90 FE`; 0x1C7 `AA 23 00 04 34 00` (zwei weitere Varianten, B3 `02`); 0x157 B0 `D5`, B2/B3 `09 C4`, B7 `80`; 0x1A1 B5 `0C`, B6 `80`, B7 `20`; 0x435 `FF FF 1E 6A 35 00 00 00` (4 Varianten); 0x428 `00 00 00 00 00 04 8F 00` (9 Varianten); 0x42F ohne konstantes Byte; 0x4F7 B0 `00`, B2 `0C`, B6 `06`, B7 `F0`; 0x423 B2 `FF`; 0x419 B3 `8F`, B5 `00`; 0x69F `46 13 88 6F`; kein 0x500.
+- 0x436 B0: `80` bis zum Aufwachen; ab 250,47 s Rampe `83 86 8A 8C 8F 91 94 96 97 99 9B 9C 9D 9F A0 A1 A2 A3 A4 A5 A6 A7 A8 A9 AA AB AC` (bis 254,77 s), `AD` ab 256,67 s; am Ende ab 553,37 s Rampe zurueck `A9 A6 A3 A0 9D 9B 99 97 95 93 92 90 8F 8E 8C 8B 8A 89 88 87 86 85 84 83 82 81` bis `80` bei 557,87 s.
+- UDS-Anfragen der EVC (nur lesen): beim Eintritt (Log 2: 260,16 bis 263,86 s) `9210`, `9215`, `91D1`, `91D2`, `92C1`; (Log 1: `9215`, `91D1`, `91D2`, `92C1`, kein `9210`); beim Ende 0,48 s nach dem Ende von `A0/41` `9243`, `9245`, `91CF`, `92C1`, `91C1`, `901B` (beide Logs).
+- Strom und Grenzen der BMS in `A0/41` (Formeln aus dem Treiber): 0x155 Strom +25,0 A Median (Log 1) und +24,5 A (Log 2); SOC Log 1 von 9,08 auf 14,94 %, Log 2 von 39,3 auf 43,0 %. 0x424 "Laden erlaubt" in allen Zustaenden 43.000 W, "Entladen erlaubt" 54.500 bis 72.000 W (Fahrt im Fahr-Log 55.000 bis 57.000 W), SOH 95, Flags `11`/`40` unveraendert.
+
+**Gemessen, Ende (Log 2, Fernbedienung bei 553,27 s)**
+- `A0/41` -> `00/01` B7 `80` 553,27 -> `00/01` B7 `40` 553,77 -> `00/07` 555,27 -> `00/06` 556,37 -> `08/06` 556,77 -> `00/06` 557,87 -> `00/02` 677,87 (121,5 s Wach-Zeit nach 556,37 s). Log 1: `00/01` 1149,60 -> `00/01` B7 `40` 1150,20 -> `00/03` 1151,50 -> `00/07` 1151,60 -> `08/07` 1152,00 -> `08/06` 1152,60 -> `00/06` 1153,10 -> `00/02` 1273,20.
+- 0x0EC letztes Frame 677,83 s (Log 2), 0x0ED letztes Frame `60 FF 00` bei 688,91 s, also 11,0 s nach dem `00/02` (Log 1: 1273,20 s und 1284,26 s = 11,1 s).
+
+**Gemessen, Dumps vor und nach Ladelog 1 (MCPU)**
+- `9261` `2D 59 D8` -> `2D 5A D9` (+257 min), `91C1` `21 61 DA` -> `21 62 DB` (+257 min), Abstand `9261 - 91C1` vorher und nachher 784.382; der neue `9261` ist gleich dem letzten 0x436-Wert im Log (`2D 5A D9`, 1271,9 s).
+- `9279` 16 -> 20; `9275` bis `9278` unveraendert; `9270` hat zwei neue Eintraege `04`; `9259` `05` -> `04`, `925C` `01` -> `02` (SCPU im dritten Dump gleich, im vierten wieder `05`/`01`); `91CF` unveraendert `80 0C 28 60`; `925E` unveraendert `13 88 6F`.
+
+**Bauauftrag (noch nicht gebaut)**
+1. Neuer Zustand "Laden" in der Zustandsfolge: Inhalt aller Zeilen wie unter "Zustand `A0/41`", 0x426 `00 A0 41 01 6A 71 00 80`, 0x436 B0 `AD`.
+2. Weckfolge davor mit den 0x426-Codes und Zeiten aus Log 2, Byte 7 `80` ab `60/61` (250,37 s), 0x436 B0 Rampe auf `AD`, 0x0EC erst 2,05 s nach dem Start.
+3. Ende wie im Log (Codes und Zeiten, 0x436 B0 Rampe zurueck) bis `00/02` und Stille.
+4. Dauer von "Laden" im Auto: 297,6 s und 529,8 s, jeweils bis zur Fernbedienung; Vorgabe fuer den Emulator offen (vom Nutzer zu entscheiden).
+5. Nicht gemessen und deshalb nicht zu raten: ob die BMS in "Laden" das Entladen zulaesst, ob die Schuetze gleich schalten, was die Sicherung von 9261/91C1 ausloest, ob E14381 in "Laden" ausbleibt (Bench-Test nach dem Bau).
+6. Wake-Formen der uebrigen EVC-Frames, Startversatz der Frames, kurzer Einschlafweg aus Sitzung 3 des Fahr-Logs und Standardwert 0x426 km bleiben wie bisher auf der Liste (0x5D7 bleibt auf der Bench aus, Fahrzeug-CAN-Frame).
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
