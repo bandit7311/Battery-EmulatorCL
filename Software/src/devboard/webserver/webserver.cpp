@@ -1224,6 +1224,11 @@ void init_webserver() {
     request->send(200, "text/plain", text);
   });
 
+  // Last 0x155 of the battery, byte 7 to byte 0 in decimal (13.10.), polled by the page.
+  def_route_with_auth("/twingoRx155", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/plain", static_cast<RenaultTwingoGen1Battery*>(battery)->rx_155_text());
+  });
+
   // "Read DTC fault counters" button: UDS 0x19 0x14.
   def_route_with_auth("/triggerTwingoDtcFdc", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     static_cast<RenaultTwingoGen1Battery*>(battery)->read_DTC_fdc();

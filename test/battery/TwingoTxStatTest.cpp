@@ -160,3 +160,38 @@ TEST(TwingoTxStatDriver, TheDriverMeasuresItsOwn426And436AndTheRouteTextShowsIt)
   b.tx_measure_text(text, sizeof(text));
   EXPECT_EQ(std::string(text).rfind("0x426: n=0 ", 0), 0u);
 }
+
+// ---------------------------------------------------------------------------
+// 0x155 of the battery on the page (byte 7 to byte 0, decimal)
+// ---------------------------------------------------------------------------
+
+TEST(TwingoRx155Display, ShowsTheLastFrameByte7ToByte0InDecimal) {
+  StatTwingo b;
+  b.setup();
+  const std::string none = b.rx_155_text().c_str();
+  EXPECT_NE(none.find("no frame yet"), std::string::npos) << none;
+  CAN_frame f = {};
+  f.DLC = 8;
+  f.ID = 0x155;
+  const uint8_t bytes[8] = {0x49, 0x87, 0xD0, 0x54, 0x0F, 0x5A, 0x02, 0xA7};
+  memcpy(f.data.u8, bytes, 8);
+  b.handle_incoming_can_frame(f);
+  EXPECT_STREQ(b.rx_155_text().c_str(), "0x155 (B7..B0): 167 2 90 15 84 208 135 73");
+  // a frame that the driver drops as invalid (current raw 0xFFF) is shown too
+  f.data.u8[1] = 0x8F;
+  f.data.u8[2] = 0xFF;
+  b.handle_incoming_can_frame(f);
+  EXPECT_STREQ(b.rx_155_text().c_str(), "0x155 (B7..B0): 167 2 90 15 84 255 143 73");
+}
+
+TEST(TwingoRx155Display, TheFieldStandsRightOfTheDtcDetailsButtonWithItsPoll) {
+  StatTwingo b;
+  b.setup();
+  const std::string page = b.get_uds_info_html().c_str();
+  const size_t btn = page.find("subfunction 0x06)</button>");
+  ASSERT_NE(btn, std::string::npos);
+  const size_t span = page.find("<span id='twingoRx155'>", btn);
+  ASSERT_NE(span, std::string::npos);
+  EXPECT_LT(span - btn, 60u) << "directly after the button";
+  EXPECT_NE(page.find("fetch('/twingoRx155')"), std::string::npos);
+}

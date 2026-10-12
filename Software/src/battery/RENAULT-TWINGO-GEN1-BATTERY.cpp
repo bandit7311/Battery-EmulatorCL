@@ -2162,6 +2162,8 @@ void RenaultTwingoGen1Battery::handle_incoming_can_frame(CAN_frame rx_frame) {
   switch (rx_frame.ID) {
     case 0x155: {  //10ms - Charging power, current and SOC - Confirmed sent by: Fluence ZE40, Zoe 22/41kWh, Kangoo 33kWh
       datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;
+      memcpy(rx_155_last, rx_frame.data.u8, 8);  // raw bytes for the page (also of frames that are dropped below)
+      rx_155_seen = true;
       // A frame with the "invalid" markers (current raw 0xFFF or SOC raw above 40000, i.e. 100 %; seen right
       // after a wake-up and with only 0x350 on: SOC raw 0xFFF8 = 163.82 %) is dropped as a whole, the last valid
       // values stay (08.10.).
@@ -3778,6 +3780,19 @@ void RenaultTwingoGen1Battery::send_bus_closing(unsigned long now) {
   }
 }
 
+// The last 0x155 of the battery, byte 7 to byte 0, each in decimal (13.10., for the page).
+String RenaultTwingoGen1Battery::rx_155_text() const {
+  if (!rx_155_seen) {
+    return "0x155 (B7..B0): no frame yet";
+  }
+  String t = "0x155 (B7..B0):";
+  for (int i = 7; i >= 0; i--) {
+    t += " ";
+    t += String((unsigned)rx_155_last[i]);
+  }
+  return t;
+}
+
 // What the OLED display shows during a Sleep run (13.10.): "Sleep requested" with 00:00:00 while the shutdown sequence runs,
 // "Sleep pls wait" with the time of the silence from its start (the end time is the "Sleep failsafe minutes") in the true
 // silence; nothing otherwise (the display then writes the events again, which clears the text and the time).
@@ -4234,6 +4249,8 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content +=
         "fetch('/twingoTxStat').then(function(a){return a.text();}).then(function(x){r.textContent=x;});},1000);";
     content += "function twingoTxReset(){fetch('/twingoTxStat?reset=1');}";
+    content += "setInterval(function(){var r=document.getElementById('twingoRx155');if(!r){return;}";
+    content += "fetch('/twingoRx155').then(function(a){return a.text();}).then(function(x){r.textContent=x;});},1000);";
     content += "function twingoPoll(which,span){var n=0;var h=setInterval(function(){";
     content += "fetch('/twingoQueryResult?which='+which).then(function(a){return a.text();}).then(function(x){";
     content += "span.textContent=x;if((x!=='requested'&&x!=='')||++n>40){clearInterval(h);}});},250);}";
@@ -4279,7 +4296,7 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
              "<button onclick='twingoTxReset()'>Reset</button> Own send intervals 0x426 / 0x435 / 0x436 (time of the call "
              "to the send function in microseconds, not of the wire; target 100 ms):<pre id='twingoTxStat'>-</pre>"
              "<button onclick=\"fetch('/triggerTwingoDtcDetails')\">Read DTC details (EXPERIMENTAL, UNTESTED, "
-             "subfunction 0x06)</button><br>"
+             "subfunction 0x06)</button> <span id='twingoRx155'>" << rx_155_text() << "</span><br>"
              "DTC details - " << String(DTC_DETAILS_CODES[0], HEX) << ": " << dtc_ext_log_details[0] << "<br>"
              "DTC details - " << String(DTC_DETAILS_CODES[1], HEX) << ": " << dtc_ext_log_details[1] << "<br>";
   // clang-format on

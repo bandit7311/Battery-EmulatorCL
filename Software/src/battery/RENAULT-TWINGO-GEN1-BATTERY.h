@@ -231,6 +231,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Measurement of the own send intervals of 0x426/0x435/0x436 (text for the page; reset starts again).
   void tx_measure_text(char* out, size_t n) const { tx_measure.format(out, n); }
   void tx_measure_reset() { tx_measure.reset(); }
+  String rx_155_text() const;  // last 0x155 of the battery, byte 7 to byte 0 in decimal
   // "Read DTC fault counters": UDS 0x19 0x14 (reportDTCFaultDetectionCounter), shown decoded.
   void read_DTC_fdc();
   // 0x350 / sleep / wake builders and the simulator rows ask this before sending (bit n = sim_signals[n]).
@@ -952,6 +953,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   char uq_result[UQ_TEXT_SIZE] = "not run yet";
   char fdc_result[UQ_TEXT_SIZE] = "not run yet";
   twingo_txstat::Measure tx_measure;
+  uint8_t rx_155_last[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  bool rx_155_seen = false;
   char dtc_scpu_result[UQ_TEXT_SIZE] = "not run yet";  // own row on the page, see read_DTC_scpu()
   bool uq_to_scpu_row = false;                         // the running free request also fills dtc_scpu_result
   bool uq_scpu_row_pending = false;                    // set by read_DTC_scpu() before the request is started

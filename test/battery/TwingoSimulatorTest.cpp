@@ -151,11 +151,11 @@ bool contains(const String& s, const char* needle) {
 // look at the answer texts only.
 std::string detail_lines(const String& html) {
   std::string h(html.c_str());
-  size_t p = h.find("subfunction 0x06)</button><br>");
+  size_t p = h.find("subfunction 0x06)</button>");
   if (p == std::string::npos) {
     return "";
   }
-  return h.substr(p, 260);
+  return h.substr(p, 420);  // the field of 0x155 stands behind the button (13.10.)
 }
 
 // Request frames on 0x18DADBF1 (the driver's own TX of the diagnostic channel).
