@@ -44,3 +44,24 @@
 - Ob eine dieser Pruefungen E14381 ausloest (vom 02. bis 05.10. war der gespeicherte Wert 0 und E14381 trotzdem aktiv).
 - Dass die Standzeit-Pfade den SOC-Sprung nach unserem Sleep (USOC 35,85 -> 42,37 %) erklaeren (Vermutung).
 - Welche Bedingung am Bench das Speichern von `9261` verhindert.
+
+## Nachtrag 12.10. abends: Beispielframes und Aussage von dj2cs (Screenshot des Nutzers)
+
+Wie uebergeben (Text im Screenshot, Frame = ID [DLC] Bytes, dazu die Anmerkung):
+- `0x436 [4] 00 C7 AF FC` - B1..B3 = 13.086.716 min, monoton.
+- `0x69F [4] 0A 1B 2C 30` - Fahrzeug-ID, konstant (unteres Nibble egal).
+- `0x426 [6] 00 00 02 C7 AF FC` - B2&3 = 2 (aktiv), B3..B5 = zweiter Zaehler (hier derselbe Wert wie in `0x436`).
+- `0x423 [7] 00 00 00 00 28 00 00` - B0&3 = 0, keinesfalls 3.
+- `0x19F [4] 00 00 7D 00` - raw 2000 -> phys 0.
+- Aussage: "In deinem Mitschnitt ist auch nur der eine Zeitgeber vorhanden, daher wuerde ich sagen, du machst alles richtig und das zeigt auch, dass die DTC verschwunden ist."
+
+**Wer dj2cs ist und ob die Beispielframes aus einem eigenen Aufbau oder aus Deutung unseres Mitschnitts stammen, ist nicht bekannt.** Der Name steht in keinem frueheren Dokument; ob es der Freund mit dem Zoe-Ph2-Emulator (zip `2d77503c`, 11.10.) ist, ist nicht belegt.
+
+**Abgleich:**
+- `0x19F`: gleich (B2 = `7D`, B3 oben 0, raw 2000).
+- `0x426` B3..B5: bei uns Kilometer (Auto-Aufnahme `01 6A 70` = 92.784, Bench `01 1A BC` = 72.380 und `925F` = 72.380,00 km), nicht der Wert von `0x436`. Im Beispiel von dj2cs steht dort derselbe Wert wie in `0x436`. Wir haben nie `0x426` B3..B5 gleich `0x436` B1..B3 gesendet.
+- `0x423`: bei uns (Auto-Aufnahme, alle 8 Zustaende) B0 = `07` oder `0B`, also `B0&3 = 3`; im Beispiel B0 = `00`. Widerspruch zwischen "keinesfalls 3" und der Auto-Aufnahme; E14381 ist am Bench trotz `B0&3 = 3` nach dem +1000-Test und nach dem kalten Neustart ausgeblieben.
+- `0x436`: B0 = `00` im Beispiel, bei uns `80`/`8A`/`AC`/`AD` je Zustand.
+- `0x69F`: andere ID, ohne Bedeutung fuer den Vergleich.
+
+**Moeglicher Test (nicht gebaut):** `0x426` B3..B5 auf denselben Wert wie `0x436` setzen und `0x423` B0 auf `B0&3 = 0`; nur einzeln und mit E14381-Lesung (`19 02 FF`) vor und nach jedem Schritt. Ob das noetig ist, ist offen, da E14381 gerade nicht ansteht.
