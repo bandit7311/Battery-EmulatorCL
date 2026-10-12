@@ -186,6 +186,17 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 4. Tests gegen die gedruckten Zeiten des Fahrlogs (lang, kurz) und gegen das Tera-Term-Log (Ladelog 2).
 5. Offen, nicht zu raten: Dauer von `00/07` im kurzen Weg (gedruckt 0,6 s) und im langen Weg (heute 2600 ms, davon 2,0 s in der Logluecke); wie der Weg "Ladelog 2" bei Sleep, Sleep 0x9281=1 und NVROL reset wirken soll (Ausloeser im Auto war die Fernbedienung nach Laden mit `A0/41` als Ausgangszustand).
 
+**Ende des Busses: Reihenfolge der letzten Frames, Emulator so stellen, dass 0x157 als letztes Frame kommt (Wunsch des Nutzers, 12.10.)**
+- **Gemessen in beiden Ladelogs** (Zeit nach dem Beginn von `00/02`; Ladelog 2 vollstaendig, Ladelog 1 PuTTY):
+  - 0x0EC endet beim Beginn von `00/02` (Ladelog 2: 677,83 s).
+  - Die meisten Frames (0x155, 0x424, 0x1A1, 0x1C7, 0x419, 0x428, 0x42F, 0x4F7, 0x511, 0x425) enden etwa 10,0 s danach (Ladelog 2: 687,82 bis 687,91 s; Ladelog 1: 1283,15 bis 1283,24 s).
+  - 0x69F endet bei +10,5 s (Ladelog 1: +10,3 s).
+  - 0x426, 0x435, 0x436 enden bei +11,00 s (jeweils im Zustand `00 00 02 ...`, 0x426 `00 00 02 01 6A 71 00 40`).
+  - 0x423 endet bei +11,03 s.
+  - **0x0ED `60 FF 00` und 0x157 enden zuletzt, im selben Zeitstempel** (+11,04 s im Ladelog 2: 688,91 s; +11,06 s im Ladelog 1: 1284,26 s). Letzte Werte 0x157: `D5 77 09 C4 FF E0 00 80` (Ladelog 2), `D5 17 09 C4 FF E0 00 80` (Ladelog 1; B1 ist der Zaehler).
+- **Stand im Code:** `send_bus_closing()` (`RENAULT-TWINGO-GEN1-BATTERY.cpp`) sendet in der 00-Stufe alle eingeschalteten `R`-Zeilen ausser 0x0EC im Zustand `BUS_ZU` (0x0ED in der Schlussform `60 FF 00`) so lange wie die 00-Stufe dauert (900 ms "wie im Auto", 1000 ms normal). Alle Zeilen enden dabei gleichzeitig, nicht in der Reihenfolge des Autos, und nach 0,9 bis 1 s statt nach etwa 11 s.
+- **Bauauftrag (noch nicht gebaut):** Die Bus-Schlussfolge so legen, dass die Zeilen in der Reihenfolge des Autos enden: 0x0EC bei `00/02`, die uebrigen Zeilen nach etwa 10 s, 0x69F bei etwa 10,5 s, 0x426/0x435/0x436 bei 11,00 s, 0x423 bei 11,03 s und **0x157 zusammen mit 0x0ED zuletzt (11,04 s)**. Gehoert zum Einschlafweg "Ladelog 2" (dort steht `00/02` 11,1 s und das letzte Frame `0x0ED`). Offen, nicht zu raten: ob dieselbe Endreihenfolge fuer "lang" und "kurz" gelten soll (im Fahrlog nicht pruefbar, Luecken).
+
 ## Zum Bauen vorgemerkt: Display-Anzeige beim Einschlafen (Wunsch vom 12.10., noch nicht gebaut, wartet auf "bauen")
 **Wunsch des Nutzers:** Auf dem OLED-Display (vom Nutzer als SSD1309 bezeichnet) in der mittleren Zeile, in der sonst die Stoerungen stehen, waehrend des Einschlafens:
 - Zeile 1 (mittig zentriert): `Sleep pls wait`
@@ -226,9 +237,9 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
 - **Zeitquelle der MCPU-Missionen** (0x350, 0x436, 0x523 oder 0x376) per Test mit weit auseinanderliegenden Altern (1.400.000 und 1.500.000) klaeren, danach evtl. nur die richtige Quelle senden.
 - **Pack-km auf 6.844 bringen:** von Hand per km-Feld (aktuell 13 km; +6.831 setzen), kein Bau noetig.
-- **Pack-Zeit** (`9261`/`91C1` am MCPU) bleibt 0; Missionen tragen Zeitstempel. Test: lange Laufzeit im Fahrmodus (10, 30, 60 min).
-- **E14381** mit `0x426` an (Test B: `0x157` und weitere EVC-Zeilen einzeln zuschalten).
-- **`1B0E41`** (Speicherfehler MCPU) aktiv `2F`: Loeschen und neu lesen.
+- **Pack-Zeit** (`9261`/`91C1` am MCPU) bleibt 0; Missionen tragen Zeitstempel. Test: lange Laufzeit im Fahrmodus (10, 30, 60 min). **Stand 12.10.:** MCPU-`9261` weiter 0 (auch nach +1000, `9281` und Sleep); SCPU-`9261` = 1.360.946 min (folgt 0x436); `9259` = 05, `925C` = 01; `925E` = `13 88 6F` (= 0x69F B1-B3); `925B` = `80 10` (Software Reset und Irregular Reset). Speichern am Sitzungsende (Auto) am Bench nie gesehen; `91C1` am 12.10. nicht gelesen. Naechster Test: Neustart (12 V), Sitzung mit allen 17 EVC-Zeilen, Auto-Endfolge, danach `9261`/`91C1` lesen (`9261 - 91C1 = 784.382` im Auto). Details: `TEST_BENCH_10-10_Aufwecken_und_Zustaende.md`, Abschnitt "Ergebnis Bench 12.10.".
+- **E14381** mit `0x426` an (Test B: `0x157` und weitere EVC-Zeilen einzeln zuschalten). **Stand 12.10.:** Nach dem Anheben der Zeit in 0x436 um +1000 ging E14381 von `2F` auf `2E` (nicht mehr aktiv) und liess sich quittieren; alle bisherigen Eingriffe (alle Zeilen, Pruefsummen, Zustaende, km) hatten ihn auf `2F` gelassen. Basis- und Zielwert des Tests nicht festgehalten. Schwelle (ab welchem Wert `2E`) offen.
+- **`1B0E41`** (Speicherfehler MCPU, 6926 "External NV memory", Test 65 "general checksum failure") aktiv `2F`: **Stand 12.10.:** `19 02 09` an die MCPU zeigte zuerst keine Fehler, in einer spaeteren Lesung wieder `1B0E41 = 2F`. Ob er nach `14 FF FF FF` sofort wiederkommt und ob er das Speichern von `9261`/`91C1` blockiert, ist offen (Hypothese, nicht belegt). SCPU am 12.10.: `1BB587 = 2F` (Stromsensor, fehlende Frames) aktiv, `1BB108 = 2E` (Slave-Kommunikation) zeitweise.
 
 ## Offen beim Nutzer
 - **Bench-Test** in Schritten (Plan: `TEST_BENCH_10-10_Aufwecken_und_Zustaende.md`): erst nur `0x423`, dann die uebrigen BMS<>EVC-Frames nach und nach; `0x350` und die anderen Fahrzeug-CAN-Zeilen erst als Zusatz. Logger ohne Filter (RX und TX).
