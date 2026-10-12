@@ -250,11 +250,16 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - Die Stille selbst ist still (keine 11-Bit-Frames zwischen Ende der Abschaltfolge und Wake).
 
 **Bauauftrag (noch nicht gebaut):**
-1. `0x350` im Sleep (Zustand 7) und Wake (Zustand 8) nicht mehr auf den Bus senden. **Der Takt bleibt:** die Stufenzeiten (`powerdown_stage`, C3 / C2 / C0 / 00 als interne Zeitgeber, passen zu Ladelog 2: `A0/41` bis 553,27 s, `00/02` ab 677,87 s = 124,6 s gegen 126 s C3+C2) und der Aufruf `hv_observe_350(...)` fuer das HV-Modell (`BATTERY.cpp:1500`, `:2408`, `:3351`) muessen erhalten bleiben. Die Bus-Folge der EVC-Frames (0x426 "zu", 0x0EC endet, 0x0ED/0x157 zuletzt) haengt nicht am Senden von `0x350`.
+1. `0x350` bleibt in der Simulator-Liste (Nutzer, 12.10.), muss aber auch im Sleep (Zustand 7) und Wake (Zustand 8) ausgehen, wenn die Zeile nicht angehakt ist: Senden im Sleep/Wake nur bei gesetztem Haken der Zeile 0x350 (Zeile 2). **Der Takt bleibt immer:** die Stufenzeiten (`powerdown_stage`, C3 / C2 / C0 / 00 als interne Zeitgeber, passen zu Ladelog 2: `A0/41` bis 553,27 s, `00/02` ab 677,87 s = 124,6 s gegen 126 s C3+C2) und der Aufruf `hv_observe_350(...)` fuer das HV-Modell (`BATTERY.cpp:1500`, `:2408`, `:3351`) muessen erhalten bleiben. Die Bus-Folge der EVC-Frames (0x426 "zu", 0x0EC endet, 0x0ED/0x157 zuletzt) haengt nicht am Senden von `0x350`.
 2. `0x79B` (Standard-UDS-Pfad der Basisklasse) abschalten; vorher pruefen, ob etwas davon abhaengt (PID-Scan, SOH-Kandidat).
 3. Regressionstest: fuer alle 71 Zeilen, nur diese an, kompletter Zyklus: keine 11-Bit-Frames ausser dem der eigenen Zeile.
 
-**Offen / nicht geprueft:** 29-Bit-UDS-Abfragen (`0x18DADBF1`, Zellen-Rundlauf) sind nicht Teil der 71 Zeilen und laufen im Wachzustand; Ziel "Laden", Weg "kurz" und altes Zoe-Format nur im Code durchgesehen, nicht im Probelauf; ob die Zeile `0x350` (Dauerframe) ganz entfallen soll, ist nicht entschieden. Ob die zusaetzlichen Frames das Speichern von `9261` stoeren, ist nicht bekannt.
+**29-Bit-UDS-Abfragen, geprueft 12.10. (Probelauf, alle Zeilen aus, Weg "Ladelog 2"):**
+- Im Wachzustand gehen etwa 30 Anfragen pro Sekunde auf `0x18DADBF1` (`03 22 90 xx`, 136 verschiedene DIDs, Zellen-Rundlauf mit Prioritaets-PIDs, `BATTERY.cpp:4036-4075`). Es gibt dafuer keine Zeile und keinen Haken; nur "Cellwatch" und die Zellwerte-Quelle (UDS/Broadcast) greifen ein (Broadcast ueberspringt nur die Zell-PIDs 0x9021..0x9083, im Code gelesen, nicht gemessen).
+- In der Abschaltfolge (Sleep, 137 s plus Schliessen) wurden keine 29-Bit-Frames gesendet, in der Stille ebenfalls keine; nach dem Wake setzen sie wieder ein (Prioritaets-PIDs, danach Rundlauf).
+- Im echten Auto fragt die EVC dagegen nur gelegentlich (`9215`, `91D1`, `91D2`, `92C1`; `9243`, `9245`, `91CF`, `91C1`, `901B`; `BEFUND_Ladelog_Twingo_11-10.md:44`), keinen Zellen-Rundlauf. Auf dem Bench liegt im Wachzustand also Verkehr, der im Auto nicht vorkommt. Ob das den Akku stoert, ist nicht bekannt. Ob dafuer ein Haken (Rundlauf aus) gebaut werden soll, ist nicht entschieden.
+
+**Offen / nicht geprueft:** Ziel "Laden", Weg "kurz" und altes Zoe-Format nur im Code durchgesehen, nicht im Probelauf; ob die Zeile `0x350` (Dauerframe) ganz entfallen soll, ist nicht entschieden. Ob die zusaetzlichen Frames das Speichern von `9261` stoeren, ist nicht bekannt.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
