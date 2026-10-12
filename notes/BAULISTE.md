@@ -139,6 +139,21 @@ Anlass: Frage, ob das Timing von 0x426 zu E14381 beitragen kann. Nur Gemessenes 
 3. Alternative ohne Bau: zweites Geraet als CAN-Logger mit Hardware-Zeitstempeln am Bus (vom Nutzer zu entscheiden).
 4. Nicht gemessen und deshalb nicht zu raten: ob die MCPU den Takt von 0x426 prueft und ob E14381 davon abhaengt.
 
+## Zum Bauen vorgemerkt (WICHTIG): eigene Zeile "DTC SCPU" auf der Seite (Stand 12.10., noch nicht gebaut, wartet auf "bauen")
+Anlass: Nach "Read DTC SCPU" erscheint unten nichts (Nutzer, 12.10.). Nur Codestellen und Nutzerangaben, keine Annahmen.
+
+**Stand im Code**
+- Knopf "Read DTC SCPU" (`advanced_battery_html.cpp:61`, `reload_after = false`) ruft `read_DTC_scpu()` auf (`RENAULT-TWINGO-GEN1-BATTERY.cpp:4250`): freie Anfrage `19 02 <Maske>` an Ziel 1 (SCPU), die Antwort geht in das Feld "Answer" (`twingoQueryResult`, Zeile 4107). Dieses Feld wird bei jeder weiteren freien Anfrage ueberschrieben.
+- Die Zeile unten "DTC Read (ext. protocol, Read DTC button)" (Zeile 4170, `dtc_ext_log_read`) gehoert zum MCPU-Knopf "Read DTC" (`reload_after = true`, Seite laedt nach 1,5 s neu).
+- Die Maske kommt aus dem Haken "Read ALL DTC statuses (mask 0xFF)" (`dtc_ext_read_mask`, Standard `0x09`); mit Haken sendet der Knopf `19 02 FF`, das der Nutzer als "no response" meldet.
+
+**Bauauftrag (noch nicht gebaut)**
+1. Eigene Zeile "DTC Read SCPU" unten auf der Seite, getrennt vom Feld "Answer", mit dem letzten Ergebnis der SCPU-Abfrage (Rohantwort und Liste der Codes mit Status).
+2. Das Ergebnis bleibt stehen, bis die naechste SCPU-Abfrage kommt (wird nicht von anderen freien Anfragen ueberschrieben).
+3. Die Zeile aktualisiert sich nach dem Klick von selbst (kein manuelles Neuladen).
+4. Gleiches fuer "Erase DTC" der SCPU ist nicht beauftragt.
+5. Noch festzulegen: ob die Zeile Namen der Codes aus der SCPU-Definition zeigt (z. B. 1BB587 = "CAN current sensor (SCPU)1", Typ 135) und ob die Maske weiter vom Haken kommt.
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
