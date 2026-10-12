@@ -58,7 +58,7 @@ void RenaultTwingoGen1Battery::
     uint8_t mask = datalayer_battery->status.temperature_sensors_valid_mask;
     for (uint8_t i = 0; i < EXT_TEMP_SENSOR_COUNT; i++) {
       if ((mask & (1u << i)) && ((now - ext_temp_last_ms[i]) > EXT_TEMP_STALE_MS)) {
-        mask &= (uint8_t) ~(1u << i);
+        mask &= (uint8_t)~(1u << i);
       }
     }
     datalayer_battery->status.temperature_sensors_valid_mask = mask;
@@ -278,7 +278,7 @@ void RenaultTwingoGen1Battery::handle_extended_single_frame(uint16_t pid, const 
       datalayer_battery->status.temperature_sensors_valid_mask |= (uint8_t)(1u << sensor);
       ext_temp_last_ms[sensor] = millis();
     } else {
-      datalayer_battery->status.temperature_sensors_valid_mask &= (uint8_t) ~(1u << sensor);
+      datalayer_battery->status.temperature_sensors_valid_mask &= (uint8_t)~(1u << sensor);
     }
     return;
   }
@@ -881,7 +881,13 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
                                                          POWERDOWN_00_MS};
       static const unsigned long stage_duration_car_ms[4] = {POWERDOWN_C3_MS_CAR, POWERDOWN_C2_MS_CAR,
                                                              POWERDOWN_C0_MS_CAR, POWERDOWN_00_MS_CAR};
-      if (shutdown_like_car) {
+      // The 00 stage lasts longer on the way "Ladelog 2" (the bus closes for 11.1 s); 0x350 stays at 00 only for its own time.
+      const bool stage00_350_over =
+          powerdown_stage >= 3 && datalayer_extended.twingoGen1.bus_sleep_path == twingo_bus::SLEEP_LADELOG2 &&
+          (now - powerdown_stage_start_ms) >= (shutdown_like_car ? POWERDOWN_00_MS_CAR : POWERDOWN_00_MS);
+      if (stage00_350_over) {
+        // nothing more on the vehicle CAN 0x350
+      } else if (shutdown_like_car) {
         send_powerdown_350_car(now);
       } else if (now - previousMillis_350 >= INTERVAL_350_MS) {
         previousMillis_350 = now;
@@ -891,8 +897,11 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
         start_wake_burst();
         break;
       }
-      if (now - powerdown_stage_start_ms >=
-          (shutdown_like_car ? stage_duration_car_ms[powerdown_stage] : stage_duration_ms[powerdown_stage])) {
+      const unsigned long stage_len =
+          (powerdown_stage == 3)
+              ? twingo_bus::closing_stage_ms(datalayer_extended.twingoGen1.bus_sleep_path, shutdown_like_car)
+              : (shutdown_like_car ? stage_duration_car_ms[powerdown_stage] : stage_duration_ms[powerdown_stage]);
+      if (now - powerdown_stage_start_ms >= stage_len) {
         if (powerdown_stage + 1 >= 4) {
           // The 00 stage's own duration has elapsed too: stop everything, true silence begins.
           nvrol_silence_start_ms = now;
@@ -1740,7 +1749,7 @@ void RenaultTwingoGen1Battery::append_ext_value(String& s, const char* label, co
 }
 
 void RenaultTwingoGen1Battery::priority_answered(uint8_t bit) {
-  ext_priority_pending_mask &= (uint8_t) ~(1u << bit);
+  ext_priority_pending_mask &= (uint8_t)~(1u << bit);
   if (ext_priority_pending_mask == 0 && wake_tracking && wake_priority_done < 0) {
     wake_priority_done = (int32_t)(millis() - wake_start_ms);
   }
@@ -3431,6 +3440,9 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
       if (!twingo_bus::active_in_state(*def, state)) {
         continue;
       }
+      if (def->kind == twingo_bus::K_0EC && bus_0ec_held_back(currentMillis)) {
+        continue;  // wake-up through the plug: 0x0EC starts 2.05 s after the first frame
+      }
       const uint8_t def_idx = (uint8_t)(def - twingo_bus::FRAMES);
       if (bus_state_seen[def_idx] != state) {
         bus_state_seen[def_idx] = state;
@@ -3628,6 +3640,9 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
     if (def == nullptr) {
       continue;
     }
+    if (in_00_stage && bus_closing_over(it.id, false, now)) {
+      continue;  // closing stage: this frame is over (order of the way "Ladelog 2")
+    }
     if (now - bus_last_ms[it.slot] < def->interval_ms) {
       continue;
     }
@@ -3649,7 +3664,7 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
       bus_state_frames[idx] = (prev != 255 && prev > twingo_bus::BUS_ZUENDUNG1) ? twingo_bus::Z1_19F_RAMP_DONE : 0;
     }
     twingo_bus::build_frame(*def, state, bus_seq[idx]++, age_min, odo_426_km, f.data.u8, bus_state_frames[idx]++, o426,
-                            odo_426_b7);
+                            odo_426_b7, def->kind == twingo_bus::K_436 ? bus_b0_436(now) : (int16_t)-1);
     transmit_can_frame(&f);
   }
 }
@@ -3665,7 +3680,8 @@ uint8_t RenaultTwingoGen1Battery::bus_state_now(unsigned long now, int32_t& o426
   if (!tg.bus_state_manual) {
 #ifdef TWINGO_EXTENDED_CELL_POLLING
     if (NVROLstateMachine == 7) {
-      state = twingo_bus::sleep_state((uint32_t)(now - powerdown_start_ms), bus_sleep_start_state, o426);
+      state =
+          twingo_bus::sleep_state((uint32_t)(now - powerdown_start_ms), bus_sleep_start_state, o426, tg.bus_sleep_path);
     } else
 #endif
     {
@@ -3673,7 +3689,7 @@ uint8_t RenaultTwingoGen1Battery::bus_state_now(unsigned long now, int32_t& o426
         bus_session_started = true;
         bus_session_start_ms = now;
       }
-      state = twingo_bus::wake_state((uint32_t)(now - bus_session_start_ms), o426);
+      state = twingo_bus::wake_state((uint32_t)(now - bus_session_start_ms), o426, tg.bus_wake_target);
     }
   }
   if (state >= twingo_bus::BUS_STATE_COUNT) {
@@ -3681,6 +3697,40 @@ uint8_t RenaultTwingoGen1Battery::bus_state_now(unsigned long now, int32_t& o426
   }
   bus_state_shown = state;
   return state;
+}
+
+int16_t RenaultTwingoGen1Battery::bus_b0_436(unsigned long now) {
+  const auto& tg = datalayer_extended.twingoGen1;
+  if (tg.bus_state_manual) {
+    return -1;
+  }
+#ifdef TWINGO_EXTENDED_CELL_POLLING
+  if (NVROLstateMachine == 7) {
+    return tg.bus_sleep_path == twingo_bus::SLEEP_LADELOG2
+               ? (int16_t)twingo_bus::laden_end_b0((uint32_t)(now - powerdown_start_ms))
+               : (int16_t)-1;
+  }
+#endif
+  if (bus_session_started && tg.bus_wake_target == twingo_bus::TARGET_LADEN) {
+    return (int16_t)twingo_bus::laden_wake_b0((uint32_t)(now - bus_session_start_ms));
+  }
+  return -1;
+}
+
+bool RenaultTwingoGen1Battery::bus_0ec_held_back(unsigned long now) {
+  const auto& tg = datalayer_extended.twingoGen1;
+  return !tg.bus_state_manual && bus_session_started && tg.bus_wake_target == twingo_bus::TARGET_LADEN &&
+         (now - bus_session_start_ms) < 2050;
+}
+
+bool RenaultTwingoGen1Battery::bus_closing_over(uint16_t id, bool is_0ec, unsigned long now) {
+#ifdef TWINGO_EXTENDED_CELL_POLLING
+  if (NVROLstateMachine == 7 && powerdown_stage >= 3) {
+    return (now - powerdown_stage_start_ms) >=
+           twingo_bus::closing_end_ms(id, is_0ec, datalayer_extended.twingoGen1.bus_sleep_path);
+  }
+#endif
+  return false;
 }
 
 // A new session of the bus (the wake-up after Sleep / NVROL reset): every frame starts again with its wake-up form
@@ -3706,6 +3756,9 @@ void RenaultTwingoGen1Battery::send_bus_closing(unsigned long now) {
     const twingo_bus::FrameDef* def = twingo_bus::find_frame((uint16_t)sim_signals[i].id);
     if (def == nullptr || def->kind == twingo_bus::K_0EC) {
       continue;  // 0x0EC ends when the car closes
+    }
+    if (bus_closing_over(def->id, false, now)) {
+      continue;  // order of the way "Ladelog 2": most frames about 10 s, 0x157 and 0x0ED last
     }
     if (now - sim_last_send_ms[i] < def->interval_ms) {
       continue;
@@ -3759,6 +3812,14 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
     datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;
     send_bus_closing(currentMillis);               // the bus closes: 0x426 = zu, 0x0EC ends, 0x0ED goes on
     send_bus_vehicle_frames(currentMillis, true);  // 0x19F/0x423/0x426/0x436 in the state "closed"
+    // The way "Ladelog 2": 0x69F goes on until 10.5 s of the closing stage, also when the other own frames stop here.
+    if (suppress_own_broadcast && datalayer_extended.twingoGen1.bus_sleep_path == twingo_bus::SLEEP_LADELOG2 &&
+        sim_enabled(7) && !bus_closing_over(0x69F, false, currentMillis) &&
+        currentMillis - previousMillis1000_69f >= INTERVAL_1_S) {
+      previousMillis1000_69f = currentMillis;
+      transmit_can_frame(&ZOE_69F_BCM_GATEWAY);
+      tx_69f_count++;
+    }
   }
   if (!suppress_own_broadcast) {
     // Send 100ms CAN Message (the BMS only answers diagnostic requests while it
@@ -3854,7 +3915,7 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
     // Broadcast 1000ms BCM Gateway alive token
     if (currentMillis - previousMillis1000_69f >= INTERVAL_1_S) {
       previousMillis1000_69f = currentMillis;
-      if (sim_enabled(7)) {  // /simulator row 0x69F
+      if (sim_enabled(7) && !(in_00_stage && bus_closing_over(0x69F, false, currentMillis))) {  // /simulator row 0x69F
         transmit_can_frame(&ZOE_69F_BCM_GATEWAY);
         tx_69f_count++;
       }

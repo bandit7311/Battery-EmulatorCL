@@ -381,6 +381,14 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // sequence closed -> ... -> driving (twingo_bus::wake_state), at Sleep / NVROL reset back down (twingo_bus::sleep_state).
   // o426 = transitional B1/B2 of 0x426 (-1 = none).
   uint8_t bus_state_now(unsigned long now, int32_t& o426);
+  // Byte 0 of 0x436 around charging (13.10.): ramp up when the wake-up target is "charging", ramp down in the way
+  // "Ladelog 2" of the Sleep run; -1 = none (the state gives 80 or AD).
+  int16_t bus_b0_436(unsigned long now);
+  // The wake-up through the plug starts 0x0EC only 2.05 s after the first frame (charge log 445a1527).
+  bool bus_0ec_held_back(unsigned long now);
+  // True from the moment in the closing stage (00) of the Sleep run at which the frame with this ID is over (order of the
+  // way "Ladelog 2": 0x157 and 0x0ED last); false outside the closing stage and for the other ways.
+  bool bus_closing_over(uint16_t id, bool is_0ec, unsigned long now);
   bool bus_session_started = false;
   unsigned long bus_session_start_ms = 0;
   uint8_t bus_sleep_start_state = 1;

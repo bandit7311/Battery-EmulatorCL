@@ -189,6 +189,31 @@ String simulator_processor(const String& var) {
         content += "<label><input type='radio' name='busfmt' id='busfmt1' ";
         content += tg.bus_format_zoe_old ? "checked " : "";
         content += "onclick=\"fetch('/twingoBusFormat?value=1')\"> Zoe alt</label><br>";
+        content += "<b>Betriebsart (Ziel der automatischen Folge):</b> ";
+        {
+          static const char* const TGT[twingo_bus::TARGET_COUNT] = {"Fahren", "Laden", "Schlafen"};
+          for (uint8_t k = 0; k < twingo_bus::TARGET_COUNT; k++) {
+            content += "<label><input type='radio' name='bustgt' id='bustgt" + String(k) + "' ";
+            content += (tg.bus_wake_target == k) ? "checked " : "";
+            content += "onclick=\"fetch('/twingoBusTarget?value=" + String(k) + "')\"> " + TGT[k] + "</label> ";
+          }
+        }
+        content +=
+            "<span class='note'>- gespeichert; Fahren und Laden bestimmen, wo das Aufwecken endet (Laden: Aufwecken "
+            "&uuml;ber den Stecker mit Zustand A0/41), Schlafen hat noch keine eigene Folge</span><br>";
+        content += "<b>Einschlafweg (Sleep, Sleep 0x9281=1, NVROL reset):</b> ";
+        {
+          static const char* const PTH[twingo_bus::SLEEP_PATH_COUNT] = {
+              "lang (Fahrlog Sitzung 1)", "kurz (Fahrlog Sitzung 3)", "Ladelog 2 (vollst&auml;ndig gemessen)"};
+          for (uint8_t k = 0; k < twingo_bus::SLEEP_PATH_COUNT; k++) {
+            content += "<label><input type='radio' name='slpath' id='slpath" + String(k) + "' ";
+            content += (tg.bus_sleep_path == k) ? "checked " : "";
+            content += "onclick=\"fetch('/twingoSleepPath?value=" + String(k) + "')\"> " + PTH[k] + "</label> ";
+          }
+        }
+        content +=
+            "<span class='note'>- gespeichert; Ladelog 2 endet mit 00/02 f&uuml;r 11,1 s und 0x157/0x0ED als letzten "
+            "Frames</span><br>";
         const uint8_t shown = tg.bus_state_manual ? tg.bus_state : Bat::bus_state_shown;
         content += "<b>Zustand:</b> <select id='busstate' ";
         content += tg.bus_state_manual ? "" : "disabled ";

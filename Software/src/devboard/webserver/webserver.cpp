@@ -228,6 +228,16 @@ void init_webserver() {
       }
       datalayer_extended.twingoGen1.bus_format_zoe_old =
           prefs.getBool("TWBUSFMT", datalayer_extended.twingoGen1.bus_format_zoe_old);
+      datalayer_extended.twingoGen1.bus_sleep_path =
+          (uint8_t)prefs.getUInt("TWSLPATH", datalayer_extended.twingoGen1.bus_sleep_path);
+      if (datalayer_extended.twingoGen1.bus_sleep_path >= twingo_bus::SLEEP_PATH_COUNT) {
+        datalayer_extended.twingoGen1.bus_sleep_path = twingo_bus::SLEEP_LANG;
+      }
+      datalayer_extended.twingoGen1.bus_wake_target =
+          (uint8_t)prefs.getUInt("TWBUSTGT", datalayer_extended.twingoGen1.bus_wake_target);
+      if (datalayer_extended.twingoGen1.bus_wake_target >= twingo_bus::TARGET_COUNT) {
+        datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_FAHREN;
+      }
       datalayer_extended.twingoGen1.cell_source_broadcast =
           prefs.getBool("TWCELLSRC", datalayer_extended.twingoGen1.cell_source_broadcast);
       datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled =
@@ -1079,6 +1089,42 @@ void init_webserver() {
       prefs.begin("batterySettings", false);
       prefs.putBool("TWBUSFMT", old_form);
       prefs.end();
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  // Way of the bus at Sleep (0 long, 1 short, 2 end of the charge log), kept over a restart (13.10.).
+  def_route_with_auth("/twingoSleepPath", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      int v = request->getParam("value")->value().toInt();
+      if (v >= 0 && v < twingo_bus::SLEEP_PATH_COUNT) {
+        datalayer_extended.twingoGen1.bus_sleep_path = (uint8_t)v;
+        static const char* const NAMES[twingo_bus::SLEEP_PATH_COUNT] = {"sleep way: long", "sleep way: short",
+                                                                        "sleep way: charge log 2"};
+        RenaultTwingoGen1Battery::note_action(NAMES[v]);
+        Preferences prefs;
+        prefs.begin("batterySettings", false);
+        prefs.putUInt("TWSLPATH", (uint32_t)v);
+        prefs.end();
+      }
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  // Target of the automatic wake-up sequence (0 driving, 1 charging, 2 sleeping), kept over a restart (13.10.).
+  def_route_with_auth("/twingoBusTarget", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      int v = request->getParam("value")->value().toInt();
+      if (v >= 0 && v < twingo_bus::TARGET_COUNT) {
+        datalayer_extended.twingoGen1.bus_wake_target = (uint8_t)v;
+        static const char* const NAMES[twingo_bus::TARGET_COUNT] = {"mode: driving", "mode: charging",
+                                                                    "mode: sleeping"};
+        RenaultTwingoGen1Battery::note_action(NAMES[v]);
+        Preferences prefs;
+        prefs.begin("batterySettings", false);
+        prefs.putUInt("TWBUSTGT", (uint32_t)v);
+        prefs.end();
+      }
     }
     request->send(200, "text/plain", "OK");
   });

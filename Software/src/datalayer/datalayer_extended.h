@@ -259,6 +259,12 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
   /** true = the five Zoe-form frames (0x423, 0x426, 0x436, 0x19F, 0x69F) in the old Zoe form (all 100 ms), false = in the
    *  format of the real LBC<>EVC bus (default). NVM key TWBUSFMT. */
   bool bus_format_zoe_old;
+  /** Way the bus walks down at Sleep / Sleep 0x9281=1 / NVROL reset: 0 long (car log 22aaf176 session 1), 1 short
+   *  (session 3), 2 end of the charge log 445a1527 ("Ladelog 2"). NVM key TWSLPATH (13.10.). */
+  uint8_t bus_sleep_path;
+  /** Target of the automatic wake-up sequence: 0 driving (default), 1 charging, 2 sleeping (no sequence of its own yet).
+   *  NVM key TWBUSTGT (13.10.). */
+  uint8_t bus_wake_target;
   /** Source of the 96 cell voltages: false = UDS poll (as before), true = the broadcast frames 0x5A1..0x5F7/0x5DD.
    *  NVM key TWCELLSRC. */
   bool cell_source_broadcast;
