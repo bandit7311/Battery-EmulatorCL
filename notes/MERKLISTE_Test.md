@@ -1,0 +1,36 @@
+# Merkliste Test (Bench, angelegt 13.10.)
+
+Nur Vorgemerktes zum Testen am Bench. Nichts davon ist gemacht, solange kein Ergebnis eingetragen ist. Nur Fakten aus Code und Messungen; Vermutungen sind als solche gekennzeichnet.
+
+## T1: Haengt E14381 an der Zeit in 0x436? (Vermutung des Nutzers, 13.10., nicht belegt)
+
+**Vermutung (Nutzer):** Der Akku vergleicht die Zeit aus 0x436 mit einem Wert von der letzten Sitzung. Ist die gesendete Zeit nach einem Neustart kleiner, kommt E14381.
+
+**Was dafuer spricht (gemessen):**
+- Zeit in 0x436 um +1000 min: E14381 (MCPU) von `2F` auf `2E`, quittierbar; alle anderen Eingriffe liessen `2F` (`TEST_BENCH_10-10_Aufwecken_und_Zustaende.md`, Abschnitt "Ergebnis Bench 12.10.").
+- Danach kam E14381 nach dem Quittieren nicht zurueck.
+- Gesendetes Alter am 13.10.: 1370828 (Voreinstellung 1025301).
+
+**Was dagegen spricht oder offen ist (Code und Messung):**
+- Automatik: Alter = Referenz im Flash + Uhr, nie rueckwaerts (`BATTERY.cpp:1306`, nur im RAM abgesichert). Manuell: Startwert + Minuten ab gespeicherter Unix-Zeit (`:1290`). Ohne gueltige Uhr wird kein Alter gesendet (`:1293`, `:1300`). Ein kleinerer Wert nach dem Neustart entsteht nur durch eine getippte kleinere Zahl.
+- `9261` und `91C1` (MCPU) stehen auf `0`; ein gemerkter Vergleichswert ist in diesen DIDs nicht sichtbar.
+- Basis- und Zielwert des +1000-Tests sind nicht festgehalten; die Schwelle ist offen.
+- E14381 war frueher mit 0x426 an aktiv und mit 0x426 aus weg, ohne Aenderung der Zeit (`MERKZETTEL_Zeitwerte_33BE.md`, Z. 126, 284).
+
+**Ablauf (nichts im Akku wird geschrieben, nur Frames aendern sich):**
+1. Vor dem Neustart "Vehicle age" von der Seite notieren, nach dem Neustart nochmal. Ist der Wert gleich oder groesser?
+2. 0x426 an, E14381 nicht aktiv (`19 02 FF` bzw. Haken "Read ALL DTC statuses"): Basiswert V notieren.
+3. Zeit in 0x436 auf V - 1000 setzen, ca. 30 s warten, `19 02 FF` lesen: Status von E14381 notieren (kommt `2F` wieder?).
+4. Zeit wieder auf V (oder V + 1000), lesen, notieren.
+5. Schwelle eingrenzen durch Halbieren der Differenz; jeden Schritt mit Basis-, Zielwert, Status, Zeilenstand notieren.
+
+**Eintragen:** Basiswert, Zielwert, Status E14381 (MCPU und SCPU), `9259`, `925B`, `[DC] 925E`.
+
+## T2: Zeit speichern lassen (bereits vorgeschlagen, mit der Endfolge aus Bau 1)
+- Alle 17 EVC-Zeilen an, Einschlafweg "Ladelog 2", Sleep-Lauf mit 9281, Stille bis zum Ende ohne 12 V zu trennen, Wake.
+- Danach lesen: `9261`, `91C1`, `22 92 5B` (MCPU), `[DC] 22 92 5E`, `19 02 09` (beide).
+- Stand 13.10.: nach 9281, 3 min Stille und Wake stehen `9261` / `91C1` auf `0` (Reset-Bits unveraendert `00 00` / `20 80`, DTC-Listen leer).
+
+## T3: Reset-Register nach jedem Schritt lesen (bereits vorgeschlagen)
+- Nach Sleep-Lauf, 9281-Schreiben und Wake je `22 92 5B` (MCPU) und `[DC] 22 92 5E`: zeigt, welcher Schritt zuerst ein Reset-Bit setzt und ob dann 1B0E41 / 1BB587 zurueckkommen.
+- Stand 13.10.: nach kaltem Neustart `00 00` / `20 80`, beide Fehlerspeicher leer.
