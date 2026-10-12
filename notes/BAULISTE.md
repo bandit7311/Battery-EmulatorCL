@@ -184,6 +184,30 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 4. Tests gegen die gedruckten Zeiten des Fahrlogs (lang, kurz) und gegen das Tera-Term-Log (Ladelog 2).
 5. Offen, nicht zu raten: Dauer von `00/07` im kurzen Weg (gedruckt 0,6 s) und im langen Weg (heute 2600 ms, davon 2,0 s in der Logluecke); wie der Weg "Ladelog 2" bei Sleep, Sleep 0x9281=1 und NVROL reset wirken soll (Ausloeser im Auto war die Fernbedienung nach Laden mit `A0/41` als Ausgangszustand).
 
+## Zum Bauen vorgemerkt: Display-Anzeige beim Einschlafen (Wunsch vom 12.10., noch nicht gebaut, wartet auf "bauen")
+**Wunsch des Nutzers:** Auf dem OLED-Display (vom Nutzer als SSD1309 bezeichnet) in der mittleren Zeile, in der sonst die Stoerungen stehen, waehrend des Einschlafens:
+- Zeile 1 (mittig zentriert): `Sleep pls wait`
+- Zeile 2 darunter (mittig zentriert): abgelaufene Zeit / Endzeit des Schlafens, Beispiel `00:04:34 / 00:10:00 End`
+
+**Stand im Code (`Software/src/devboard/display/display.cpp`)**
+- Der Kopf der Datei nennt den Treiber **SSD1306**, 128x64, I2C; "SSD1309" steht im Code nirgends.
+- Textraster: 21 Zeichen je Zeile, 8 Zeilen (`char buf[22]`). Zeilen 0 bis 1 Batteriestatus (Seiten wechseln), Zeile 2 Trennlinie, **Zeilen 3 bis 5 die Stoerungen** (`print_events(3, 3)`), Zeile 6 Trennlinie, Zeile 7 Netzwerk. Aktualisierung alle 500 ms.
+- Das Display kennt keinen Batterietyp. Der Twingo-Treiber hat die Daten: Sleep-Lauf `NVROLstateMachine == 7`, Start der Stille `nvrol_silence_start_ms`, Beginn der Abschaltfolge `powerdown_start_ms`, Endzeit `sleep_manual_failsafe_ms()` (eingestellte Minuten, 1 bis 1440, `RENAULT-TWINGO-GEN1-BATTERY.cpp:684`), Formatierung mm:ss gibt es schon (`append_mmss`, Zeile 1881).
+- Der Sleep-Lauf endet vor der Endzeit, wenn ein Aufweck-Wunsch kommt (`nvrol_wake_request`, Zeile 909).
+
+**Bauauftrag (noch nicht gebaut)**
+1. Solange ein Sleep-Lauf (Sleep, Sleep 0x9281=1, NVROL reset) laeuft: statt der Stoerungen (Zeilen 3 bis 5) zwei zentrierte Zeilen: `Sleep pls wait` und die Zeitzeile.
+2. Zeitzeile: abgelaufene Zeit / Endzeit im Format hh:mm:ss, jede Sekunde aktualisiert.
+3. Nach dem Ende des Sleep-Laufs (Endzeit oder Aufwecken) wieder die normale Stoerungsanzeige.
+4. Das Display bekommt dafuer eine Abfrage beim Batterietreiber (kein Twingo-Code im Display).
+
+**Noch festzulegen (nicht zu raten)**
+- Das Beispiel `00:04:34 / 00:10:00 End` hat 23 Zeichen, eine Zeile hat 21. Moeglich: ohne `End` (`00:04:34 / 00:10:00`, 19 Zeichen, mittig) oder `End` kuerzer; Zeile 2 mit `End` waere nur mit anderer Schrift moeglich.
+- Welche mittlere Zeile: Zeile 4 (Mitte von 3 bis 5) fuer `Sleep pls wait`, Zeile 5 fuer die Zeit, Zeile 3 leer; oder beide in 3 und 4.
+- Startpunkt der abgelaufenen Zeit: Beginn der Abschaltfolge (`powerdown_start_ms`) oder Beginn der Stille (`nvrol_silence_start_ms`).
+- Was die Endzeit bei den drei Einschlafwegen (lang, kurz, Ladelog 2) bedeutet.
+- Ob die Anzeige auch bei einem Aufwecken (Pack aus dem Schlaf) einen Hinweis bekommt.
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
