@@ -197,12 +197,12 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 
 **Bauauftrag (noch nicht gebaut)**
 1. Solange ein Sleep-Lauf (Sleep, Sleep 0x9281=1, NVROL reset) laeuft: statt der Stoerungen (Zeilen 3 bis 5) zwei zentrierte Zeilen: `Sleep pls wait` und die Zeitzeile.
-2. Zeitzeile: abgelaufene Zeit / Endzeit im Format hh:mm:ss, jede Sekunde aktualisiert.
+2. Zeitzeile: abgelaufene Zeit / Endzeit, beide `HH:MM:SS` (z. B. `00:04:34 / 00:10:00`), jede Sekunde aktualisiert. Endzeit = eingestellte "Sleep failsafe minutes" (1 bis 1440 min, also bis `24:00:00`).
 3. Nach dem Ende des Sleep-Laufs (Endzeit oder Aufwecken) wieder die normale Stoerungsanzeige.
 4. Das Display bekommt dafuer eine Abfrage beim Batterietreiber (kein Twingo-Code im Display).
 
 **Noch festzulegen (nicht zu raten)**
-- Das Beispiel `00:04:34 / 00:10:00 End` hat 23 Zeichen, eine Zeile hat 21. Moeglich: ohne `End` (`00:04:34 / 00:10:00`, 19 Zeichen, mittig) oder `End` kuerzer; Zeile 2 mit `End` waere nur mit anderer Schrift moeglich.
+- ~~Zeichenzahl der Zeitzeile~~ **Entschieden vom Nutzer (12.10.):** erste Zeit = aktueller Stand, zweite Zeit = Endzeit, beide im Format `HH:MM:SS`, Beispiel `00:04:34 / 00:10:00` (19 Zeichen, passt in die 21 Zeichen einer Zeile, mittig). Ohne den Zusatz `End`.
 - Welche mittlere Zeile: Zeile 4 (Mitte von 3 bis 5) fuer `Sleep pls wait`, Zeile 5 fuer die Zeit, Zeile 3 leer; oder beide in 3 und 4.
 - Startpunkt der abgelaufenen Zeit: Beginn der Abschaltfolge (`powerdown_start_ms`) oder Beginn der Stille (`nvrol_silence_start_ms`).
 - Was die Endzeit bei den drei Einschlafwegen (lang, kurz, Ladelog 2) bedeutet.
