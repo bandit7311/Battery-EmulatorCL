@@ -31,6 +31,8 @@ Nur Vorgemerktes zum Testen am Bench. Nichts davon ist gemacht, solange kein Erg
 - Danach lesen: `9261`, `91C1`, `22 92 5B` (MCPU), `[DC] 22 92 5E`, `19 02 09` (beide).
 - Stand 12.10.: nach 9281, 3 min Stille und Wake stehen `9261` / `91C1` auf `0` (Reset-Bits unveraendert `00 00` / `20 80`, DTC-Listen leer).
 
+- Bedingungen fuer Zeit-Zuwaechse nach der Quelle "dj2cs" (Hypothese, `QUELLE_dj2cs_Frames_und_Zeitpruefungen.md`): `0x69F` an und mit der ID aus `925E` (jetzt `13 88 6F`); Zeit in `0x436` streng steigend; beim Hochlauf gesendete Zeit >= gespeicherter Wert; keine Werte ab `0xFFFFFF`.
+
 ## T3: Reset-Register nach jedem Schritt lesen (bereits vorgeschlagen)
 - Nach Sleep-Lauf, 9281-Schreiben und Wake je `22 92 5B` (MCPU) und `[DC] 22 92 5E`: zeigt, welcher Schritt zuerst ein Reset-Bit setzt und ob dann 1B0E41 / 1BB587 zurueckkommen.
 - Stand 12.10.: nach kaltem Neustart `00 00` / `20 80`, beide Fehlerspeicher leer.
