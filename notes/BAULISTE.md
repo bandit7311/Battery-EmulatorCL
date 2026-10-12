@@ -239,6 +239,23 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 **Noch festzulegen (nicht zu raten)**
 - Was die Anzeige bei den geplanten Einschlafwegen "kurz" und "Ladelog 2" zeigt, und ob waehrend des Aufweck-Buendels (`NVROLstateMachine == 8`) noch etwas angezeigt wird.
 
+## Zum Bauen vorgemerkt (Bau 6): keine Frames auf dem Bus, deren Zeile aus ist (Stand 12.10., Pruefung aller 71 Zeilen; wartet auf "bauen")
+
+**Anlass (Nutzer):** Der Bus muss Stille erreichen; Frames, die im Simulator nicht angehakt sind, duerfen zu keiner Zeit gesendet werden.
+
+**Gemessen (Probelauf 12.10., je Zeile nur diese an, kompletter Zyklus Aufwachen/Fahren/Sleep/Stille/Wake, Wege "Ladelog 2" und "lang"; zusaetzlich Code-Durchsicht aller Sendestellen):**
+- 70 von 71 Zeilen senden ihr Frame nur bei gesetztem Haken; jede Zeile sendet ihr Frame, wenn sie an ist. `0x214` ist in beiden Modi durch den Haken gesteuert (`BATTERY.cpp:1428`, `:3937`).
+- **`0x350` wird trotz ausgeschalteter Zeile gesendet:** im Sleep-Lauf (Zustand 7, alle 100 ms) und im Wake (Zustand 8). Der Haken schaltet nur den Dauerframe `send_run_350()`, nicht `send_350_frame()` (`BATTERY.cpp:888-897`, `:925-950`, `:1492-1501`, `:2391-2399`).
+- **`0x79B` (11 Bit) wird gesendet, ohne dass es eine Zeile gibt:** Standard-UDS-Pfad der Basisklasse, `setup_uds(0x79B, 0x7BB)` (`BATTERY.cpp:4323`), etwa alle 200 ms im Wachzustand, in den Abschaltstufen und nach dem Wake; nicht in der Stille. Auf dem Akku-Bus kommt `0x79B` nicht vor; der Pfad antwortet an diesem Akku nie (`BATTERY.cpp:4351-4357`).
+- Die Stille selbst ist still (keine 11-Bit-Frames zwischen Ende der Abschaltfolge und Wake).
+
+**Bauauftrag (noch nicht gebaut):**
+1. `0x350` im Sleep (Zustand 7) und Wake (Zustand 8) nicht mehr auf den Bus senden. **Der Takt bleibt:** die Stufenzeiten (`powerdown_stage`, C3 / C2 / C0 / 00 als interne Zeitgeber, passen zu Ladelog 2: `A0/41` bis 553,27 s, `00/02` ab 677,87 s = 124,6 s gegen 126 s C3+C2) und der Aufruf `hv_observe_350(...)` fuer das HV-Modell (`BATTERY.cpp:1500`, `:2408`, `:3351`) muessen erhalten bleiben. Die Bus-Folge der EVC-Frames (0x426 "zu", 0x0EC endet, 0x0ED/0x157 zuletzt) haengt nicht am Senden von `0x350`.
+2. `0x79B` (Standard-UDS-Pfad der Basisklasse) abschalten; vorher pruefen, ob etwas davon abhaengt (PID-Scan, SOH-Kandidat).
+3. Regressionstest: fuer alle 71 Zeilen, nur diese an, kompletter Zyklus: keine 11-Bit-Frames ausser dem der eigenen Zeile.
+
+**Offen / nicht geprueft:** 29-Bit-UDS-Abfragen (`0x18DADBF1`, Zellen-Rundlauf) sind nicht Teil der 71 Zeilen und laufen im Wachzustand; Ziel "Laden", Weg "kurz" und altes Zoe-Format nur im Code durchgesehen, nicht im Probelauf; ob die Zeile `0x350` (Dauerframe) ganz entfallen soll, ist nicht entschieden. Ob die zusaetzlichen Frames das Speichern von `9261` stoeren, ist nicht bekannt.
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
