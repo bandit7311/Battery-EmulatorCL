@@ -5,6 +5,7 @@
 #include "../datalayer/datalayer.h"
 #include "RENAULT-TWINGO-GEN1-BUS.h"
 #include "RENAULT-TWINGO-GEN1-LOGIC.h"
+#include "RENAULT-TWINGO-GEN1-TXSTAT.h"
 #include "UdsCanBattery.h"
 
 // ---------------------------------------------------------------------------
@@ -227,6 +228,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   const char* fdc_query_result() const { return fdc_result; }
   // Row "DTC Read SCPU" (13.10.): the last result of the DTC list of the safety CPU, kept until the next SCPU read.
   const char* dtc_scpu_query_result() const { return dtc_scpu_result; }
+  // Measurement of the own send intervals of 0x426/0x435/0x436 (text for the page; reset starts again).
+  void tx_measure_text(char* out, size_t n) const { tx_measure.format(out, n); }
+  void tx_measure_reset() { tx_measure.reset(); }
   // "Read DTC fault counters": UDS 0x19 0x14 (reportDTCFaultDetectionCounter), shown decoded.
   void read_DTC_fdc();
   // 0x350 / sleep / wake builders and the simulator rows ask this before sending (bit n = sim_signals[n]).
@@ -391,6 +395,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // True from the moment in the closing stage (00) of the Sleep run at which the frame with this ID is over (order of the
   // way "Ladelog 2": 0x157 and 0x0ED last); false outside the closing stage and for the other ways.
   bool bus_closing_over(uint16_t id, bool is_0ec, unsigned long now);
+  void send_measured(CAN_frame* f);  // transmit_can_frame() + the note for the measurement of the send intervals
   // Fills datalayer.system.status.sleep_display_* for the OLED display (13.10.): phase 1 shutdown sequence, 2 true silence.
   void update_sleep_display(unsigned long now);
   bool bus_session_started = false;
@@ -946,6 +951,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static const char* uq_nrc_text(uint8_t nrc);  // short meaning of a negative response code, "" when not known
   char uq_result[UQ_TEXT_SIZE] = "not run yet";
   char fdc_result[UQ_TEXT_SIZE] = "not run yet";
+  twingo_txstat::Measure tx_measure;
   char dtc_scpu_result[UQ_TEXT_SIZE] = "not run yet";  // own row on the page, see read_DTC_scpu()
   bool uq_to_scpu_row = false;                         // the running free request also fills dtc_scpu_result
   bool uq_scpu_row_pending = false;                    // set by read_DTC_scpu() before the request is started

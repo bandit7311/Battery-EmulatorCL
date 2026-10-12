@@ -1213,6 +1213,17 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
+  // Measurement of the own send intervals of 0x426/0x435/0x436 (13.10.): text for the page; reset=1 starts again.
+  def_route_with_auth("/twingoTxStat", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    RenaultTwingoGen1Battery* twingo = static_cast<RenaultTwingoGen1Battery*>(battery);
+    if (request->hasParam("reset")) {
+      twingo->tx_measure_reset();
+    }
+    char text[640];
+    twingo->tx_measure_text(text, sizeof(text));
+    request->send(200, "text/plain", text);
+  });
+
   // "Read DTC fault counters" button: UDS 0x19 0x14.
   def_route_with_auth("/triggerTwingoDtcFdc", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     static_cast<RenaultTwingoGen1Battery*>(battery)->read_DTC_fdc();

@@ -3394,6 +3394,13 @@ twingo::HvOut RenaultTwingoGen1Battery::hv_now(unsigned long now) const {
   return twingo::hv_compute(hv_times, (int64_t)now, pack);
 }
 
+// Every send place of 0x426/0x435/0x436 goes through here: the moment is noted (micros()) for the measurement of the own
+// send intervals, then the frame is sent.
+void RenaultTwingoGen1Battery::send_measured(CAN_frame* f) {
+  tx_measure.note(f->ID, (uint32_t)micros());
+  transmit_can_frame(f);
+}
+
 void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMillis) {
   // The true-silence rule of the old code (every row stops with the C0 stage of the shutdown and none starts before
   // the first wake frame) is sim_row_allowed_now() now; in the mode "like the car" each row ends at its SimEnd.
@@ -3612,7 +3619,7 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
         }
       }
     }
-    transmit_can_frame(&f);
+    send_measured(&f);
   }
 }
 
@@ -3665,7 +3672,7 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
     }
     twingo_bus::build_frame(*def, state, bus_seq[idx]++, age_min, odo_426_km, f.data.u8, bus_state_frames[idx]++, o426,
                             odo_426_b7, def->kind == twingo_bus::K_436 ? bus_b0_436(now) : (int16_t)-1);
-    transmit_can_frame(&f);
+    send_measured(&f);
   }
 }
 
@@ -3767,7 +3774,7 @@ void RenaultTwingoGen1Battery::send_bus_closing(unsigned long now) {
     CAN_frame f = {.FD = false, .ext_ID = false, .DLC = def->dlc, .ID = def->id};
     twingo_bus::build_frame(*def, twingo_bus::BUS_ZU, bus_seq[def - twingo_bus::FRAMES]++, 0, odo_426_km, f.data.u8);
     twingo_bus::apply_closing_form(*def, f.data.u8);
-    transmit_can_frame(&f);
+    send_measured(&f);
   }
 }
 
@@ -3881,7 +3888,7 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
         ZOE_426_POWER_MUX.data.u8[5] = (uint8_t)(km256 >> 8);
         ZOE_426_POWER_MUX.data.u8[6] = (uint8_t)km256;
         ZOE_426_POWER_MUX.data.u8[7] = odo_426_b7;
-        transmit_can_frame(&ZOE_426_POWER_MUX);
+        send_measured(&ZOE_426_POWER_MUX);
       }
       if (zoe_old && sim_enabled(5)) {
         bool send_436 = true;
@@ -3896,7 +3903,7 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
           }
         }
         if (send_436) {
-          transmit_can_frame(&ZOE_436_VEHICLE_STATUS);
+          send_measured(&ZOE_436_VEHICLE_STATUS);
         }
       }
 
@@ -4223,6 +4230,10 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "setInterval(function(){var r=document.getElementById('twingoScpuDtc');if(!r){return;}";
     content += "fetch('/twingoQueryResult?which=scpu').then(function(a){return a.text();}).then(function(x){";
     content += "r.textContent=x;});},1000);";
+    content += "setInterval(function(){var r=document.getElementById('twingoTxStat');if(!r){return;}";
+    content +=
+        "fetch('/twingoTxStat').then(function(a){return a.text();}).then(function(x){r.textContent=x;});},1000);";
+    content += "function twingoTxReset(){fetch('/twingoTxStat?reset=1');}";
     content += "function twingoPoll(which,span){var n=0;var h=setInterval(function(){";
     content += "fetch('/twingoQueryResult?which='+which).then(function(a){return a.text();}).then(function(x){";
     content += "span.textContent=x;if((x!=='requested'&&x!=='')||++n>40){clearInterval(h);}});},250);}";
@@ -4265,6 +4276,8 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
              "DTC Erase (ext. protocol, Erase DTC button): " << dtc_ext_log_erase << "<br>"
              "<button onclick='twingoScpuDtc()'>Read DTC SCPU</button> DTC Read SCPU (last result, stays until the next "
              "read): <span id='twingoScpuDtc'>" << dtc_scpu_result << "</span><br>"
+             "<button onclick='twingoTxReset()'>Reset</button> Own send intervals 0x426 / 0x435 / 0x436 (time of the call "
+             "to the send function in microseconds, not of the wire; target 100 ms):<pre id='twingoTxStat'>-</pre>"
              "<button onclick=\"fetch('/triggerTwingoDtcDetails')\">Read DTC details (EXPERIMENTAL, UNTESTED, "
              "subfunction 0x06)</button><br>"
              "DTC details - " << String(DTC_DETAILS_CODES[0], HEX) << ": " << dtc_ext_log_details[0] << "<br>"

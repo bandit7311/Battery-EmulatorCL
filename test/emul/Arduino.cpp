@@ -16,8 +16,9 @@ int digitalRead(uint8_t pin) {
 }
 void digitalWrite(uint8_t pin, uint8_t val) {}
 
+extern uint64_t current_time;  // time.cpp, in milliseconds
 unsigned long micros() {
-  return 0;
+  return (unsigned long)(current_time * 1000ULL);  // the test clock has a resolution of 1 ms
 }
 void pinMode(uint8_t pin, uint8_t mode) {}
 
