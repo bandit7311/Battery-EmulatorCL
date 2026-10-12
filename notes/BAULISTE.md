@@ -201,24 +201,21 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 3. Nach dem Ende des Sleep-Laufs (Endzeit oder Aufwecken) wieder die normale Stoerungsanzeige.
 4. Das Display bekommt dafuer eine Abfrage beim Batterietreiber (kein Twingo-Code im Display).
 
-**Entschieden vom Nutzer (12.10.)**
+**Entschieden vom Nutzer (12.10., spaetere Fassung ersetzt die frueheren Angaben zu Startpunkt und Endzeit)**
 - Zeitformat: erste Zeit = aktueller Stand, zweite Zeit = Endzeit, beide `HH:MM:SS`, Beispiel `00:04:34 / 00:10:00` (19 Zeichen, mittig, ohne den Zusatz `End`).
-- Zeilen: `Sleep pls wait` in **Zeile 4**, die Zeitzeile in **Zeile 5** (Zeile 3 leer).
-- Die abgelaufene Zeit zaehlt ab dem **Beginn der Abschaltfolge** (`powerdown_start_ms`, `start_powerdown()`, Zeile 692).
-- Folge daraus: Die **Endzeit** ist die Gesamtdauer ab Beginn der Abschaltfolge, also die Dauer der Abschaltfolge **plus** die eingestellte "Sleep failsafe minutes" (so zaehlt die abgelaufene Zeit am Ende genau auf die Endzeit).
+- Zeilen: Text in **Zeile 4**, Zeitzeile in **Zeile 5** (Zeile 3 leer).
+- Es wird **nur die Zeit ab der Einschlafzeit** gezaehlt, also ab Beginn der Stille (`nvrol_silence_start_ms`, `NVROLstateMachine == 5`, Zeile 909). Die Endzeit ist **nur die eingestellte "Sleep failsafe minutes"**; die Dauer der Abschaltfolge wird **nicht** dazuaddiert.
+- **Vor** der Einschlafzeit (waehrend der Abschaltfolge, `NVROLstateMachine == 7`): Zeile 4 zeigt nur `Sleep requested`, Zeile 5 zeigt den Zaehler `00:00:00 / 00:10:00` (Beispiel mit 10 min Failsafe; Stand 0, Endzeit = Failsafe).
+- **Ab** der Einschlafzeit (Stille): Zeile 4 `Sleep pls wait` (Annahme aus dem ersten Wunsch vom 12.10.), Zeile 5 zaehlt die abgelaufene Zeit der Stille gegen die Endzeit, z. B. `00:04:34 / 00:10:00`.
 
-**Gemessen im Code: Dauer der Abschaltfolge vor der Stille (`NVROLstateMachine == 7`, Zeilen 874-896; Konstanten in `.h` Zeilen 802-815)**
-- Normal (Schalter A aus): C3 66.000 ms + C2 60.000 ms + C0 10.000 ms + 00 1.000 ms = **137.000 ms (00:02:17)**.
-- "Wie im Auto" (Schalter A an): C3 63.200 ms + C2 60.000 ms + C0 10.000 ms + 00 900 ms = **134.100 ms (00:02:14)**.
-- Die Stille (`NVROLstateMachine == 5`) endet nach "Sleep failsafe minutes" ab dem Ende der Abschaltfolge (`nvrol_silence_start_ms`, Zeile 909); Standard 30 min (`SLEEP_MANUAL_FAILSAFE_DEFAULT_MIN`).
-- Beispiel: Failsafe 10 min und Schalter A aus -> Endzeit `00:12:17`; mit Schalter A an `00:12:14`. Das Beispiel `00:10:00` des Nutzers ist ein Format-Beispiel.
-- Ein Aufweck-Wunsch (`nvrol_wake_request`) beendet den Lauf frueher (Zeilen 887 und 909); die Endzeit ist dann nur die Obergrenze.
-- Schritte vor `start_powerdown()` beim NVROL-Reset (Sessions, Routine B009, Schreiben 9281) gehoeren nicht zur abgelaufenen Zeit.
+**Gemessen im Code (nur zur Info, wird nicht addiert): Dauer der Abschaltfolge vor der Stille** (`NVROLstateMachine == 7`, Zeilen 874-896; Konstanten in `.h` Zeilen 802-815)
+- Normal (Schalter A aus): C3 66.000 ms + C2 60.000 ms + C0 10.000 ms + 00 1.000 ms = 137.000 ms (00:02:17).
+- "Wie im Auto" (Schalter A an): 63.200 + 60.000 + 10.000 + 900 ms = 134.100 ms (00:02:14).
+- Die Stille endet nach "Sleep failsafe minutes" ab dem Ende der Abschaltfolge; Standard 30 min (`SLEEP_MANUAL_FAILSAFE_DEFAULT_MIN`). Ein Aufweck-Wunsch (`nvrol_wake_request`) beendet den Lauf frueher.
 
 **Noch festzulegen (nicht zu raten)**
-- Was die Endzeit bei den geplanten Einschlafwegen "kurz" und "Ladelog 2" bedeutet (dort ist die Dauer der Folge eine andere als die 134 bis 137 s der Stufen C3 bis 00).
-- Ob waehrend des Aufweck-Buendels (`NVROLstateMachine == 8`) noch etwas angezeigt wird.
-- Ob die Anzeige auch bei einem Aufwecken (Pack aus dem Schlaf) einen Hinweis bekommt.
+- Ob Zeile 4 ab Beginn der Stille wirklich auf `Sleep pls wait` wechselt (so verstanden, vom Nutzer nicht ausdruecklich bestaetigt).
+- Was die Anzeige bei den geplanten Einschlafwegen "kurz" und "Ladelog 2" zeigt, und ob waehrend des Aufweck-Buendels (`NVROLstateMachine == 8`) noch etwas angezeigt wird.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
