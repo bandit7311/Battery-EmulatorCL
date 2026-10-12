@@ -53,3 +53,15 @@ Rechnung (nachgerechnet am 10.10.):
 - **Zeit (`91C1`, Pack-Zeit seit erstem Einschalten):** 912.981 min am 24.07. Bei natuerlicher Fortsetzung ergibt das 1.019.541 min am 06.10. und 1.025.301 min am 10.10. (78 Tage x 1.440 min seit dem 24.07.), **falls** der Zaehler in Kalenderzeit weiterlaeuft; zaehlt er nur Betriebszeit, liegt der Wert darunter. Offen.
 - **Auffaellig (gemessen):** Am 06.10. stand `9261` = `91C1` = 1.311.344 min, also **291.803 min (rund 203 Tage) ueber** der natuerlichen Fortsetzung (1.019.541). Das passt nicht zu einem reinen Weiterzaehlen; moeglicher Zusammenhang mit dem Wert, den unser Emulator an den Akku schickte (Hypothese, nicht belegt: die Bytes `14 02 70` entsprechen Byte 1-3 unseres alten `0x436`-Zaehlers `86 14 02 70 ...`). Die bisherige Regel (Alter 1.314.935 = 1.311.344 + Zeit + 1 Tag, "nicht unter der Packzeit") beruht auf diesem Wert.
 - **`9261` (Fahrzeugzeit):** fuer diesen Akku vor dem Reset nicht gelesen, kein passender Wert bekannt.
+
+## Balancing laeuft nur im Schlaf? (Stand 12.10.2026, aus den Dateien des Nutzers "Bench Akku Daten" und "bench-akku-messwerte")
+
+**Gemessen:**
+- Bench-Akku, Zoe2-Lauf (Dateizeit 23./24.07.2026, Datum ungeklaert): `9250` (Balancing gesamt) = `9252` (Balancing im Schlaf) = `80 01 C2 29` = 112,54 h; `924F` = `9251` = `80 00 B4 00` = 45,0 Ah; `9262` (Balancing wach) = `80 00 00 00` = 0.
+- Auto-Pack-Dump: `9250` = `9252` = 163,91 h; `9263` (Balancing wach) = 0 h.
+
+**Schluss (nicht bewiesen):** Bei beiden Akkus ist die gezaehlte Balancing-Zeit gleich der Zeit im Schlaf, der Wachzaehler steht auf 0; das passt dazu, dass nur im Schlaf balanciert wird.
+
+**Grenzen:** Einzelne Lesungen, kein Verlauf. Ein Wachzaehler auf 0 koennte auch "nicht belegt" bedeuten.
+
+**Eigene Laeufe 12.10.:** Nach Sleep mit 9281 (3 min und 30 min Stille) stehen alle Balancing-Zaehler auf `80000000` (0). Zellspannungen liegen eng beieinander (3,683 V / 3,673 V); ob dabei ueberhaupt balanciert wuerde, ist nicht bekannt.
