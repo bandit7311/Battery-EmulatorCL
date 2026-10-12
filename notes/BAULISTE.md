@@ -174,12 +174,15 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - Nur der lange Weg des Fahrlogs ist gebaut: `sleep_state()` in `RENAULT-TWINGO-GEN1-BUS.h` (Zeile 783): aus `BUS_FAHRT` `70/65` 100 ms, `60/65` 100 ms, `BUS_AUS` 1900 ms, `00/07` 2600 ms, dann `BUS_WACH`. Das Ende des Ladelogs 2 (`00/01`, `08/06`) ist nicht gebaut (siehe Abschnitt "Zustand Laden", Punkt 3).
 - Die Folge laeuft bei Sleep, Sleep 0x9281=1 und NVROL reset (`NVROLstateMachine == 7`).
 
-**Bauauftrag (noch nicht gebaut)**
-1. Zwei Radiobuttons auf `/simulator` neben der Zustandsfolge: "Einschlafweg: lang (Fahrlog Sitzung 1)" und "kurz (Fahrlog Sitzung 3)". Standard: lang (wie heute).
+**Bauauftrag (noch nicht gebaut), drei Wege zur Auswahl**
+1. Drei Radiobuttons auf `/simulator` neben der Zustandsfolge: "Einschlafweg: **lang** (Fahrlog Sitzung 1)", "**kurz** (Fahrlog Sitzung 3)" und "**Ladelog 2** (vollstaendig gemessen)". Standard: lang (wie heute).
 2. Die Wahl wird im NVM gespeichert und bleibt nach einem Neustart erhalten (wie die Format-Wahl).
-3. `sleep_state()` bekommt den Weg als Parameter. Kurz: aus `BUS_FAHRT` direkt `00/07` und dann `BUS_WACH`; aus anderen Zustaenden unveraendert wie lang.
-4. Tests gegen die gedruckten Zeiten des Fahrlogs.
-5. Offen, nicht zu raten: Dauer von `00/07` im kurzen Weg (gedruckt 0,6 s) und im langen Weg (heute 2600 ms, davon 2,0 s in der Logluecke); ob zusaetzlich ein dritter Weg "wie Ladelog 2" (`00/01` ... `00/02`, siehe oben) als Option dazukommen soll.
+3. `sleep_state()` bekommt den Weg als Parameter:
+   - **lang** wie heute: aus `BUS_FAHRT` `70/65` 100 ms, `60/65` 100 ms, `00/05` 1900 ms, `00/07` 2600 ms, dann wach.
+   - **kurz**: aus `BUS_FAHRT` direkt `00/07` (gedruckt 0,6 s), dann wach; aus anderen Zustaenden wie lang.
+   - **Ladelog 2** (Zeiten aus der Tabelle oben): `00/01` B7 `80` 0,5 s -> `00/01` B7 `40` 1,5 s -> `00/07` 1,1 s -> `00/06` 0,4 s -> `08/06` 1,1 s -> `00/06` 120,0 s -> `00/02` 11,1 s, letztes Frame `0x0ED 60 FF 00` 11,1 s nach dem Beginn von `00/02`. Wach-Zeit von 120,0 s vor `00/02` entspricht der 00-Stufe des Busses; die Abbildung auf die bestehende Stufe "closed" (BUS_ZU) und die Frames der 00-Stufe ist beim Bau zu klaeren.
+4. Tests gegen die gedruckten Zeiten des Fahrlogs (lang, kurz) und gegen das Tera-Term-Log (Ladelog 2).
+5. Offen, nicht zu raten: Dauer von `00/07` im kurzen Weg (gedruckt 0,6 s) und im langen Weg (heute 2600 ms, davon 2,0 s in der Logluecke); wie der Weg "Ladelog 2" bei Sleep, Sleep 0x9281=1 und NVROL reset wirken soll (Ausloeser im Auto war die Fernbedienung nach Laden mit `A0/41` als Ausgangszustand).
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
