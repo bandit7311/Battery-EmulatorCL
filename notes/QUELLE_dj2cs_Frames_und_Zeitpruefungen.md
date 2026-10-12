@@ -65,3 +65,9 @@ Wie uebergeben (Text im Screenshot, Frame = ID [DLC] Bytes, dazu die Anmerkung):
 - `0x69F`: andere ID, ohne Bedeutung fuer den Vergleich.
 
 **Moeglicher Test (nicht gebaut):** `0x426` B3..B5 auf denselben Wert wie `0x436` setzen und `0x423` B0 auf `B0&3 = 0`; nur einzeln und mit E14381-Lesung (`19 02 FF`) vor und nach jedem Schritt. Ob das noetig ist, ist offen, da E14381 gerade nicht ansteht.
+
+## Nachtrag 2 (12.10. abends): Einschlaf-Anforderung ueber 0x423 und NVM-Schreiben
+
+Aussage von dj2cs (Text des Nutzers): Einschlaf-Anforderung per CAN; `0x423` B0 Bit 1:0 == 0 (Adresse 0x81C20) => ECU-State 8 "Shutdown pending", Bit 5:4 waehlt die Abschaltart; `0x426` 2 s aus erzwingt denselben State (0x82E00 -> 0x804A0); danach 1 s vollstaendige Busstille (0x811D4, 100 Zyklen der 10-ms-Task, Zaehler 0x400000C0, Flag 0x40001CDE), CAN-Timeout-Flags dabei unterdrueckt (0x80360 ff., sonst Fatal-Code 0x38); in dem Fenster schreibt das Steuergeraet sein NVM; 0xCFEFC ist der einzige NVM-Schreiber (kein zyklischer Writer); geschrieben werden u. a. Fehlerspeicher (Block 0xA6, 1444 B), SOC/SOH-Historie (0xA0), Zaehler (0xAB, 0xAA, 0x19), Block 0x18 mit Fahrzeug-ID und AbsTime (0xCFC4C -> 0xCBB28).
+
+**Abgleich mit den Auto-Logs (gemessen):** `0x423` B0 geht in allen drei Logs fuer die letzten 10-11 Frames (rund 1 s) auf `04`; der Akku sendet ab genau diesem Moment nicht mehr; die EVC-Frames laufen noch etwa 1 s. Einzelheiten, Zeiten und Wake-Frames `30`/`33`: `BAULISTE.md`, Bau 7. Die NVM-Angaben (Bloecke, Adressen, ein Schreiber) sind von uns nicht pruefbar. Die frueheren Aussagen der Tabelle (`0x423` B0 & 3 == 3 blockiere die Auswertung) sind damit weiter ungeklaert; die Logs zeigen `& 3 == 3` in allen Phasen ausser dem Ende und dem allerersten Wake-Frame.

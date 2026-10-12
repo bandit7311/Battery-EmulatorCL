@@ -33,6 +33,8 @@ Nur Vorgemerktes zum Testen am Bench. Nichts davon ist gemacht, solange kein Erg
 
 - Bedingungen fuer Zeit-Zuwaechse nach der Quelle "dj2cs" (Hypothese, `QUELLE_dj2cs_Frames_und_Zeitpruefungen.md`): `0x69F` an und mit der ID aus `925E` (jetzt `13 88 6F`); Zeit in `0x436` streng steigend; beim Hochlauf gesendete Zeit >= gespeicherter Wert; keine Werte ab `0xFFFFFF`.
 
+- Nach Bau 7 (Schlaf-Anforderung `0x423` B0 = `04` in der letzten Sekunde, siehe `BAULISTE.md`, Bau 7): derselbe Lauf, danach zusaetzlich `19 02 09` beider Prozessoren lesen (der Fehlerspeicher wird laut Quelle im selben Fenster geschrieben).
+
 ## T3: Reset-Register nach jedem Schritt lesen (bereits vorgeschlagen)
 - Nach Sleep-Lauf, 9281-Schreiben und Wake je `22 92 5B` (MCPU) und `[DC] 22 92 5E`: zeigt, welcher Schritt zuerst ein Reset-Bit setzt und ob dann 1B0E41 / 1BB587 zurueckkommen.
 - Stand 12.10.: nach kaltem Neustart `00 00` / `20 80`, beide Fehlerspeicher leer.

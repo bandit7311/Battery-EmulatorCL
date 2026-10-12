@@ -263,6 +263,33 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 
 **Offen / nicht geprueft:** Ziel "Laden", Weg "kurz" und altes Zoe-Format nur im Code durchgesehen, nicht im Probelauf; ob die Zeile `0x350` (Dauerframe) ganz entfallen soll, ist nicht entschieden. Ob die zusaetzlichen Frames das Speichern von `9261` stoeren, ist nicht bekannt.
 
+## Zum Bauen vorgemerkt (Bau 7): Schlaf-Anforderung ueber 0x423 B0 = 04 und Wake-Frames 30/33 (Stand 12.10. abends; wartet auf "bauen")
+
+**Behauptung (Quelle "dj2cs", Nutzer 12.10.; Adressen nicht pruefbar, Quelle unbekannt):** Die Einschlaf-Anforderung kommt per CAN, nicht ueber KL15. `0x423` Byte 0 Bit 1:0 == 0 => ECU-State 8 "Shutdown pending", Bit 5:4 waehlt die Abschaltart. Faellt `0x426` 2 s aus, erzwingt das denselben State. Danach 1 s Nachlauf mit vollstaendiger Busstille (100 Zyklen der 10-ms-Task), in dem die CAN-Timeout-Flags unterdrueckt werden (sonst Fatal-Code 0x38). In diesem Fenster schreibt das Steuergeraet sein NVM (einziger NVM-Schreiber der Firmware, kein zyklischer Writer): Fehlerspeicher (Block 0xA6, 1444 B), SOC/SOH-Historie (0xA0), Zaehler (0xAB, 0xAA, 0x19), Block 0x18 mit Fahrzeug-ID und AbsTime.
+
+**Gemessen in den drei Auto-Logs (12.10., eigene Auswertung der `RX4`-Zeilen):**
+| | Ladelog 2 (445a1527) | Fahrlog (22aaf176) | Ladelog 1 (598b197c) |
+|---|---|---|---|
+| `0x423` B0 `07` -> `04` | 687,90 s | 747,77 s | 1283,23 s |
+| Frames mit `04` | 11 | 10 | 11 |
+| letztes Akku-Frame (`0x155`, `0x1C9`, `0x0C5` ...) | 687,90 s | 747,77 s | 1283,24 s |
+| letzte EVC-Frames (`0x426/0x435/0x436/0x157/0x0ED`) | 688,87-688,91 s | 748,66-748,72 s | 1284,20-1284,26 s |
+- Der Akku hoert in allen drei Logs im selben Moment (hoechstens 0,01 s Abstand) auf zu senden, in dem `0x423` auf `04` geht; die EVC sendet danach noch rund 1 s weiter. In diesem Moment aendert sich bei den anderen EVC-Frames nichts ausser `0x0ED` B2 (`80` -> `00`, 0,08-0,09 s vorher) und spaeter `0x435`: B5 `00` -> `FC` (0,47 s bzw. 0,39 s nach Beginn von `04`) und B3 `0B` -> `EB` (0,57 s bzw. 0,69 s).
+- Beispiel `0x423` am Ende: `04 1E FF FD B2 A0 B2 CA` (Ladelog 2), `04 1E FF FD 5D A0 B2 C8` dann `B2 A0 5D C8` (Fahrlog); B4/B6 wechseln wie sonst alle 5 Frames.
+- Beim Wake zeigen alle Logs als erste `0x423`-Frames (je ein Frame, 50 ms Abstand): `30 7F FF FF FF E0 FF FF`, dann `33 7F FF FF FF E0 FF FF`, danach die normalen (`07 1E FF FD B2 80 B2 xx`). Zeiten: Ladelog 2 247,64 s, Ladelog 1 611,77 s, Fahrlog 84,61 / 565,50 / 1354,62 s.
+- Sonst nur `07`, `0B`, `87` (B0 in den Phasen Laden/Wach/Fahrt).
+
+**Bei uns (Code):** `0x423` wird nie mit B0 = `04` gesendet (nur die Zustandszeilen mit `07`/`0B`, keine Sonderform fuer `K_423`); die Schliessform aendert nur `0x0ED` B2 auf `00` (`BUS.h:684-688`), und zwar fuer die ganze Schliessphase, im Auto nur etwa in den letzten 1,2 s. `0x30`/`0x33` beim Wake werden nicht gesendet.
+
+**Bauauftrag (noch nicht gebaut):**
+1. Schliessphase (alle drei Wege): `0x423` B0 = `04` fuer die letzte Sekunde (Ladelog 2: ab etwa 10,03 s nach `00/02`, 11 Frames), Rest des Frames wie die Zustandszeile "zu".
+2. `0x0ED` B2 = `00` nur kurz davor (etwa 0,1 s vor `04`), nicht fuer die ganze Schliessphase.
+3. `0x435` B5 = `FC` ab etwa 0,4-0,5 s nach Beginn von `04`, B3 = `EB` ab etwa 0,6-0,7 s.
+4. Wake: die ersten beiden `0x423`-Frames `30 7F FF FF FF E0 FF FF` und `33 7F FF FF FF E0 FF FF` (50 ms Abstand), danach wie bisher.
+5. Tests gegen die drei Auto-Logs (Zeitpunkte relativ zum Beginn von `00/02`), danach Test T2 der Merkliste.
+
+**Nicht belegt:** dass `0x423` B0 = `04` die Ursache ist (die Logs zeigen nur, dass es der einzige gleichzeitige Unterschied ist); die Angaben zum NVM (Bloecke, Adressen, ein Schreiber); ob unsere bisherigen Sleep-Laeufe das Schreiben ueber den Weg "`0x426` 2 s weg" ausgeloest haben.
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
