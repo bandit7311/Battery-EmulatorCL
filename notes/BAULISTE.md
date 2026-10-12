@@ -186,7 +186,7 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 
 ## Zum Bauen vorgemerkt: Display-Anzeige beim Einschlafen (Wunsch vom 12.10., noch nicht gebaut, wartet auf "bauen")
 **Wunsch des Nutzers:** Auf dem OLED-Display (vom Nutzer als SSD1309 bezeichnet) in der mittleren Zeile, in der sonst die Stoerungen stehen, waehrend des Einschlafens:
-- Zeile 1 (mittig zentriert): `Sleep pls wait` (urspruenglicher Wunsch; **entfaellt**, siehe Entscheidung unten)
+- Zeile 1 (mittig zentriert): `Sleep pls wait`
 - Zeile 2 darunter (mittig zentriert): abgelaufene Zeit / Endzeit des Schlafens, Beispiel `00:04:34 / 00:10:00 End`
 
 **Stand im Code (`Software/src/devboard/display/display.cpp`)**
@@ -206,7 +206,8 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - Zeilen: Text in **Zeile 4**, Zeitzeile in **Zeile 5** (Zeile 3 leer).
 - Es wird **nur die Zeit ab der Einschlafzeit** gezaehlt, also ab Beginn der Stille (`nvrol_silence_start_ms`, `NVROLstateMachine == 5`, Zeile 909). Die Endzeit ist **nur die eingestellte "Sleep failsafe minutes"**; die Dauer der Abschaltfolge wird **nicht** dazuaddiert.
 - **Vor** der Einschlafzeit (waehrend der Abschaltfolge, `NVROLstateMachine == 7`): Zeile 4 zeigt nur `Sleep requested`, Zeile 5 zeigt den Zaehler `00:00:00 / 00:10:00` (Beispiel mit 10 min Failsafe; Stand 0, Endzeit = Failsafe).
-- **Ab** der Einschlafzeit (Stille): Der Text `Sleep pls wait` entfaellt (Nutzer: "nein, dann nur die Texte loeschen"). Zeile 5 zaehlt die abgelaufene Zeit der Stille gegen die Endzeit, z. B. `00:04:34 / 00:10:00`. **Offen:** ob Zeile 4 dabei ganz leer wird oder `Sleep requested` stehen bleibt.
+- **Ab** der Einschlafzeit (Stille): Zeile 4 wechselt auf `Sleep pls wait` (**vom Nutzer bestaetigt, 12.10.: "sleep pls wait wechsel stimmt"**), Zeile 5 zaehlt die abgelaufene Zeit der Stille gegen die Endzeit, z. B. `00:04:34 / 00:10:00`.
+- Nachricht des Nutzers "nein dann nur die texte loeschen" (12.10.): Bezug unklar, nachgefragt; bis zur Antwort nichts daraus abgeleitet.
 
 **Gemessen im Code (nur zur Info, wird nicht addiert): Dauer der Abschaltfolge vor der Stille** (`NVROLstateMachine == 7`, Zeilen 874-896; Konstanten in `.h` Zeilen 802-815)
 - Normal (Schalter A aus): C3 66.000 ms + C2 60.000 ms + C0 10.000 ms + 00 1.000 ms = 137.000 ms (00:02:17).
@@ -214,7 +215,6 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - Die Stille endet nach "Sleep failsafe minutes" ab dem Ende der Abschaltfolge; Standard 30 min (`SLEEP_MANUAL_FAILSAFE_DEFAULT_MIN`). Ein Aufweck-Wunsch (`nvrol_wake_request`) beendet den Lauf frueher.
 
 **Noch festzulegen (nicht zu raten)**
-- Zeile 4 ab Beginn der Stille: leer oder `Sleep requested` stehen lassen (Text `Sleep pls wait` entfaellt, entschieden).
 - Was die Anzeige bei den geplanten Einschlafwegen "kurz" und "Ladelog 2" zeigt, und ob waehrend des Aufweck-Buendels (`NVROLstateMachine == 8`) noch etwas angezeigt wird.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
