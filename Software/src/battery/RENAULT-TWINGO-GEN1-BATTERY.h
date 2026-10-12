@@ -391,6 +391,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // True from the moment in the closing stage (00) of the Sleep run at which the frame with this ID is over (order of the
   // way "Ladelog 2": 0x157 and 0x0ED last); false outside the closing stage and for the other ways.
   bool bus_closing_over(uint16_t id, bool is_0ec, unsigned long now);
+  // Fills datalayer.system.status.sleep_display_* for the OLED display (13.10.): phase 1 shutdown sequence, 2 true silence.
+  void update_sleep_display(unsigned long now);
   bool bus_session_started = false;
   unsigned long bus_session_start_ms = 0;
   uint8_t bus_sleep_start_state = 1;

@@ -396,6 +396,13 @@ struct DATALAYER_SYSTEM_STATUS_TYPE {
    */
   int64_t time_snap_cantx_us = 0;
 
+  /** Sleep run shown on the OLED display (13.10., set by the Twingo driver): 0 = none, 1 = "Sleep requested" (the shutdown
+   *  sequence runs), 2 = "Sleep pls wait" (true silence). Elapsed seconds count from the start of the silence, the total
+   *  is the end time ("Sleep failsafe minutes"). See devboard/display/sleep_display.h. */
+  uint8_t sleep_display_phase = 0;
+  uint32_t sleep_display_elapsed_s = 0;
+  uint32_t sleep_display_total_s = 0;
+
   /** uint8_t */
   /** A counter set each time a new message comes from inverter.
    * This value then gets decremented every second. Incase we reach 0 we report the inverter as missing entirely on the CAN bus.

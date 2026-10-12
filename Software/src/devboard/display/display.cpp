@@ -10,6 +10,7 @@
 #include "../utils/events.h"
 #include "../utils/logging.h"
 #include "fonts.h"
+#include "sleep_display.h"
 
 #include "Arduino.h"
 #include "driver/i2c_master.h"
@@ -458,8 +459,23 @@ void update_display() {
 
   write_text(0, 2, "---------------------", false);
 
-  // Print the events below
-  print_events(3, 3);
+  // Print the events below - while a battery goes to sleep (Sleep, Sleep 0x9281=1, NVROL reset) the middle rows show the
+  // sleep text and the time instead (row 3 blank, row 4 the text, row 5 the time); afterwards print_events() writes all
+  // three rows again, which clears the text and the time.
+  {
+    char row4[22], row5[22];
+    if (sleep_display::build_rows(datalayer.system.status.sleep_display_phase,
+                                  datalayer.system.status.sleep_display_elapsed_s,
+                                  datalayer.system.status.sleep_display_total_s, row4, row5)) {
+      char blank[22];
+      sleep_display::centre("", blank);
+      write_text(0, 3, blank, false);
+      write_text(0, 4, row4, false);
+      write_text(0, 5, row5, false);
+    } else {
+      print_events(3, 3);
+    }
+  }
 
   write_text(0, 6, "---------------------", false);
 

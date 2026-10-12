@@ -58,7 +58,7 @@ void RenaultTwingoGen1Battery::
     uint8_t mask = datalayer_battery->status.temperature_sensors_valid_mask;
     for (uint8_t i = 0; i < EXT_TEMP_SENSOR_COUNT; i++) {
       if ((mask & (1u << i)) && ((now - ext_temp_last_ms[i]) > EXT_TEMP_STALE_MS)) {
-        mask &= (uint8_t)~(1u << i);
+        mask &= (uint8_t) ~(1u << i);
       }
     }
     datalayer_battery->status.temperature_sensors_valid_mask = mask;
@@ -278,7 +278,7 @@ void RenaultTwingoGen1Battery::handle_extended_single_frame(uint16_t pid, const 
       datalayer_battery->status.temperature_sensors_valid_mask |= (uint8_t)(1u << sensor);
       ext_temp_last_ms[sensor] = millis();
     } else {
-      datalayer_battery->status.temperature_sensors_valid_mask &= (uint8_t)~(1u << sensor);
+      datalayer_battery->status.temperature_sensors_valid_mask &= (uint8_t) ~(1u << sensor);
     }
     return;
   }
@@ -1749,7 +1749,7 @@ void RenaultTwingoGen1Battery::append_ext_value(String& s, const char* label, co
 }
 
 void RenaultTwingoGen1Battery::priority_answered(uint8_t bit) {
-  ext_priority_pending_mask &= (uint8_t)~(1u << bit);
+  ext_priority_pending_mask &= (uint8_t) ~(1u << bit);
   if (ext_priority_pending_mask == 0 && wake_tracking && wake_priority_done < 0) {
     wake_priority_done = (int32_t)(millis() - wake_start_ms);
   }
@@ -3771,7 +3771,34 @@ void RenaultTwingoGen1Battery::send_bus_closing(unsigned long now) {
   }
 }
 
+// What the OLED display shows during a Sleep run (13.10.): "Sleep requested" with 00:00:00 while the shutdown sequence runs,
+// "Sleep pls wait" with the time of the silence from its start (the end time is the "Sleep failsafe minutes") in the true
+// silence; nothing otherwise (the display then writes the events again, which clears the text and the time).
+void RenaultTwingoGen1Battery::update_sleep_display(unsigned long now) {
+  auto& st = datalayer.system.status;
+#ifdef TWINGO_EXTENDED_CELL_POLLING
+  if (NVROLstateMachine == 7) {
+    st.sleep_display_phase = 1;
+    st.sleep_display_elapsed_s = 0;
+    st.sleep_display_total_s = (uint32_t)(sleep_manual_failsafe_ms() / 1000UL);
+    return;
+  }
+  if (NVROLstateMachine == 5) {
+    st.sleep_display_phase = 2;
+    st.sleep_display_elapsed_s = (uint32_t)((now - nvrol_silence_start_ms) / 1000UL);
+    st.sleep_display_total_s = (uint32_t)(sleep_manual_failsafe_ms() / 1000UL);
+    return;
+  }
+#else
+  (void)now;
+#endif
+  st.sleep_display_phase = 0;
+  st.sleep_display_elapsed_s = 0;
+  st.sleep_display_total_s = 0;
+}
+
 void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
+  update_sleep_display(currentMillis);
   {
     int32_t o426_tick;
     bus_state_now(currentMillis, o426_tick);  // keeps the state sequence and the page display running
