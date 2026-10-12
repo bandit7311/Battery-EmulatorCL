@@ -71,14 +71,14 @@ Neuer Branch ab `e3988cb` (z. B. `twingo-echter-bus-modus`, ohne Modellnamen); `
 - `3752043`: Zaehler der gesendeten 0x69F-Frames auf der Simulator-Seite; `2E` darf 925E schreiben (Free request, Ziel DB).
 - `c6fb094`: 0x426-Wechsel um 0,1 s korrigiert (zu 1,2 s), Zeittests gegen Auto-Log (Aufwachen Sitzung 3, Einschlafen Sitzung 1).
 
-## Gebaut am 13.10. ("bauen 1 bis 5", alle auf twingo-echter-bus-modus, 475 Tests gruen, Bench-Test offen)
+## Gebaut am 12.10. ("bauen 1 bis 5", alle auf twingo-echter-bus-modus, 475 Tests gruen, Bench-Test offen)
 - Bau 1 und Bau 4, `29be34b`: Einschlafweg lang / kurz / Ladelog 2 (Radiobuttons), Busende von Ladelog 2 in der Reihenfolge des Autos (0x157 und 0x0ED zuletzt), Zustand "Laden" (`A0/41`, 30 Zeilen aus Ladelog 2) und Weckfolge ueber den Stecker, Radiobuttons Fahren / Laden / Schlafen.
 - Bau 2, `9153317`: eigene Zeile "DTC Read SCPU" mit Knopf; das Ergebnis bleibt bis zum naechsten Lesen stehen und aktualisiert sich von selbst.
 - Bau 3, `3542303`: OLED Zeile 4 und 5 beim Einschlafen: "Sleep requested" mit 00:00:00 / Ende, in der Stille "Sleep pls wait" mit dem Zaehler ab Beginn der Stille. Danach werden die Zeilen geleert, die Stoerungen stehen wieder dort.
 - Bau 5, `4c7d262`: Messung der eigenen Sendeabstaende von 0x426, 0x435, 0x436 in Mikrosekunden (min, max, Mittel, Anzahl ausserhalb 100 ms +-1 ms, Pausen ueber 1 s) und der Versatz von 0x435 / 0x436 zum davor gesendeten 0x426, auf der Seite mit Reset-Knopf. Gemessen wird der Zeitpunkt des Aufrufs der Sendefunktion, nicht der Zeitpunkt auf der Leitung. Startversatz und Wake-Formen der anderen EVC-Frames sind nicht beauftragt (erst nach der Messung).
 - Offen aus dem Bau: Dauer von `00/07` im kurzen und langen Weg; das Ziel "Schlafen" ist nicht definiert (verhaelt sich wie Fahren); die dynamischen Laden-Frames 0x4F7 / 0x42F / 0x419 werden als haeufigster Wert konstant gesendet.
 
-## Zum Bauen vorgemerkt: Zustand "Laden" (Stand 11.10. abends, nur Messwerte; GEBAUT 13.10., siehe oben)
+## Zum Bauen vorgemerkt: Zustand "Laden" (Stand 11.10. abends, nur Messwerte; GEBAUT 12.10., siehe oben)
 Quellen: Ladelog 1 (`598b197c-canmitlog.log`, PuTTY, Aufwachen bei 611,77 s, `A0/41` von 619,80 bis 1149,60 s = 529,8 s) und Ladelog 2 (`445a1527-teraterm.log`, Tera Term, vollstaendig ohne "not printed"; Stille von 203,26 bis 247,64 s; Aufwachen durch den Ladestecker bei 247,64 s; `A0/41` von 255,67 bis 553,27 s = 297,6 s; Ende mit der Fernbedienung). Dumps: MCPU `1791728231` / `1791731801`, SCPU `1791728260` / `1791732192`. Alles nur Gemessenes, keine Annahmen. Zum Befund siehe `BEFUND_Ladelog_Twingo_11-10.md`.
 
 **Gemessen, Aufwachen durch den Stecker (Log 2, Versatz zu 247,64 s)**
@@ -103,7 +103,7 @@ Quellen: Ladelog 1 (`598b197c-canmitlog.log`, PuTTY, Aufwachen bei 611,77 s, `A0
 - `9261` `2D 59 D8` -> `2D 5A D9` (+257 min), `91C1` `21 61 DA` -> `21 62 DB` (+257 min), Abstand `9261 - 91C1` vorher und nachher 784.382; der neue `9261` ist gleich dem letzten 0x436-Wert im Log (`2D 5A D9`, 1271,9 s).
 - `9279` 16 -> 20; `9275` bis `9278` unveraendert; `9270` hat zwei neue Eintraege `04`; `9259` `05` -> `04`, `925C` `01` -> `02` (SCPU im dritten Dump gleich, im vierten wieder `05`/`01`); `91CF` unveraendert `80 0C 28 60`; `925E` unveraendert `13 88 6F`.
 
-**Bauauftrag (gebaut 13.10.)**
+**Bauauftrag (gebaut 12.10.)**
 1. Neuer Zustand "Laden" in der Zustandsfolge: Inhalt aller Zeilen wie unter "Zustand `A0/41`", 0x426 `00 A0 41 01 6A 71 00 80`, 0x436 B0 `AD`.
 2. Weckfolge davor mit den 0x426-Codes und Zeiten aus Log 2, Byte 7 `80` ab `60/61` (250,37 s), 0x436 B0 Rampe auf `AD`, 0x0EC erst 2,05 s nach dem Start.
 3. Ende wie im Log (Codes und Zeiten, 0x436 B0 Rampe zurueck) bis `00/02` und Stille.
@@ -124,7 +124,7 @@ Quellen: Ladelog 1 (`598b197c-canmitlog.log`, PuTTY, Aufwachen bei 611,77 s, `A0
 4. **Noch festzulegen (der Nutzer ergaenzt es spaeter):** wie die Betriebsarten im automatischen Ablauf wirken sollen (Ziel der Folge nach Start und Aufwecken, was "Schlafen" in der Folge bedeutet, Dauer von "Laden", Auswahl der Ende-Folge).
 5. Nicht festgelegt und deshalb im Bau offen zu lassen: Verhalten von Sleep, Sleep 0x9281 = 1 und NVROL je nach gewaehlter Betriebsart.
 
-## Zum Bauen vorgemerkt: Messung der eigenen Sendeabstaende (Stand 11.10., GEBAUT 13.10., siehe oben)
+## Zum Bauen vorgemerkt: Messung der eigenen Sendeabstaende (Stand 11.10., GEBAUT 12.10., siehe oben)
 Anlass: Frage, ob das Timing von 0x426 zu E14381 beitragen kann. Nur Gemessenes und Codestellen, keine Annahme ueber die Ursache.
 
 **Gemessen im echten Auto (Fahrlog 22aaf176, Ladelog 445a1527; Zeitaufloesung der Logs 10 ms)**
@@ -140,7 +140,7 @@ Anlass: Frage, ob das Timing von 0x426 zu E14381 beitragen kann. Nur Gemessenes 
 - `transmit_can_frame_to_interface` ruft `print_can_frame` im Sendepfad auf (`comm_can.cpp:317`).
 - In den vorhandenen Logs stehen keine TX-Zeilen des Emulators; die eigenen Sendeabstaende sind nicht gemessen.
 
-**Bauauftrag (gebaut 13.10.)**
+**Bauauftrag (gebaut 12.10.)**
 1. Zaehler in der Firmware fuer 0x426, 0x435 und 0x436: Zeit zwischen zwei Sendungen und Versatz der drei Frames zueinander, in Mikrosekunden.
 2. Anzeige der Werte auf der Seite (Minimum, Maximum, Mittel, Anzahl der Abstaende ausserhalb 100 ms +-1 ms ist noch festzulegen).
 3. Alternative ohne Bau: zweites Geraet als CAN-Logger mit Hardware-Zeitstempeln am Bus (vom Nutzer zu entscheiden).
@@ -148,7 +148,7 @@ Anlass: Frage, ob das Timing von 0x426 zu E14381 beitragen kann. Nur Gemessenes 
 5. **Startversatz der Frames** (verschoben aus "Zustand Laden", 12.10.): Im Auto beginnen 0x426, 0x435 und 0x436 im selben Zeitstempel, 0x423 kommt 0,13 s frueher. Bei uns hat jede Zeile einen eigenen Timer. Einstellen erst, wenn die Messung (Punkt 1 bis 3) den eigenen Versatz zeigt.
 6. **Wake-Formen der uebrigen EVC-Frames** (verschoben aus "Zustand Laden", 12.10.): Gebaut sind die Wake-Formen von 0x0EC, 0x0ED und 0x19F. Fuer 0x157, 0x1A1, 0x1C7, 0x419, 0x428, 0x42F, 0x435, 0x4F7, 0x500 und 0x511 gibt es keine. Gemessen beim Wecken im Ladelog 2: 0x1C7 `AA 23 00 02 36 00` (spaeter `02 34`, dann `04 34`), 0x435 `FF FF 1E EB 35 FC 00 00`, 0x428 `00 00 00 00 00 07 C0 00`, 0x42F `00 00 00 00 00 00`, 0x4F7 `00 7F 00 00 09 FC 06 F0`, 0x419 `00 00 00 00 00 00` (Werte aus dem Abschnitt "Zustand Laden", Wecken durch den Stecker). Umsetzung nicht beauftragt.
 
-## Zum Bauen vorgemerkt (WICHTIG): eigene Zeile "DTC SCPU" auf der Seite (Stand 12.10., GEBAUT 13.10., siehe oben)
+## Zum Bauen vorgemerkt (WICHTIG): eigene Zeile "DTC SCPU" auf der Seite (Stand 12.10., GEBAUT 12.10., siehe oben)
 Anlass: Nach "Read DTC SCPU" erscheint unten nichts (Nutzer, 12.10.). Nur Codestellen und Nutzerangaben, keine Annahmen.
 
 **Stand im Code**
@@ -156,14 +156,14 @@ Anlass: Nach "Read DTC SCPU" erscheint unten nichts (Nutzer, 12.10.). Nur Codest
 - Die Zeile unten "DTC Read (ext. protocol, Read DTC button)" (Zeile 4170, `dtc_ext_log_read`) gehoert zum MCPU-Knopf "Read DTC" (`reload_after = true`, Seite laedt nach 1,5 s neu).
 - Die Maske kommt aus dem Haken "Read ALL DTC statuses (mask 0xFF)" (`dtc_ext_read_mask`, Standard `0x09`); mit Haken sendet der Knopf `19 02 FF`, das der Nutzer als "no response" meldet.
 
-**Bauauftrag (gebaut 13.10.)**
+**Bauauftrag (gebaut 12.10.)**
 1. Eigene Zeile "DTC Read SCPU" unten auf der Seite, getrennt vom Feld "Answer", mit dem letzten Ergebnis der SCPU-Abfrage (Rohantwort und Liste der Codes mit Status).
 2. Das Ergebnis bleibt stehen, bis die naechste SCPU-Abfrage kommt (wird nicht von anderen freien Anfragen ueberschrieben).
 3. Die Zeile aktualisiert sich nach dem Klick von selbst (kein manuelles Neuladen).
 4. Gleiches fuer "Erase DTC" der SCPU ist nicht beauftragt.
 5. Noch festzulegen: ob die Zeile Namen der Codes aus der SCPU-Definition zeigt (z. B. 1BB587 = "CAN current sensor (SCPU)1", Typ 135) und ob die Maske weiter vom Haken kommt.
 
-## Zum Bauen vorgemerkt (Prioritaet HOCH): Radiobuttons "Einschlafweg lang / kurz" (Stand 12.10., korrigiert; GEBAUT 13.10., siehe oben)
+## Zum Bauen vorgemerkt (Prioritaet HOCH): Radiobuttons "Einschlafweg lang / kurz" (Stand 12.10., korrigiert; GEBAUT 12.10., siehe oben)
 Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom Nutzer. Quelle: 0x426-Zustandswechsel in den Auto-Logs.
 
 **Wichtige Einschraenkung der Datenlage (geprueft am 12.10.)**
@@ -183,7 +183,7 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - Nur der lange Weg des Fahrlogs ist gebaut: `sleep_state()` in `RENAULT-TWINGO-GEN1-BUS.h` (Zeile 783): aus `BUS_FAHRT` `70/65` 100 ms, `60/65` 100 ms, `BUS_AUS` 1900 ms, `00/07` 2600 ms, dann `BUS_WACH`. Das Ende des Ladelogs 2 (`00/01`, `08/06`) ist nicht gebaut (siehe Abschnitt "Zustand Laden", Punkt 3).
 - Die Folge laeuft bei Sleep, Sleep 0x9281=1 und NVROL reset (`NVROLstateMachine == 7`).
 
-**Bauauftrag (gebaut 13.10.), drei Wege zur Auswahl**
+**Bauauftrag (gebaut 12.10.), drei Wege zur Auswahl**
 1. Drei Radiobuttons auf `/simulator` neben der Zustandsfolge: "Einschlafweg: **lang** (Fahrlog Sitzung 1)", "**kurz** (Fahrlog Sitzung 3)" und "**Ladelog 2** (vollstaendig gemessen)". Standard: lang (wie heute).
 2. Die Wahl wird im NVM gespeichert und bleibt nach einem Neustart erhalten (wie die Format-Wahl).
 3. `sleep_state()` bekommt den Weg als Parameter:
@@ -202,9 +202,9 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
   - 0x423 endet bei +11,03 s.
   - **0x0ED `60 FF 00` und 0x157 enden zuletzt, im selben Zeitstempel** (+11,04 s im Ladelog 2: 688,91 s; +11,06 s im Ladelog 1: 1284,26 s). Letzte Werte 0x157: `D5 77 09 C4 FF E0 00 80` (Ladelog 2), `D5 17 09 C4 FF E0 00 80` (Ladelog 1; B1 ist der Zaehler).
 - **Stand im Code:** `send_bus_closing()` (`RENAULT-TWINGO-GEN1-BATTERY.cpp`) sendet in der 00-Stufe alle eingeschalteten `R`-Zeilen ausser 0x0EC im Zustand `BUS_ZU` (0x0ED in der Schlussform `60 FF 00`) so lange wie die 00-Stufe dauert (900 ms "wie im Auto", 1000 ms normal). Alle Zeilen enden dabei gleichzeitig, nicht in der Reihenfolge des Autos, und nach 0,9 bis 1 s statt nach etwa 11 s.
-- **Bauauftrag (gebaut 13.10.):** Die Bus-Schlussfolge so legen, dass die Zeilen in der Reihenfolge des Autos enden: 0x0EC bei `00/02`, die uebrigen Zeilen nach etwa 10 s, 0x69F bei etwa 10,5 s, 0x426/0x435/0x436 bei 11,00 s, 0x423 bei 11,03 s und **0x157 zusammen mit 0x0ED zuletzt (11,04 s)**. Gehoert zum Einschlafweg "Ladelog 2" (dort steht `00/02` 11,1 s und das letzte Frame `0x0ED`). Offen, nicht zu raten: ob dieselbe Endreihenfolge fuer "lang" und "kurz" gelten soll (im Fahrlog nicht pruefbar, Luecken).
+- **Bauauftrag (gebaut 12.10.):** Die Bus-Schlussfolge so legen, dass die Zeilen in der Reihenfolge des Autos enden: 0x0EC bei `00/02`, die uebrigen Zeilen nach etwa 10 s, 0x69F bei etwa 10,5 s, 0x426/0x435/0x436 bei 11,00 s, 0x423 bei 11,03 s und **0x157 zusammen mit 0x0ED zuletzt (11,04 s)**. Gehoert zum Einschlafweg "Ladelog 2" (dort steht `00/02` 11,1 s und das letzte Frame `0x0ED`). Offen, nicht zu raten: ob dieselbe Endreihenfolge fuer "lang" und "kurz" gelten soll (im Fahrlog nicht pruefbar, Luecken).
 
-## Zum Bauen vorgemerkt: Display-Anzeige beim Einschlafen (Wunsch vom 12.10., GEBAUT 13.10., siehe oben)
+## Zum Bauen vorgemerkt: Display-Anzeige beim Einschlafen (Wunsch vom 12.10., GEBAUT 12.10., siehe oben)
 **Wunsch des Nutzers:** Auf dem OLED-Display (vom Nutzer als SSD1309 bezeichnet) in der mittleren Zeile, in der sonst die Stoerungen stehen, waehrend des Einschlafens:
 - Zeile 1 (mittig zentriert): `Sleep pls wait`
 - Zeile 2 darunter (mittig zentriert): abgelaufene Zeit / Endzeit des Schlafens, Beispiel `00:04:34 / 00:10:00 End`
@@ -215,7 +215,7 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - Das Display kennt keinen Batterietyp. Der Twingo-Treiber hat die Daten: Sleep-Lauf `NVROLstateMachine == 7`, Start der Stille `nvrol_silence_start_ms`, Beginn der Abschaltfolge `powerdown_start_ms`, Endzeit `sleep_manual_failsafe_ms()` (eingestellte Minuten, 1 bis 1440, `RENAULT-TWINGO-GEN1-BATTERY.cpp:684`), Formatierung mm:ss gibt es schon (`append_mmss`, Zeile 1881).
 - Der Sleep-Lauf endet vor der Endzeit, wenn ein Aufweck-Wunsch kommt (`nvrol_wake_request`, Zeile 909).
 
-**Bauauftrag (gebaut 13.10.)**
+**Bauauftrag (gebaut 12.10.)**
 1. Solange ein Sleep-Lauf (Sleep, Sleep 0x9281=1, NVROL reset) laeuft: statt der Stoerungen (Zeilen 3 bis 5) zwei zentrierte Zeilen: `Sleep pls wait` und die Zeitzeile.
 2. Zeitzeile: abgelaufene Zeit / Endzeit, beide `HH:MM:SS` (z. B. `00:04:34 / 00:10:00`), jede Sekunde aktualisiert. Endzeit = eingestellte "Sleep failsafe minutes" (1 bis 1440 min, also bis `24:00:00`).
 3. Nach dem Ende des Sleep-Laufs (Endzeit oder Aufwecken) wieder die normale Stoerungsanzeige.
