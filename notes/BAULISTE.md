@@ -207,7 +207,9 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - Es wird **nur die Zeit ab der Einschlafzeit** gezaehlt, also ab Beginn der Stille (`nvrol_silence_start_ms`, `NVROLstateMachine == 5`, Zeile 909). Die Endzeit ist **nur die eingestellte "Sleep failsafe minutes"**; die Dauer der Abschaltfolge wird **nicht** dazuaddiert.
 - **Vor** der Einschlafzeit (waehrend der Abschaltfolge, `NVROLstateMachine == 7`): Zeile 4 zeigt nur `Sleep requested`, Zeile 5 zeigt den Zaehler `00:00:00 / 00:10:00` (Beispiel mit 10 min Failsafe; Stand 0, Endzeit = Failsafe).
 - **Ab** der Einschlafzeit (Stille): Zeile 4 wechselt auf `Sleep pls wait` (**vom Nutzer bestaetigt, 12.10.: "sleep pls wait wechsel stimmt"**), Zeile 5 zaehlt die abgelaufene Zeit der Stille gegen die Endzeit, z. B. `00:04:34 / 00:10:00`.
-- Nachricht des Nutzers "nein dann nur die texte loeschen" (12.10.): Bezug unklar, nachgefragt; bis zur Antwort nichts daraus abgeleitet.
+- **Loeschen (Nutzer, 12.10.):** Die Texte und die Zeiten muessen im Display **geloescht (cleared)** werden, damit dort wieder die Stoerungen stehen koennen. Das gilt, sobald der Sleep-Lauf endet (Endzeit erreicht oder Aufwecken). Die Texte werden nicht bei laufendem Sleep geloescht.
+  - Stand im Code (`display.cpp`): `print_events(3, 3)` schreibt die Zeilen 3 bis 5 alle 500 ms komplett neu (je 21 Zeichen, mit Leerzeichen aufgefuellt) und leert nicht benutzte Zeilen (`Clear remaining lines`, Zeilen 395-400). Beim Sleep-Lauf darf `print_events` in dieser Zeit nicht laufen (sonst ueberschreibt es die Anzeige); danach laeuft es wieder und ueberschreibt die Sleep-Texte und die Zeiten von selbst.
+  - Beim Bau zu beachten: Die Sleep-Zeilen werden mit 21 Zeichen aufgefuellt geschrieben (auch Zeile 3 leer), damit beim Wechsel `Sleep requested` -> `Sleep pls wait` keine Reste stehen bleiben.
 
 **Gemessen im Code (nur zur Info, wird nicht addiert): Dauer der Abschaltfolge vor der Stille** (`NVROLstateMachine == 7`, Zeilen 874-896; Konstanten in `.h` Zeilen 802-815)
 - Normal (Schalter A aus): C3 66.000 ms + C2 60.000 ms + C0 10.000 ms + 00 1.000 ms = 137.000 ms (00:02:17).
