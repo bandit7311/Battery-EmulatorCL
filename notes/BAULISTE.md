@@ -154,24 +154,32 @@ Anlass: Nach "Read DTC SCPU" erscheint unten nichts (Nutzer, 12.10.). Nur Codest
 4. Gleiches fuer "Erase DTC" der SCPU ist nicht beauftragt.
 5. Noch festzulegen: ob die Zeile Namen der Codes aus der SCPU-Definition zeigt (z. B. 1BB587 = "CAN current sensor (SCPU)1", Typ 135) und ob die Maske weiter vom Haken kommt.
 
-## Zum Bauen vorgemerkt: Radiobuttons "Einschlafweg lang / kurz" (Stand 12.10., noch nicht gebaut, wartet auf "bauen")
-Anlass: Wunsch des Nutzers vom 12.10. Quelle der Zeiten: 0x426-Zustandswechsel im Fahrlog 22aaf176 (gemessen).
+## Zum Bauen vorgemerkt (Prioritaet HOCH): Radiobuttons "Einschlafweg lang / kurz" (Stand 12.10., korrigiert; noch nicht gebaut, wartet auf "bauen")
+Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom Nutzer. Quelle: 0x426-Zustandswechsel in den Auto-Logs.
 
-**Gemessen: zwei Enden im Fahrlog**
-- Sitzung 1 (Ende bei 340 s), "lang": `70/69` -> `70/65` 0,1 s -> `60/65` 0,1 s -> `00/05` ("aus") 1,9 s -> `00/07` 0,6 s Frames, danach ca. 2 s ohne 0x426-Frames -> `00/06` (wach) 125 s.
-- Sitzung 3 (Ende bei 1483 s), "kurz": `70/69` (104 s) -> `00/07` 0,6 s -> `00/06` (wach) 129 s bis zum Logende bei 1612,7 s. Ohne `70/65`, `60/65`, `00/05` und ohne die Luecke.
-- Warum das Auto in Sitzung 3 den kurzen Weg nimmt: nicht bekannt. Ob nach dem kurzen Weg noch `00/02` kam, steht im Log nicht (Logende im Wachzustand).
+**Wichtige Einschraenkung der Datenlage (geprueft am 12.10.)**
+- Das Fahrlog 22aaf176 (PuTTY) hat 91 Markerzeilen "N CAN frames not printed" (zusammen 240.577 verworfene Frames), das Ladelog 1 (PuTTY) 86. Das Ladelog 2 (Tera Term) hat **keine** solche Zeile und ist vollstaendig.
+- Beide Enden im Fahrlog liegen in einer Logluecke: Sitzung 1 `[2152 CAN frames not printed]` zwischen 342,70 s und 344,74 s (nach `00/07`, vor `00/06`); Sitzung 3 `[4394 CAN frames not printed]` zwischen 1478,58 s und 1482,73 s (zwischen dem letzten `70/69` und dem ersten `00/07`). In der Sitzung-3-Luecke kommt von **keiner** ID ein Frame.
+
+**Gemessen im Fahrlog (soweit gedruckt)**
+- Sitzung 1 (Ende bei 340 s), "lang": `70/69` (bis 339,97 s) -> `70/65` 0,1 s -> `60/65` 0,1 s -> `00/05` 1,9 s (340,27 bis 342,07 s) -> `00/07` 0,6 s gedruckt (342,17 bis 342,67 s) -> Luecke (2152 Frames) -> `00/06` ab 344,77 s (125 s).
+- Sitzung 3 (Ende bei 1483 s), "kurz": letztes `70/69` bei 1478,50 s -> Luecke (4394 Frames, 4,3 s) -> `00/07` 0,6 s (1482,80 bis 1483,30 s) -> `00/06` ab 1483,40 s (129 s bis zum Logende bei 1612,7 s).
+- **Folge:** Ob Sitzung 3 wirklich einen kuerzeren Weg nimmt, ist **nicht belegt**. Die Zustaende `70/65`, `60/65`, `00/05` (zusammen 2,1 s) passen in die Luecke von 4,3 s und koennen dort gelaufen sein. Auch die Dauer von `00/07` im langen Weg (heute 2600 ms im Code) setzt die Luecke mit an.
+
+**Gemessen im vollstaendigen Tera-Term-Log (Ladelog 2, Ende nach A0/41), mit Dauern**
+- `00/01` B7=`80` 553,27 bis 553,67 s (0,5 s) -> `00/01` B7=`40` 553,77 bis 555,17 s (1,5 s) -> `00/07` 555,27 bis 556,27 s (1,1 s) -> `00/06` 556,37 bis 556,67 s (0,4 s) -> `08/06` 556,77 bis 557,77 s (1,1 s) -> `00/06` 557,87 bis 677,77 s (120,0 s) -> `00/02` 677,87 bis 688,87 s (11,1 s). Letztes Frame im Log: `0x0ED 60 FF 00` bei 688,91 s.
+- Vom Ende von `A0/41` bis `00/02` 124,6 s; bis zum letzten Frame 135,6 s. Keine Luecke ueber 0,25 s im Ende.
 
 **Stand im Code**
-- Nur der lange Weg ist gebaut: `sleep_state()` in `RENAULT-TWINGO-GEN1-BUS.h` (Zeile 783): aus `BUS_FAHRT` erst `70/65` 100 ms, `60/65` 100 ms, dann `BUS_AUS` 1900 ms, `00/07` 2600 ms, dann `BUS_WACH`.
+- Nur der lange Weg des Fahrlogs ist gebaut: `sleep_state()` in `RENAULT-TWINGO-GEN1-BUS.h` (Zeile 783): aus `BUS_FAHRT` `70/65` 100 ms, `60/65` 100 ms, `BUS_AUS` 1900 ms, `00/07` 2600 ms, dann `BUS_WACH`. Das Ende des Ladelogs 2 (`00/01`, `08/06`) ist nicht gebaut (siehe Abschnitt "Zustand Laden", Punkt 3).
 - Die Folge laeuft bei Sleep, Sleep 0x9281=1 und NVROL reset (`NVROLstateMachine == 7`).
 
 **Bauauftrag (noch nicht gebaut)**
-1. Zwei Radiobuttons auf der Seite `/simulator` neben der Zustandsfolge: "Einschlafweg: lang (Sitzung 1)" und "kurz (Sitzung 3)". Standard: lang (wie heute).
+1. Zwei Radiobuttons auf `/simulator` neben der Zustandsfolge: "Einschlafweg: lang (Fahrlog Sitzung 1)" und "kurz (Fahrlog Sitzung 3)". Standard: lang (wie heute).
 2. Die Wahl wird im NVM gespeichert und bleibt nach einem Neustart erhalten (wie die Format-Wahl).
-3. `sleep_state()` bekommt den Weg als Parameter. Kurz: aus `BUS_FAHRT` direkt `00/07` (0,6 s) und dann `BUS_WACH`; aus anderen Zustaenden unveraendert wie lang.
-4. Tests gegen die Zeiten aus dem Fahrlog (Sitzung 1 und Sitzung 3), wie die bestehenden Zeittests.
-5. Noch festzulegen: ob "00/07" im kurzen Weg 0,6 s oder wie im langen Weg 2,6 s dauern soll (im Fahrlog: 0,6 s Frames; im langen Weg folgt danach eine Luecke ohne 0x426).
+3. `sleep_state()` bekommt den Weg als Parameter. Kurz: aus `BUS_FAHRT` direkt `00/07` und dann `BUS_WACH`; aus anderen Zustaenden unveraendert wie lang.
+4. Tests gegen die gedruckten Zeiten des Fahrlogs.
+5. Offen, nicht zu raten: Dauer von `00/07` im kurzen Weg (gedruckt 0,6 s) und im langen Weg (heute 2600 ms, davon 2,0 s in der Logluecke); ob zusaetzlich ein dritter Weg "wie Ladelog 2" (`00/01` ... `00/02`, siehe oben) als Option dazukommen soll.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
