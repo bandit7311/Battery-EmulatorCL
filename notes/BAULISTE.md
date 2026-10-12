@@ -154,6 +154,25 @@ Anlass: Nach "Read DTC SCPU" erscheint unten nichts (Nutzer, 12.10.). Nur Codest
 4. Gleiches fuer "Erase DTC" der SCPU ist nicht beauftragt.
 5. Noch festzulegen: ob die Zeile Namen der Codes aus der SCPU-Definition zeigt (z. B. 1BB587 = "CAN current sensor (SCPU)1", Typ 135) und ob die Maske weiter vom Haken kommt.
 
+## Zum Bauen vorgemerkt: Radiobuttons "Einschlafweg lang / kurz" (Stand 12.10., noch nicht gebaut, wartet auf "bauen")
+Anlass: Wunsch des Nutzers vom 12.10. Quelle der Zeiten: 0x426-Zustandswechsel im Fahrlog 22aaf176 (gemessen).
+
+**Gemessen: zwei Enden im Fahrlog**
+- Sitzung 1 (Ende bei 340 s), "lang": `70/69` -> `70/65` 0,1 s -> `60/65` 0,1 s -> `00/05` ("aus") 1,9 s -> `00/07` 0,6 s Frames, danach ca. 2 s ohne 0x426-Frames -> `00/06` (wach) 125 s.
+- Sitzung 3 (Ende bei 1483 s), "kurz": `70/69` (104 s) -> `00/07` 0,6 s -> `00/06` (wach) 129 s bis zum Logende bei 1612,7 s. Ohne `70/65`, `60/65`, `00/05` und ohne die Luecke.
+- Warum das Auto in Sitzung 3 den kurzen Weg nimmt: nicht bekannt. Ob nach dem kurzen Weg noch `00/02` kam, steht im Log nicht (Logende im Wachzustand).
+
+**Stand im Code**
+- Nur der lange Weg ist gebaut: `sleep_state()` in `RENAULT-TWINGO-GEN1-BUS.h` (Zeile 783): aus `BUS_FAHRT` erst `70/65` 100 ms, `60/65` 100 ms, dann `BUS_AUS` 1900 ms, `00/07` 2600 ms, dann `BUS_WACH`.
+- Die Folge laeuft bei Sleep, Sleep 0x9281=1 und NVROL reset (`NVROLstateMachine == 7`).
+
+**Bauauftrag (noch nicht gebaut)**
+1. Zwei Radiobuttons auf der Seite `/simulator` neben der Zustandsfolge: "Einschlafweg: lang (Sitzung 1)" und "kurz (Sitzung 3)". Standard: lang (wie heute).
+2. Die Wahl wird im NVM gespeichert und bleibt nach einem Neustart erhalten (wie die Format-Wahl).
+3. `sleep_state()` bekommt den Weg als Parameter. Kurz: aus `BUS_FAHRT` direkt `00/07` (0,6 s) und dann `BUS_WACH`; aus anderen Zustaenden unveraendert wie lang.
+4. Tests gegen die Zeiten aus dem Fahrlog (Sitzung 1 und Sitzung 3), wie die bestehenden Zeittests.
+5. Noch festzulegen: ob "00/07" im kurzen Weg 0,6 s oder wie im langen Weg 2,6 s dauern soll (im Fahrlog: 0,6 s Frames; im langen Weg folgt danach eine Luecke ohne 0x426).
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
