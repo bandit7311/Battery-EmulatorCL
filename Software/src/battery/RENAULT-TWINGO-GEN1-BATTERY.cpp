@@ -4190,6 +4190,12 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoCellwatchEnable?value='+(v?1:0),true);x.send();}";
     content += "function twingoSetDtcAllStatus(v){";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoDtcAllStatus?value='+(v?1:0),true);x.send();}";
+    content += "function twingoScpuDtc(){var r=document.getElementById('twingoScpuDtc');";
+    content += "fetch('/triggerTwingoDtcScpu').then(function(a){return a.text();}).then(function(t){";
+    content += "if(t!=='OK'){r.textContent=t;}else{r.textContent='requested';}});}";
+    content += "setInterval(function(){var r=document.getElementById('twingoScpuDtc');if(!r){return;}";
+    content += "fetch('/twingoQueryResult?which=scpu').then(function(a){return a.text();}).then(function(x){";
+    content += "r.textContent=x;});},1000);";
     content += "function twingoPoll(which,span){var n=0;var h=setInterval(function(){";
     content += "fetch('/twingoQueryResult?which='+which).then(function(a){return a.text();}).then(function(x){";
     content += "span.textContent=x;if((x!=='requested'&&x!=='')||++n>40){clearInterval(h);}});},250);}";
@@ -4230,6 +4236,8 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
              " Read ALL DTC statuses (mask 0xFF) instead of only Active/Confirmed (0x09) on next Read DTC<br>"
              "DTC Read (ext. protocol, Read DTC button): " << dtc_ext_log_read << "<br>"
              "DTC Erase (ext. protocol, Erase DTC button): " << dtc_ext_log_erase << "<br>"
+             "<button onclick='twingoScpuDtc()'>Read DTC SCPU</button> DTC Read SCPU (last result, stays until the next "
+             "read): <span id='twingoScpuDtc'>" << dtc_scpu_result << "</span><br>"
              "<button onclick=\"fetch('/triggerTwingoDtcDetails')\">Read DTC details (EXPERIMENTAL, UNTESTED, "
              "subfunction 0x06)</button><br>"
              "DTC details - " << String(DTC_DETAILS_CODES[0], HEX) << ": " << dtc_ext_log_details[0] << "<br>"
@@ -4311,7 +4319,15 @@ const uint32_t RenaultTwingoGen1Battery::DTC_DETAILS_CODES[DTC_DETAILS_COUNT] = 
 void RenaultTwingoGen1Battery::read_DTC_scpu() {
   char hex[16];
   snprintf(hex, sizeof(hex), "19 02 %02X", (unsigned)datalayer_extended.twingoGen1.dtc_ext_read_mask);
-  start_user_query(hex, 1);  // the answer is the field "Answer" of this page
+  // The answer is the field "Answer" of this page and, kept until the next SCPU read, the row "DTC Read SCPU"
+  uq_scpu_row_pending = true;
+  const char* msg = start_user_query(hex, 1);
+  if (strcmp(msg, "OK") == 0) {
+    snprintf(dtc_scpu_result, sizeof(dtc_scpu_result), "requested");
+  } else {
+    uq_scpu_row_pending = false;
+    snprintf(dtc_scpu_result, sizeof(dtc_scpu_result), "not started: %s", msg);
+  }
 }
 
 void RenaultTwingoGen1Battery::reset_DTC_scpu() {
@@ -4433,6 +4449,8 @@ bool RenaultTwingoGen1Battery::uq_begin(uint8_t mode, const uint8_t* req, uint8_
   }
   uq_mode = mode;
   uq_req_len = len;
+  uq_to_scpu_row = uq_scpu_row_pending && mode == UQ_FREE;  // the request of the button "Read DTC SCPU"
+  uq_scpu_row_pending = false;
   for (uint8_t i = 0; i < len; i++) {
     uq_req[i] = req[i];
   }
@@ -4682,6 +4700,11 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
     }
   }
   uq_in_progress = false;
+  if (uq_to_scpu_row) {
+    // the row "DTC Read SCPU": result with the time of the answer, stays until the next SCPU read
+    snprintf(dtc_scpu_result, sizeof(dtc_scpu_result), "T+%lu s: %s", (unsigned long)(millis() / 1000UL), uq_result);
+    uq_to_scpu_row = false;
+  }
   if (uq_mode == UQ_FREE && uq_req[0] == 0x2E && uq_buf_len >= 1 && uq_buf[0] == 0x6E && !uq_post_read) {
     // Positive answer to the write: read the identifier back at once (point 10), the answer is appended to the line
     ZOE_POLL_18DADBF1.data = {0x03, 0x22, uq_req[1], uq_req[2], 0xAA, 0xAA, 0xAA, 0xAA};
@@ -4980,6 +5003,11 @@ void RenaultTwingoGen1Battery::handle_dtc_ext(unsigned long currentMillis) {
         } else {
           snprintf(uq_mode == UQ_FDC ? fdc_result : uq_result, sizeof(uq_result), "%sno response",
                    (uq_mode == UQ_FREE && uq_active_dc) ? "[DC] " : "");
+          if (uq_to_scpu_row) {
+            snprintf(dtc_scpu_result, sizeof(dtc_scpu_result), "T+%lu s: %s", (unsigned long)(millis() / 1000UL),
+                     uq_result);
+            uq_to_scpu_row = false;
+          }
         }
         uq_pre_read = false;
         uq_in_progress = false;

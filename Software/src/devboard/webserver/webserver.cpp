@@ -1201,7 +1201,16 @@ void init_webserver() {
   def_route_with_auth("/twingoQueryResult", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     RenaultTwingoGen1Battery* twingo = static_cast<RenaultTwingoGen1Battery*>(battery);
     bool fdc = request->hasParam("which") && request->getParam("which")->value() == "fdc";
-    request->send(200, "text/plain", fdc ? twingo->fdc_query_result() : twingo->user_query_result());
+    bool scpu = request->hasParam("which") && request->getParam("which")->value() == "scpu";
+    request->send(
+        200, "text/plain",
+        scpu ? twingo->dtc_scpu_query_result() : (fdc ? twingo->fdc_query_result() : twingo->user_query_result()));
+  });
+
+  // Button "Read DTC SCPU" of the row "DTC Read SCPU" (13.10.): 19 02 <mask> to the safety CPU, the result stays in the row.
+  def_route_with_auth("/triggerTwingoDtcScpu", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    static_cast<RenaultTwingoGen1Battery*>(battery)->read_DTC_scpu();
+    request->send(200, "text/plain", "OK");
   });
 
   // "Read DTC fault counters" button: UDS 0x19 0x14.

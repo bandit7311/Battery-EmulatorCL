@@ -225,6 +225,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // through the same checked write path (session, read before, write, read back). Returns "OK" or the reason.
   const char* write_time_now();
   const char* fdc_query_result() const { return fdc_result; }
+  // Row "DTC Read SCPU" (13.10.): the last result of the DTC list of the safety CPU, kept until the next SCPU read.
+  const char* dtc_scpu_query_result() const { return dtc_scpu_result; }
   // "Read DTC fault counters": UDS 0x19 0x14 (reportDTCFaultDetectionCounter), shown decoded.
   void read_DTC_fdc();
   // 0x350 / sleep / wake builders and the simulator rows ask this before sending (bit n = sim_signals[n]).
@@ -942,6 +944,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static const char* uq_nrc_text(uint8_t nrc);  // short meaning of a negative response code, "" when not known
   char uq_result[UQ_TEXT_SIZE] = "not run yet";
   char fdc_result[UQ_TEXT_SIZE] = "not run yet";
+  char dtc_scpu_result[UQ_TEXT_SIZE] = "not run yet";  // own row on the page, see read_DTC_scpu()
+  bool uq_to_scpu_row = false;                         // the running free request also fills dtc_scpu_result
+  bool uq_scpu_row_pending = false;                    // set by read_DTC_scpu() before the request is started
   bool uq_begin(uint8_t mode, const uint8_t* req, uint8_t len, bool needs_session);
   void uq_send_pre_read();
   bool handle_pre_read_reply(const CAN_frame& f);

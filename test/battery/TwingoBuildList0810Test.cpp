@@ -803,6 +803,71 @@ TEST(TwingoBuild0810, ReadDtcScpuGoesToTheSafetyCpuAndDecodesTwoEntries) {
   EXPECT_STREQ(b.user_query_result(), "[DC] 19 02 09: OK 59 02 FF E1 43 81 68 1B B1 08 28 | DTC: E14381=68 1BB108=28");
 }
 
+// 13.10.: own row "DTC Read SCPU" on the page: the last result of the SCPU read stays until the next SCPU read.
+namespace {
+void answer_dtc_scpu_with_one_entry(TestTwingo& b, uint64_t& t) {
+  settle(b, t, 700);
+  clear_transmitted_frames();
+  b.read_DTC_scpu();
+  settle(b, t, 300);
+  b.handle_incoming_can_frame(reply_on(0x18DAF1DC, {0x02, 0x50, 0x03, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA}));
+  b.handle_incoming_can_frame(reply_on(0x18DAF1DC, {0x07, 0x59, 0x02, 0xFF, 0x1B, 0xB5, 0x87, 0x2F}));
+}
+}  // namespace
+
+TEST(TwingoBuild1013, ScpuRowShowsTheListAndKeepsItUntilTheNextScpuRead) {
+  struct Guard {
+    ~Guard() { RenaultTwingoGen1Battery::uq_target = 0; }
+  } guard;
+  TestTwingo b;
+  b.setup();
+  EXPECT_STREQ(b.dtc_scpu_query_result(), "not run yet");
+  uint64_t t = 1000;
+  answer_dtc_scpu_with_one_entry(b, t);
+  // the field "Answer" and the row both carry the result; the row has the time of the answer in front
+  EXPECT_STREQ(b.user_query_result(), "[DC] 19 02 09: OK 59 02 FF 1B B5 87 2F | DTC: 1BB587=2F");
+  const std::string row = b.dtc_scpu_query_result();
+  EXPECT_NE(row.find("T+"), std::string::npos) << row;
+  EXPECT_NE(row.find("[DC] 19 02 09: OK 59 02 FF 1B B5 87 2F | DTC: 1BB587=2F"), std::string::npos) << row;
+  // another free request overwrites "Answer", not the row
+  settle(b, t, 700);
+  ASSERT_STREQ(b.start_user_query("22 92 5E", 0), "OK");
+  settle(b, t, 100);
+  b.handle_incoming_can_frame(reply_on(0x18DAF1DB, {0x06, 0x62, 0x92, 0x5E, 0x13, 0x88, 0x6F, 0xAA}));
+  EXPECT_STREQ(b.user_query_result(), "22 92 5E: OK 62 92 5E 13 88 6F");
+  EXPECT_EQ(row, std::string(b.dtc_scpu_query_result()));
+}
+
+TEST(TwingoBuild1013, ScpuRowShowsNoResponseAndRefusals) {
+  struct Guard {
+    ~Guard() { RenaultTwingoGen1Battery::uq_target = 0; }
+  } guard;
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  settle(b, t, 700);
+  b.read_DTC_scpu();
+  EXPECT_STREQ(b.dtc_scpu_query_result(), "requested");
+  settle(b, t, 4000);  // nobody answers
+  EXPECT_NE(std::string(b.dtc_scpu_query_result()).find("no response"), std::string::npos);
+  EXPECT_NE(std::string(b.dtc_scpu_query_result()).find("T+"), std::string::npos);
+  // a second read while another exchange runs is refused and says so
+  ASSERT_STREQ(b.start_user_query("22 92 5E", 0), "OK");
+  b.read_DTC_scpu();
+  EXPECT_NE(std::string(b.dtc_scpu_query_result()).find("not started"), std::string::npos) << b.dtc_scpu_query_result();
+}
+
+TEST(TwingoBuild1013, PageHasTheRowWithButtonAndPoll) {
+  TestTwingo b;
+  b.setup();
+  std::string page(b.get_uds_info_html().c_str());
+  EXPECT_NE(page.find("id='twingoScpuDtc'"), std::string::npos);
+  EXPECT_NE(page.find("twingoScpuDtc()"), std::string::npos);
+  EXPECT_NE(page.find("/triggerTwingoDtcScpu"), std::string::npos);
+  EXPECT_NE(page.find("/twingoQueryResult?which=scpu"), std::string::npos);
+  EXPECT_NE(page.find("DTC Read SCPU"), std::string::npos);
+}
+
 TEST(TwingoBuild0810, ClearAllDtcsOnTheScpu) {
   TestTwingo b;
   b.setup();
