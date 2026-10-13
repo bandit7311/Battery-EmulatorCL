@@ -318,7 +318,11 @@ Alle vier Felder stehen auf der Advanced-Seite (Seite mit "Sleep failsafe") unte
 2. **Uhrzeit fuer das naechtliche Schlafen** (z. B. 00:00): zu dieser Uhrzeit startet der Emulator selbstaendig einen Sleep-Lauf, damit die Werte vom Tag in den Akku geschrieben werden (MCPU-Schnappschuss, siehe MERKLISTE_Test, Messwerte 13.10.). Braucht eine gueltige Uhr (Unix-Zeit, `unix_now_valid`).
 3. **Dauer des Schlafens:** wie lange dieser naechtliche Sleep dauert, bis der Emulator wieder aufweckt.
 4. **Kilometer-Inkrement:** Wert in km, um den der Kilometerstand zu dieser Uhrzeit erhoeht wird (gesendeter Stand, `0x426`/`0x5D7`/`0x925F`-Quelle; genaue Zuordnung beim Bauen aus dem Code klaeren).
-- Offene Punkte (beim Bauen mit dem Nutzer klaeren, nicht angenommen): welcher Einschlafweg und welcher Sleep-Modus (mit 9281) fuer den naechtlichen Lauf; ob die "Dauer" das Sicherheitsfenster "Sleep failsafe" ersetzt oder ergaenzt; welcher Kilometerstand genau erhoeht wird.
+- **Entschieden (Nutzer, 13.10.):**
+  - Der naechtliche Lauf nutzt den Einschlafweg **lang** mit **Sleep 9281**.
+  - Das Feld "Dauer" kommt **zusaetzlich** zum Sicherheitsfenster dazu; das bestehende Feld "Sleep failsafe" bleibt und bekommt in der Beschriftung das Wort **"manual"** (gilt dann fuer den manuell gestarteten Sleep; Beschriftung bisher "Sleep failsafe (auto wake after)", `BATTERY.cpp:4186`).
+  - Erhoeht wird der Kilometerstand in **`0x426`** (`odo_426_km`); das Kilometerfeld hat den Startwert **0** (kein Inkrement), der Minutenfaktor den Startwert **1** (Echtzeit).
+- Offen: nichts mehr ausser der Frage, ob `0x5D7` / `925F` bei Bedarf mitgezogen werden sollen (bisher nicht verlangt, nicht gebaut).
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
