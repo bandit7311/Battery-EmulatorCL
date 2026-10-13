@@ -306,9 +306,10 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - NICHT bewiesen: dass 0x423=04 das Schreiben der Zeit in den MCPU-Speicher (9261) ausloest. Bench-Test T2 klaert das.
 - Ein Test-Hilfsmittel: die Simulator-Maske wird vor jedem Test zurueckgesetzt (Tests hatten sich gegenseitig die Maske verstellt).
 
-## Zum Bauen vorgemerkt (Bau 8, klein): Zeilenumbruch bei "Frames per second (first 60 s)" (Stand 13.10.; wartet auf "bauen")
+## Zum Bauen vorgemerkt (Bau 8, klein): Anzeige der Stille-Seite: Zeilenumbruch und Zeile "BMS SILENT since" (Stand 13.10.; wartet auf "bauen")
 - Problem (Screenshot des Nutzers, 13.10.): Die Zeile "Frames per second (first 60 s): 360,360,384,..." hat 60 Zahlen ohne Leerzeichen und bricht nicht um; sie laeuft ueber den rechten Rand der Seite hinaus. Die Zeile "Frames per 10 s" ist kurz genug.
 - Stelle im Code: `BATTERY.cpp:1951-1962` (Komma ohne Leerzeichen, `s += ','`). **Entschieden (Nutzer, 13.10.): nach je 10 Werten ein `<br>`** (eine Zehnergruppe pro Zeile, Komma ohne Leerzeichen bleibt). Reine Anzeige, kein Einfluss auf das Senden.
+- **Zweiter Punkt in Bau 8 (Nutzer, 13.10.): Zeile "BMS frames received ... last one X s ago - BMS SILENT since mm:ss" ist falsch.** Ursache (im Code geprueft): `BATTERY.cpp:909` setzt `nvrol_silence_last_rx_ms = 0` beim Beginn der Stille. Danach zeigt `:1938` "jetzt minus 0" = Betriebszeit des ESP (Screenshot: 6233,6 s statt ca. 140 s), und `:1945` rechnet "0 minus Beginn der Stille" ohne Vorzeichen -> Ueberlauf (Screenshot: 71481:14). Die Zaehler und die ID-Liste sind richtig. Vorschlag: In der Stille, wenn kein Frame mehr kam (letzter Zeitstempel <= Beginn der Stille), den Text wie die "Result"-Zeile (`:1986-1992`) bilden: "BMS war schon vor der Stille still, letzter Frame X s davor". Reine Anzeige. Fehler ist aelter als Bau 6/7.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
