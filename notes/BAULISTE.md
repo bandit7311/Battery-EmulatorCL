@@ -332,7 +332,7 @@ Alle vier Felder stehen auf der Advanced-Seite (Seite mit "Sleep failsafe") unte
 - Minutenfaktor: Alter = Startwert + abgerundet(Minuten / Faktor). Ein neuer Faktor senkt das gesendete Alter nicht (der aktuelle Wert wird der neue Start). Beim Wechsel im Modus mit Unix-Anker wird die Systemzeit benutzt; getestet ist der Modus mit Laufzeit-Zaehlung.
 - Nicht getestet am Bench: Daily sleep, Faktor 3/10 (dj2cs-Frage "streng steigend" offen).
 
-## Zum Bauen vorgemerkt (Bau 10, klein): Stille-Seite einklappbar (Read DTC / Erase DTC sichtbar) und Checkbox fuer den Daily sleep (Wunsch Nutzer, 13.10.; Vorschlag angenommen; wartet auf "bauen")
+## Zum Bauen vorgemerkt (Bau 10, klein): Stille-Seite einklappbar (Read DTC / Erase DTC sichtbar) und Checkbox fuer den Daily sleep (Wunsch Nutzer, 13.10.; Vorschlag angenommen; GEBAUT 13.10., siehe unten)
 - Problem (Nutzer, 13.10.): Der Block der Stille-Seite (Frames pro Sekunde / pro 10 s, "Frames by CAN ID" mit gut 30 Zeilen, Ergebnis) bleibt nach dem Lauf bis zum naechsten Sleep stehen. Er wird vor dem Bereich "Diagnostic Trouble Codes" eingefuegt (`BATTERY.cpp:4459`, `append_quiet_html` ab `:1965`), dadurch rutschen die Knoepfe Read DTC und Erase DTC weit nach unten.
 - Hinweis aus dem Code: Die Zaehler, die ID-Liste und die Frame-Zahl werden bei jedem neuen Sleep schon geloescht (Start des Laufs, `BATTERY.cpp` etwa `:735-760`); das alte Ergebnis wird also nicht addiert, es steht nur bis zum naechsten Lauf auf der Seite.
 - **Beschlossen:** Den ganzen Block in einen einklappbaren Bereich "Sleep run details" (HTML `<details>`) setzen: **offen, solange ein Lauf laeuft** (Zustand 7, 5, 8), **nach dem Lauf eingeklappt**; ein Klick klappt ihn wieder auf, die Ergebnisse bleiben erhalten. Reine Anzeige, kein Einfluss auf das Senden.
@@ -340,6 +340,12 @@ Alle vier Felder stehen auf der Advanced-Seite (Seite mit "Sleep failsafe") unte
 - **Zweiter Punkt in Bau 10 (Nutzer, 13.10.): Checkbox "enable" in der Zeile des Daily sleep** (Uhrzeit / Dauer / Km), die den Daily sleep **aktiviert oder deaktiviert** und im **NVM gespeichert** wird (Voreinstellung: aus). Ohne Haken tut der Daily sleep nichts (auch kein Km-Inkrement). Heute (Bau 9) ist "Dauer 0" der Ausschalter.
   - Vorschlag, noch nicht entschieden: Mit der Checkbox wird "Dauer 0 = aus" ueberfluessig; bei gesetztem Haken soll die Dauer mindestens 1 min sein (0 wird beim Setzen abgelehnt oder auf 1 gesetzt), damit der Lauf nicht ohne Stille sofort aufweckt.
 - Zu klaeren beim Bauen: Die Seite wird per Neuladen/Aktualisierung neu aufgebaut; ob ein vom Nutzer aufgeklappter Bereich beim Aktualisieren offen bleibt, aus dem Seitencode pruefen.
+
+## Gebaut am 13.10. (Bau 10 und Bau 11, Branch twingo-bau7-schlaf-anforderung, Commit 40d41ac, 494 Tests gruen, Bench-Test offen)
+- Bau 10: Der Block der Stille-Seite steht in einem einklappbaren Bereich "Sleep run details" (`<details>`): offen, solange ein Lauf laeuft (Zustand 5, 7, 8), danach eingeklappt; vor dem ersten Lauf bleibt nur die eine Zeile "not run yet". Waehrend eines Laufs baut die Seite den Bereich jede Sekunde neu auf (Aktualisierung von `nvrolBox`), er bleibt dort also offen.
+- Bau 10: Checkbox "enable" in der Zeile des Daily sleep (im NVM, Voreinstellung aus). Dauer mindestens 1 min, Voreinstellung 5 min (Nutzer, 13.10.: "default 5 Minuten bei automatisiertem Sleep, danach eingebbar"); "Dauer 0 = aus" entfaellt, der Set-Knopf lehnt eine Dauer unter 1 ab.
+- Bau 11: "Time in 0x436" (ACTIVE) zaehlt nur noch alle N Minuten +1 (Minutenfaktor); vorher zaehlte er jede Minute und ignorierte den Faktor (Ursache fuer "SCPU laeuft trotz Faktor 3 im Minutentakt weiter", Befund 13.10.: Screenshot Time in 0x436 ACTIVE 62549). Nicht angefasst: der Standardzaehler "14 00 xx" (`zoe_436_counter`), wenn der Eigenwert aus ist.
+- Auffaellig (13.10., nicht geaendert): "Manual vehicle age" steht auf 1.372.407 min, "Time in 0x436" auf ca. 62.5k; 0x350 und 0x436 senden also verschiedene Alter.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
