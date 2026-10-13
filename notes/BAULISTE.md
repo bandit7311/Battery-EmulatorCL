@@ -322,6 +322,7 @@ Alle vier Felder stehen auf der Advanced-Seite (Seite mit "Sleep failsafe") unte
   - Der naechtliche Lauf nutzt den Einschlafweg **lang** mit **Sleep 9281**.
   - Das Feld "Dauer" kommt **zusaetzlich** zum Sicherheitsfenster dazu; das bestehende Feld "Sleep failsafe" bleibt und bekommt in der Beschriftung das Wort **"manual"** (gilt dann fuer den manuell gestarteten Sleep; Beschriftung bisher "Sleep failsafe (auto wake after)", `BATTERY.cpp:4186`).
   - Erhoeht wird der Kilometerstand in **`0x426`** (`odo_426_km`); das Kilometerfeld hat den Startwert **0** (kein Inkrement), der Minutenfaktor den Startwert **1** (Echtzeit).
+- **Layout (Nutzer, 13.10.):** Die drei Felder Uhrzeit / Dauer / Kilometer-Inkrement stehen in **einer Zeile** unter der Ueberschrift **"Daily sleep"** (ein gemeinsames "Set"). Der Minutenfaktor bleibt ein eigenes Feld.
 - Klarstellung (Nutzer, 13.10.): `0x5D7` wird an der Bench nicht emuliert (bleibt aus); `925F` wird nicht von uns gesendet, sondern vom Akku per UDS gelesen (Anzeige). Es wird also nur `0x426` erhoeht. Offene Punkte: keine.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
