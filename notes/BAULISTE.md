@@ -239,7 +239,7 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 **Noch festzulegen (nicht zu raten)**
 - Was die Anzeige bei den geplanten Einschlafwegen "kurz" und "Ladelog 2" zeigt, und ob waehrend des Aufweck-Buendels (`NVROLstateMachine == 8`) noch etwas angezeigt wird.
 
-## Zum Bauen vorgemerkt (Bau 6): keine Frames auf dem Bus, deren Zeile aus ist (Stand 12.10., Pruefung aller 71 Zeilen; wartet auf "bauen")
+## Zum Bauen vorgemerkt (Bau 6): keine Frames auf dem Bus, deren Zeile aus ist (Stand 12.10., Pruefung aller 71 Zeilen; GEBAUT 13.10., siehe unten)
 
 **Anlass (Nutzer):** Der Bus muss Stille erreichen; Frames, die im Simulator nicht angehakt sind, duerfen zu keiner Zeit gesendet werden.
 
@@ -263,7 +263,7 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 
 **Offen / nicht geprueft:** Ziel "Laden", Weg "kurz" und altes Zoe-Format nur im Code durchgesehen, nicht im Probelauf; ob die Zeile `0x350` (Dauerframe) ganz entfallen soll, ist nicht entschieden. Ob die zusaetzlichen Frames das Speichern von `9261` stoeren, ist nicht bekannt.
 
-## Zum Bauen vorgemerkt (Bau 7): Schlaf-Anforderung ueber 0x423 B0 = 04 und Wake-Frames 30/33 (Stand 12.10. abends; wartet auf "bauen")
+## Zum Bauen vorgemerkt (Bau 7): Schlaf-Anforderung ueber 0x423 B0 = 04 und Wake-Frames 30/33 (Stand 12.10. abends; GEBAUT 13.10., siehe unten)
 
 **Behauptung (Quelle "dj2cs", Nutzer 12.10.; Adressen nicht pruefbar, Quelle unbekannt):** Die Einschlaf-Anforderung kommt per CAN, nicht ueber KL15. `0x423` Byte 0 Bit 1:0 == 0 => ECU-State 8 "Shutdown pending", Bit 5:4 waehlt die Abschaltart. Faellt `0x426` 2 s aus, erzwingt das denselben State. Danach 1 s Nachlauf mit vollstaendiger Busstille (100 Zyklen der 10-ms-Task), in dem die CAN-Timeout-Flags unterdrueckt werden (sonst Fatal-Code 0x38). In diesem Fenster schreibt das Steuergeraet sein NVM (einziger NVM-Schreiber der Firmware, kein zyklischer Writer): Fehlerspeicher (Block 0xA6, 1444 B), SOC/SOH-Historie (0xA0), Zaehler (0xAB, 0xAA, 0x19), Block 0x18 mit Fahrzeug-ID und AbsTime.
 
@@ -298,6 +298,13 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 **Branch fuer Bau 7:** `twingo-bau7-schlaf-anforderung` (angelegt 12.10. von `twingo-echter-bus-modus` bei `cffc205`, gepusht, noch kein Code darauf). Bau 6 ist noch keinem Branch zugeordnet.
 
 **Nicht belegt:** dass `0x423` B0 = `04` die Ursache ist (die Logs zeigen nur, dass es der einzige gleichzeitige Unterschied ist); die Angaben zum NVM (Bloecke, Adressen, ein Schreiber); ob unsere bisherigen Sleep-Laeufe das Schreiben ueber den Weg "`0x426` 2 s weg" ausgeloest haben.
+
+## Gebaut am 13.10. (Bau 6 und Bau 7, Branch twingo-bau7-schlaf-anforderung, Commit f8b9acd, 483 Tests gruen, Bench-Test offen)
+- Bau 6: 0x350 (Sleep/Wake) nur mit Haken in Zeile 0x350, Takt bleibt; 0x79B-Scan aus; UDS-Rundlauf 1000 ms statt 200 ms; Test ueber alle 71 Zeilen (nur die angehakte Zeile sendet, Fahren/Sleep/Wake) - Ergebnis: gruen.
+- Bau 7: Schliessphase aller drei Wege nach den Autologs (Ladelog 2: 04 nach 10,03 s, Ende 11,04 s; Fahrlog lang/kurz: 04 nach 49,81 s, Ende 50,76 s). 0x0ED B2=00 etwa 0,1 s vor 04, 0x435 B5=FC und B3=EB danach, 0x423 B0=04 am Schluss. Wake: 0x423 `30 7F FF FF FF E0 FF FF`, nach 50 ms `33 ...`. Schalter "like the car" im Flash (Schluessel TWLIKECAR).
+- Folge: Weg lang/kurz dauert jetzt ca. 136 s Stufen + 50,8 s Schliessphase = ca. 188 s (vorher ca. 137 s).
+- NICHT bewiesen: dass 0x423=04 das Schreiben der Zeit in den MCPU-Speicher (9261) ausloest. Bench-Test T2 klaert das.
+- Ein Test-Hilfsmittel: die Simulator-Maske wird vor jedem Test zurueckgesetzt (Tests hatten sich gegenseitig die Maske verstellt).
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
