@@ -306,12 +306,12 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - NICHT bewiesen: dass 0x423=04 das Schreiben der Zeit in den MCPU-Speicher (9261) ausloest. Bench-Test T2 klaert das.
 - Ein Test-Hilfsmittel: die Simulator-Maske wird vor jedem Test zurueckgesetzt (Tests hatten sich gegenseitig die Maske verstellt).
 
-## Zum Bauen vorgemerkt (Bau 8, klein): Anzeige der Stille-Seite: Zeilenumbruch und Zeile "BMS SILENT since" (Stand 13.10.; wartet auf "bauen")
+## Zum Bauen vorgemerkt (Bau 8, klein): Anzeige der Stille-Seite: Zeilenumbruch und Zeile "BMS SILENT since" (Stand 13.10.; GEBAUT 13.10., siehe unten)
 - Problem (Screenshot des Nutzers, 13.10.): Die Zeile "Frames per second (first 60 s): 360,360,384,..." hat 60 Zahlen ohne Leerzeichen und bricht nicht um; sie laeuft ueber den rechten Rand der Seite hinaus. Die Zeile "Frames per 10 s" ist kurz genug.
 - Stelle im Code: `BATTERY.cpp:1951-1962` (Komma ohne Leerzeichen, `s += ','`). **Entschieden (Nutzer, 13.10.): nach je 10 Werten ein `<br>`** (eine Zehnergruppe pro Zeile, Komma ohne Leerzeichen bleibt). Reine Anzeige, kein Einfluss auf das Senden.
 - **Zweiter Punkt in Bau 8 (Nutzer, 13.10.): Zeile "BMS frames received ... last one X s ago - BMS SILENT since mm:ss" ist falsch.** Ursache (im Code geprueft): `BATTERY.cpp:909` setzt `nvrol_silence_last_rx_ms = 0` beim Beginn der Stille. Danach zeigt `:1938` "jetzt minus 0" = Betriebszeit des ESP (Screenshot: 6233,6 s statt ca. 140 s), und `:1945` rechnet "0 minus Beginn der Stille" ohne Vorzeichen -> Ueberlauf (Screenshot: 71481:14). Die Zaehler und die ID-Liste sind richtig. Vorschlag: In der Stille, wenn kein Frame mehr kam (letzter Zeitstempel <= Beginn der Stille), den Text wie die "Result"-Zeile (`:1986-1992`) bilden: "BMS war schon vor der Stille still, letzter Frame X s davor". Reine Anzeige. Fehler ist aelter als Bau 6/7.
 
-## Zum Bauen vorgemerkt (Bau 9): vier neue Eingabefelder auf der Advanced-Seite, direkt unter "Sleep failsafe (auto wake after)" (Wunsch Nutzer, 13.10.; wartet auf "bauen")
+## Zum Bauen vorgemerkt (Bau 9): vier neue Eingabefelder auf der Advanced-Seite, direkt unter "Sleep failsafe (auto wake after)" (Wunsch Nutzer, 13.10.; GEBAUT 13.10., siehe unten)
 Alle vier Felder stehen auf der Advanced-Seite (Seite mit "Sleep failsafe") unter den Schlaf-Minuten, jeweils mit "Set" und im Flash gespeichert.
 1. **Minutenfaktor fuer das Fahrzeugalter** (Voreinstellung 1 = Echtzeit): Das Alter in `0x350`, `0x436`, `0x523`, `0x376` geht nur alle N Minuten um 1 weiter (N = 10: alle 10 Minuten +1; zum Testen 3). Dazwischen bleibt der Wert stehen. Rechnung: Startwert + abgerundet(vergangene Minuten / N) statt Startwert + vergangene Minuten (`twingo::age_plain`, `LOGIC.h`; `vehicle_age_available`, `BATTERY.cpp:1285`). Sauberes Raster bei Teilern von 60 (2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60). Zweck: Alterung des Bench-Akkus verlangsamen (Entscheidung Nutzer 13.10.: Alter absichtlich auf ca. 43 Tage reduziert).
    - Offen/zu testen: dj2cs behauptet, die Zeit in `0x436` muss streng steigen (nicht von uns bestaetigt); ein konstanter Wert zwischen den Schritten koennte anders behandelt werden. Test mit 3, dann MCPU-Zeit nach einem Sleep lesen.
@@ -324,6 +324,13 @@ Alle vier Felder stehen auf der Advanced-Seite (Seite mit "Sleep failsafe") unte
   - Erhoeht wird der Kilometerstand in **`0x426`** (`odo_426_km`); das Kilometerfeld hat den Startwert **0** (kein Inkrement), der Minutenfaktor den Startwert **1** (Echtzeit).
 - **Layout (Nutzer, 13.10.):** Die drei Felder Uhrzeit / Dauer / Kilometer-Inkrement stehen in **einer Zeile** unter der Ueberschrift **"Daily sleep"** (ein gemeinsames "Set"). Der Minutenfaktor bleibt ein eigenes Feld.
 - Klarstellung (Nutzer, 13.10.): `0x5D7` wird an der Bench nicht emuliert (bleibt aus); `925F` wird nicht von uns gesendet, sondern vom Akku per UDS gelesen (Anzeige). Es wird also nur `0x426` erhoeht. Offene Punkte: keine.
+
+## Gebaut am 13.10. (Bau 8 und Bau 9, Branch twingo-bau7-schlaf-anforderung, Commit 15fc5dd, 491 Tests gruen, Bench-Test offen)
+- Bau 8: "Frames per second" bricht nach je 10 Werten um. Zeile "BMS SILENT": `nvrol_silence_last_rx_ms` wird beim Beginn der Stille nicht mehr auf 0 gesetzt; war der letzte Frame vor der Stille, steht dort "BMS SILENT: last frame X s before the quiet phase began", "last one X s ago" zeigt das echte Alter.
+- Bau 9 (Advanced-Seite unter den Schlaf-Minuten): "Sleep failsafe manual (auto wake after)"; Ueberschrift "Daily sleep" mit einer Zeile Uhrzeit / Duration (min, 0 = aus) / Km und einem "Set"; darunter "Age minute factor" (Voreinstellung 1). Alle Werte im Flash (`TWAGEFAC`, `TWDSTIME`, `TWDSDUR`, `TWDSKM`).
+- Verhalten Daily sleep (Ortszeit der Uhr, braucht eine gesetzte Uhr): zur eingestellten Minute wird `0x426` (odo_426_km) um das Km-Feld erhoeht und ein "Sleep 0x9281=1" auf dem Weg lang gestartet; die Stille dauert die eingestellte Dauer statt des Sicherheitsfensters; danach ist der vorher gewaehlte Einschlafweg wieder eingestellt. Einmal pro Minute des Tages; laeuft zu der Zeit schon ein Sleep, faellt der Tag aus. Dauer 0 = aus (Voreinstellung), dann wird auch kein km erhoeht.
+- Minutenfaktor: Alter = Startwert + abgerundet(Minuten / Faktor). Ein neuer Faktor senkt das gesendete Alter nicht (der aktuelle Wert wird der neue Start). Beim Wechsel im Modus mit Unix-Anker wird die Systemzeit benutzt; getestet ist der Modus mit Laufzeit-Zaehlung.
+- Nicht getestet am Bench: Daily sleep, Faktor 3/10 (dj2cs-Frage "streng steigend" offen).
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
