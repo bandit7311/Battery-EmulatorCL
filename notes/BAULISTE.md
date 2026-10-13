@@ -371,6 +371,9 @@ Bisher nur "Nice-to-have" (Prioritaet 3: "Abschalt-Taster, Sleep inkl. 0x9281 oh
 - **E14381** mit `0x426` an (Test B: `0x157` und weitere EVC-Zeilen einzeln zuschalten). **Stand 12.10.:** Nach dem Anheben der Zeit in 0x436 um +1000 ging E14381 von `2F` auf `2E` (nicht mehr aktiv) und liess sich quittieren; alle bisherigen Eingriffe (alle Zeilen, Pruefsummen, Zustaende, km) hatten ihn auf `2F` gelassen. Basis- und Zielwert des Tests nicht festgehalten. Schwelle (ab welchem Wert `2E`) offen.
 - **`1B0E41`** (Speicherfehler MCPU, 6926 "External NV memory", Test 65 "general checksum failure") aktiv `2F`: **Stand 12.10.:** `19 02 09` an die MCPU zeigte zuerst keine Fehler, in einer spaeteren Lesung wieder `1B0E41 = 2F`. Ob er nach `14 FF FF FF` sofort wiederkommt und ob er das Speichern von `9261`/`91C1` blockiert, ist offen (Hypothese, nicht belegt). SCPU am 12.10.: `1BB587 = 2F` (Stromsensor, fehlende Frames) aktiv, `1BB108 = 2E` (Slave-Kommunikation) zeitweise.
 
+## Aufraeumen (spaeter)
+- Schlanke Fassung fuer Dalas Repo, Streichliste und Abhaengigkeiten: siehe `notes/AUFRAEUMLISTE.md` (nichts gebaut, Nutzer macht spaeter weiter).
+
 ## Offen beim Nutzer
 - **Bench-Test** in Schritten (Plan: `TEST_BENCH_10-10_Aufwecken_und_Zustaende.md`): erst nur `0x423`, dann die uebrigen BMS<>EVC-Frames nach und nach; `0x350` und die anderen Fahrzeug-CAN-Zeilen erst als Zusatz. Logger ohne Filter (RX und TX).
 - Pin-Belegung (CAN H/L) am LBC-Stecker, damit die Aderfarben aus dem Schaltplan zugeordnet werden koennen.
