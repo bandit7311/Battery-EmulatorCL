@@ -332,11 +332,13 @@ Alle vier Felder stehen auf der Advanced-Seite (Seite mit "Sleep failsafe") unte
 - Minutenfaktor: Alter = Startwert + abgerundet(Minuten / Faktor). Ein neuer Faktor senkt das gesendete Alter nicht (der aktuelle Wert wird der neue Start). Beim Wechsel im Modus mit Unix-Anker wird die Systemzeit benutzt; getestet ist der Modus mit Laufzeit-Zaehlung.
 - Nicht getestet am Bench: Daily sleep, Faktor 3/10 (dj2cs-Frage "streng steigend" offen).
 
-## Zum Bauen vorgemerkt (Bau 10, klein): Stille-Seite einklappbar, damit Read DTC / Erase DTC sichtbar bleiben (Wunsch Nutzer, 13.10.; Vorschlag angenommen; wartet auf "bauen")
+## Zum Bauen vorgemerkt (Bau 10, klein): Stille-Seite einklappbar (Read DTC / Erase DTC sichtbar) und Checkbox fuer den Daily sleep (Wunsch Nutzer, 13.10.; Vorschlag angenommen; wartet auf "bauen")
 - Problem (Nutzer, 13.10.): Der Block der Stille-Seite (Frames pro Sekunde / pro 10 s, "Frames by CAN ID" mit gut 30 Zeilen, Ergebnis) bleibt nach dem Lauf bis zum naechsten Sleep stehen. Er wird vor dem Bereich "Diagnostic Trouble Codes" eingefuegt (`BATTERY.cpp:4459`, `append_quiet_html` ab `:1965`), dadurch rutschen die Knoepfe Read DTC und Erase DTC weit nach unten.
 - Hinweis aus dem Code: Die Zaehler, die ID-Liste und die Frame-Zahl werden bei jedem neuen Sleep schon geloescht (Start des Laufs, `BATTERY.cpp` etwa `:735-760`); das alte Ergebnis wird also nicht addiert, es steht nur bis zum naechsten Lauf auf der Seite.
 - **Beschlossen:** Den ganzen Block in einen einklappbaren Bereich "Sleep run details" (HTML `<details>`) setzen: **offen, solange ein Lauf laeuft** (Zustand 7, 5, 8), **nach dem Lauf eingeklappt**; ein Klick klappt ihn wieder auf, die Ergebnisse bleiben erhalten. Reine Anzeige, kein Einfluss auf das Senden.
 - Verworfene Alternativen: Block nach dem Wake ganz ausblenden (Ergebnisse waeren weg); Bereich "Diagnostic Trouble Codes" ueber den Block verschieben.
+- **Zweiter Punkt in Bau 10 (Nutzer, 13.10.): Checkbox "enable" in der Zeile des Daily sleep** (Uhrzeit / Dauer / Km), die den Daily sleep **aktiviert oder deaktiviert** und im **NVM gespeichert** wird (Voreinstellung: aus). Ohne Haken tut der Daily sleep nichts (auch kein Km-Inkrement). Heute (Bau 9) ist "Dauer 0" der Ausschalter.
+  - Vorschlag, noch nicht entschieden: Mit der Checkbox wird "Dauer 0 = aus" ueberfluessig; bei gesetztem Haken soll die Dauer mindestens 1 min sein (0 wird beim Setzen abgelehnt oder auf 1 gesetzt), damit der Lauf nicht ohne Stille sofort aufweckt.
 - Zu klaeren beim Bauen: Die Seite wird per Neuladen/Aktualisierung neu aufgebaut; ob ein vom Nutzer aufgeklappter Bereich beim Aktualisieren offen bleibt, aus dem Seitencode pruefen.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
