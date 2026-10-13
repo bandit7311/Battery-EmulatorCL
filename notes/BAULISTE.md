@@ -286,7 +286,16 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 2. `0x0ED` B2 = `00` nur kurz davor (etwa 0,1 s vor `04`), nicht fuer die ganze Schliessphase.
 3. `0x435` B5 = `FC` ab etwa 0,4-0,5 s nach Beginn von `04`, B3 = `EB` ab etwa 0,6-0,7 s.
 4. Wake: die ersten beiden `0x423`-Frames `30 7F FF FF FF E0 FF FF` und `33 7F FF FF FF E0 FF FF` (50 ms Abstand), danach wie bisher.
-5. Tests gegen die drei Auto-Logs (Zeitpunkte relativ zum Beginn von `00/02`), danach Test T2 der Merkliste.
+5. **Zeiten der Schliessphase genau wie im Auto (Nutzer, 12.10.)**, gemessen in den Logs (Beginn der letzten `00/02`-Phase von `0x426`, Beginn von `0x423` = `04`, letztes Frame):
+   - Ladelog 2: `00/02` ab 677,87 s, `04` ab 687,90 s (10,03 s), letztes Frame 688,91 s (11,04 s).
+   - Ladelog 1: `00/02` ab 1273,2 s, `04` ab 1283,23 s (10,03 s), letztes Frame 1284,26 s (11,06 s).
+   - Fahrlog 22aaf176 (Sitzung 1): `00/02` ab 697,96 s, `04` ab 747,77 s (49,81 s), letztes Frame 748,72 s (rund 0,95 s nach `04`).
+   - Davor in den Ladelogs: `A0/41` -> `00/01` -> `00/07` -> `00/06` -> `08/06` -> `00/06`, danach rund 120 s `00/06` bis `00/02`.
+   - Zu klaeren beim Bau: Welche Zeiten die Wege "lang" und "kurz" bekommen (Ladelog: 10,03 s + rund 1 s; Fahrlog: 49,81 s + rund 0,95 s); heute ist die Schliessphase dort 1,0 s (0,9 s "like the car"), bei Ladelog 2 11,1 s.
+6. **Schalter "like the car" im Flash speichern** (aus der Liste der offenen Punkte, 12.10.): heute `static bool shutdown_like_car`, Startwert `false`, nur im Speicher (`BATTERY.cpp:1009`, `webserver.cpp:868`), die Seite sagt "runtime only"; neu: eigener NVM-Schluessel, beim Start einlesen, Satz auf der Seite entfernen, Test (Wert nach dem Laden wieder gesetzt). Die Einschlafwege und die Betriebsart werden schon gespeichert (`TWSLPATH`, `TWBUSTGT`).
+7. Tests gegen die drei Auto-Logs (Zeitpunkte relativ zum Beginn von `00/02`), danach Test T2 der Merkliste.
+
+**Branch fuer Bau 7:** `twingo-bau7-schlaf-anforderung` (angelegt 12.10. von `twingo-echter-bus-modus` bei `cffc205`, gepusht, noch kein Code darauf). Bau 6 ist noch keinem Branch zugeordnet.
 
 **Nicht belegt:** dass `0x423` B0 = `04` die Ursache ist (die Logs zeigen nur, dass es der einzige gleichzeitige Unterschied ist); die Angaben zum NVM (Bloecke, Adressen, ein Schreiber); ob unsere bisherigen Sleep-Laeufe das Schreiben ueber den Weg "`0x426` 2 s weg" ausgeloest haben.
 
