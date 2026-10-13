@@ -37,7 +37,7 @@ Neuer Branch ab `e3988cb` (z. B. `twingo-echter-bus-modus`, ohne Modellnamen); `
 ## Prioritaet 3: aeltere Wuensche und Kleineres
 - Testzeile `0x62B` (HEVC_WakeUpFrame der Renault-Datenbank, 2 Byte, Inhalt unbekannt) nur zum Ausprobieren.
 - Alters-Faktor 1/10; Ziele DF/DA bei der freien Anfrage; Inverter-Dump; Messung im Auto; `0x436` dauerhaft manuell einstellbar.
-- Abschalt-Taster (Nice-to-have): Sleep inkl. `0x9281` ohne Wiederanlauf, SSD1306-Hinweise "Shutdown requested / Sleep requested / Battery sleeping - Turn off now!!".
+- Abschalt-Taster (Nice-to-have): Sleep inkl. `0x9281` ohne Wiederanlauf, SSD1306-Hinweise "Shutdown requested / Sleep requested / Battery sleeping - Turn off now!!". **Jetzt konkretisiert als Bau 12 (GPIO15), siehe unten.**
 - Fix-later: Wake-up-CAN-Bus-Fehler (`0x090`/`0x242` erst nach dem Wake-Burst). To-do: kurz 100 % SOC an den Deye nach dem Aufwachen, `CAN NATIVE BUS ERROR` nach dem Wiederanlauf automatisch quittieren.
 - Lokaler Stash (`stash@{0}`, "All rows off"-Statusanzeige, nicht gebaut/getestet): einspielen oder verwerfen, offen.
 
@@ -346,6 +346,18 @@ Alle vier Felder stehen auf der Advanced-Seite (Seite mit "Sleep failsafe") unte
 - Bau 10: Checkbox "enable" in der Zeile des Daily sleep (im NVM, Voreinstellung aus). Dauer mindestens 1 min, Voreinstellung 5 min (Nutzer, 13.10.: "default 5 Minuten bei automatisiertem Sleep, danach eingebbar"); "Dauer 0 = aus" entfaellt, der Set-Knopf lehnt eine Dauer unter 1 ab.
 - Bau 11: "Time in 0x436" (ACTIVE) zaehlt nur noch alle N Minuten +1 (Minutenfaktor); vorher zaehlte er jede Minute und ignorierte den Faktor (Ursache fuer "SCPU laeuft trotz Faktor 3 im Minutentakt weiter", Befund 13.10.: Screenshot Time in 0x436 ACTIVE 62549). Nicht angefasst: der Standardzaehler "14 00 xx" (`zoe_436_counter`), wenn der Eigenwert aus ist.
 - Auffaellig (13.10., nicht geaendert): "Manual vehicle age" steht auf 1.372.407 min, "Time in 0x436" auf ca. 62.5k; 0x350 und 0x436 senden also verschiedene Alter.
+
+## Zum Bauen vorgemerkt (Bau 12): Hardware-Taster "Sleep anfordern" an GPIO15 (Wunsch Nutzer, 13.10.; wartet auf "bauen")
+Bisher nur "Nice-to-have" (Prioritaet 3: "Abschalt-Taster, Sleep inkl. 0x9281 ohne Wiederanlauf, SSD1306-Hinweise"); jetzt konkretisiert.
+- **Pin (Nutzer, 13.10.): GPIO15** auf der Stiftleiste des T-2CAN (linke Spalte, 8. Pin von oben, `hw_lilygo2can.h`). Gewaehlt, weil er im Code nirgends belegt ist (nur CHAdeMO-Zusatzfunktion `CHADEMO_PIN_10`) und kein Strapping-Pin ist. Verworfen: 46 (Strapping, SMA-Schuetz), 17 (Minus-Schuetz), 3 (BMS_POWER), 0 (AP-Taster, Werksreset auf derselben Taste), 43/44 (RS485, Bootloader-Text auf 43).
+- **Schaltung:** Taster zwischen GPIO15 und GND, **nur GND schalten, keine 12 V** (der GPIO vertraegt nur 3,3 V). Interner Pull-up (`INPUT_PULLUP`), Software-Entprellung; Leitung kurz halten, bei langen Kabeln 1 kOhm in Reihe und 100 nF nach GND.
+- **Code (Vorschlag, nach dem Muster des Equipment-Stop-Tasters, `comm_equipmentstopbutton.cpp`):** neue Hardware-Funktion `SLEEP_BUTTON_PIN()` (Voreinstellung nicht verbunden; T-2CAN: GPIO15), Pin ueber `alloc_pins` anfordern, `DebouncedButton`. Schalter "Sleep button enable" (Checkbox, im NVM, Voreinstellung aus), damit der Pin ohne Taster nicht ausloest.
+- **Funktion:** Ein Druck startet **"Sleep 0x9281=1"** (`request_sleep_temporisation()`, derselbe Lauf wie der Knopf auf der Seite): 9281 wird geschrieben, die Abschaltfolge laeuft, danach ist der Bus still; die Display-Hinweise (Bau 3: "Sleep requested", "Sleep pls wait" mit Zeit) erscheinen wie beim Knopf. Waehrend ein Lauf schon laeuft, wird ein weiterer Druck ignoriert.
+- **Noch nicht entschieden (Nutzer fragen vor dem Bauen):**
+  1. Kurzer Druck oder langer Druck (z. B. 2 s gegen versehentliches Beruehren)?
+  2. Einschlafweg: der aktuell gewaehlte (Radiobutton) oder fest "lang" wie beim Daily sleep?
+  3. Dauer der Stille: das Sicherheitsfenster "Sleep failsafe manual" (wie beim Knopf) oder die Dauer des Daily sleep?
+  4. Soll ein Druck in der Stille den Akku wieder wecken (`request_wake_up`)?
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
