@@ -33,8 +33,9 @@ class Bau89Twingo : public RenaultTwingoGen1Battery {
     t.age_source = 0;
     t.age_minute_factor = 1;
     t.daily_sleep_time_min = 0;
-    t.daily_sleep_duration_min = 0;
+    t.daily_sleep_duration_min = 5;  // the default of the automatic sleep
     t.daily_sleep_km = 0;
+    t.daily_sleep_enabled = false;
     t.bus_state_manual = true;
     t.bus_state = twingo_bus::BUS_WACH;
     t.bus_sleep_path = twingo_bus::SLEEP_LANG;
@@ -43,7 +44,9 @@ class Bau89Twingo : public RenaultTwingoGen1Battery {
   }
   ~Bau89Twingo() {
     datalayer_extended.twingoGen1.age_minute_factor = 1;
-    datalayer_extended.twingoGen1.daily_sleep_duration_min = 0;
+    datalayer_extended.twingoGen1.daily_sleep_enabled = false;
+    datalayer_extended.twingoGen1.daily_sleep_duration_min = 5;
+    time_436_clear();
     Bat::age_manual_clear();
   }
   bool network_ready() override { return false; }
@@ -217,13 +220,14 @@ TEST(TwingoBau9, ANewFactorKeepsTheAgeThatWasSent) {
 
 TEST(TwingoBau9, DailySleepIsDueInTheConfiguredMinuteOnly) {
   const uint32_t at3 = 3 * 3600;
-  EXPECT_TRUE(twingo::daily_sleep_due(180, 5, at3));
-  EXPECT_TRUE(twingo::daily_sleep_due(180, 5, at3 + 59));
-  EXPECT_FALSE(twingo::daily_sleep_due(180, 5, at3 - 1));
-  EXPECT_FALSE(twingo::daily_sleep_due(180, 5, at3 + 60));
-  EXPECT_FALSE(twingo::daily_sleep_due(180, 0, at3)) << "duration 0 = off";
-  EXPECT_TRUE(twingo::daily_sleep_due(0, 1, 0)) << "00:00";
-  EXPECT_FALSE(twingo::daily_sleep_due(1440, 1, 0));
+  EXPECT_TRUE(twingo::daily_sleep_due(true, 180, 5, at3));
+  EXPECT_TRUE(twingo::daily_sleep_due(true, 180, 5, at3 + 59));
+  EXPECT_FALSE(twingo::daily_sleep_due(true, 180, 5, at3 - 1));
+  EXPECT_FALSE(twingo::daily_sleep_due(true, 180, 5, at3 + 60));
+  EXPECT_FALSE(twingo::daily_sleep_due(false, 180, 5, at3)) << "checkbox off";
+  EXPECT_FALSE(twingo::daily_sleep_due(true, 180, 0, at3)) << "a duration of 0 would wake up at once";
+  EXPECT_TRUE(twingo::daily_sleep_due(true, 0, 1, 0)) << "00:00";
+  EXPECT_FALSE(twingo::daily_sleep_due(true, 1440, 1, 0));
 }
 
 TEST(TwingoBau9, DailySleepRaisesTheKilometresStartsTheSleepAndLastsTheConfiguredDuration) {
@@ -233,6 +237,7 @@ TEST(TwingoBau9, DailySleepRaisesTheKilometresStartsTheSleepAndLastsTheConfigure
   t.daily_sleep_time_min = 3 * 60;
   t.daily_sleep_duration_min = 2;
   t.daily_sleep_km = 5;
+  t.daily_sleep_enabled = true;
   t.bus_sleep_path = twingo_bus::SLEEP_LADELOG2;  // the user's choice, the daily sleep takes the long way for its run
   const uint32_t save_km = Bat::odo_426_km;
   Bat::odo_426_km = 6844;
@@ -283,17 +288,18 @@ TEST(TwingoBau9, DailySleepRaisesTheKilometresStartsTheSleepAndLastsTheConfigure
   Bat::odo_426_km = save_km;
 }
 
-TEST(TwingoBau9, DailySleepDoesNothingWithDurationZeroOrWithoutAClock) {
+TEST(TwingoBau9, DailySleepDoesNothingWithTheCheckboxOffOrWithoutAClock) {
   for (int variant = 0; variant < 2; variant++) {
     Bau89Twingo b;
     b.setup();
     auto& t = datalayer_extended.twingoGen1;
     t.daily_sleep_time_min = 3 * 60;
-    t.daily_sleep_duration_min = variant == 0 ? 0 : 2;
+    t.daily_sleep_duration_min = 2;
     t.daily_sleep_km = 5;
+    t.daily_sleep_enabled = (variant == 1);  // variant 0: checkbox off
     const uint32_t save_km = Bat::odo_426_km;
     Bat::odo_426_km = 6844;
-    b.clock_set = (variant == 0);  // variant 1: no clock set
+    b.clock_set = (variant == 0);  // variant 1: no clock set (checkbox on)
     b.clock_secs = 3 * 3600 + 10;
     for (uint64_t now = 1000; now < 1000 + 5000; now += 100) {
       tick(b, now);
@@ -310,21 +316,80 @@ TEST(TwingoBau9, AdvancedPageHasTheFieldsUnderTheSleepMinutes) {
   t.daily_sleep_time_min = 3 * 60 + 5;
   t.daily_sleep_duration_min = 7;
   t.daily_sleep_km = 12;
+  t.daily_sleep_enabled = true;
   t.age_minute_factor = 3;
   const std::string page = b.get_uds_info_html().c_str();
   const size_t failsafe = page.find("Sleep failsafe manual (auto wake after)");
   ASSERT_NE(failsafe, std::string::npos);
   const size_t head = page.find("<h4>Daily sleep</h4>", failsafe);
   ASSERT_NE(head, std::string::npos) << "the heading comes after the sleep minutes";
-  const size_t row = page.find("id='twingoDsTime' value='03:05'", head);
+  const size_t en_box = page.find("<input type='checkbox' id='twingoDsEn' checked>", head);
+  ASSERT_NE(en_box, std::string::npos) << "the checkbox enable stands in the row of the daily sleep";
+  const size_t row = page.find("id='twingoDsTime' value='03:05'", en_box);
   ASSERT_NE(row, std::string::npos);
   // time, duration and kilometres stand in ONE line (one <h4>), with one Set button
   const size_t end_of_row = page.find("</h4>", row);
   const std::string line = page.substr(row, end_of_row - row);
-  EXPECT_NE(line.find("id='twingoDsDur' min='0' max='1440' value='7'"), std::string::npos);
+  EXPECT_NE(line.find("id='twingoDsDur' min='1' max='1440' value='7'"), std::string::npos);
   EXPECT_NE(line.find("id='twingoDsKm' min='0' max='65535' value='12'"), std::string::npos);
   EXPECT_NE(line.find("twingoSetDailySleep()"), std::string::npos);
   EXPECT_NE(page.find("id='twingoAgeFactor' min='1' max='1440' value='3'", end_of_row), std::string::npos);
   EXPECT_NE(page.find("/editTwingoDailySleep?time="), std::string::npos);
   EXPECT_NE(page.find("/editTwingoAgeFactor?value="), std::string::npos);
+}
+
+TEST(TwingoBau10, CheckboxIsNotCheckedAndDurationIsFiveMinutesByDefault) {
+  Bau89Twingo b;  // the fixture sets the defaults of the datalayer
+  b.setup();
+  EXPECT_FALSE(datalayer_extended.twingoGen1.daily_sleep_enabled);
+  EXPECT_EQ(datalayer_extended.twingoGen1.daily_sleep_duration_min, 5u);
+  const std::string page = b.get_uds_info_html().c_str();
+  EXPECT_NE(page.find("<input type='checkbox' id='twingoDsEn' >"), std::string::npos);
+  EXPECT_NE(page.find("id='twingoDsDur' min='1' max='1440' value='5'"), std::string::npos);
+  EXPECT_NE(page.find("&en='+e"), std::string::npos) << "the Set button sends the checkbox";
+}
+
+TEST(TwingoBau10, SleepRunDetailsAreOpenWhileTheRunGoesAndClosedAfterwards) {
+  Bau89Twingo b;
+  b.setup();
+  datalayer_extended.twingoGen1.sleep_failsafe_minutes = 1;
+  {
+    const std::string before = b.get_uds_info_html().c_str();
+    EXPECT_EQ(before.find("twingoQuiet"), std::string::npos) << "nothing to fold before a run";
+    EXPECT_NE(before.find("not run yet"), std::string::npos);
+  }
+  b.request_sleep();
+  uint64_t t = 1000;
+  for (; t < 1000 + 20000; t += 100) {
+    tick(b, t);
+  }
+  std::string page = b.get_uds_info_html().c_str();
+  EXPECT_NE(page.find("<details id='twingoQuiet' open><summary><b>Sleep run details</b></summary>"), std::string::npos);
+  // the shutdown sequence (about 188 s), 1 minute of silence, the wake-up burst
+  for (; t < 1000 + 330000; t += 100) {
+    tick(b, t);
+  }
+  page = b.get_uds_info_html().c_str();
+  EXPECT_NE(page.find("<details id='twingoQuiet'><summary><b>Sleep run details</b></summary>"), std::string::npos)
+      << "closed after the run";
+  EXPECT_NE(page.find("Frames per second (first 60 s)"), std::string::npos) << "the result is still in the page";
+  EXPECT_EQ(page.find("twingoQuiet' open"), std::string::npos);
+  datalayer_extended.twingoGen1.sleep_failsafe_minutes = 30;
+}
+
+TEST(TwingoBau11, TimeIn0x436CountsByTheMinuteFactor) {
+  for (uint16_t factor : {1, 3}) {
+    Bau89Twingo b;
+    b.setup();
+    datalayer_extended.twingoGen1.age_minute_factor = factor;
+    b.time_436_set(1000);
+    for (uint64_t t = 1000; t < 1000 + 3 * 60000 + 5000; t += 1000) {
+      tick(b, t);
+    }
+    EXPECT_EQ(Bat::time_436_value, factor == 1 ? 1003u : 1001u) << factor;
+    for (uint64_t t = 1000 + 3 * 60000 + 5000; t < 1000 + 6 * 60000 + 5000; t += 1000) {
+      tick(b, t);
+    }
+    EXPECT_EQ(Bat::time_436_value, factor == 1 ? 1006u : 1002u) << factor;
+  }
 }

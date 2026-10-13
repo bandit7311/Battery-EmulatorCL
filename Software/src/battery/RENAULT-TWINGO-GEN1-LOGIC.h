@@ -64,10 +64,10 @@ inline uint32_t age_auto(uint32_t ref_value, int64_t ref_unix, int64_t now_unix,
   return age_clamp24((uint64_t)age_plain(ref_value, ref_unix, now_unix, factor) + AGE_SAFETY_MIN);
 }
 
-// Daily sleep (Bau 9): fires in the minute of the day `time_min` (0..1439, local time) with a duration above 0
-// (0 = off). `secs_of_day` is the local time of day in seconds.
-inline bool daily_sleep_due(uint16_t time_min, uint16_t duration_min, uint32_t secs_of_day) {
-  return duration_min > 0 && time_min < 1440 && (secs_of_day / 60) == time_min;
+// Daily sleep (Bau 9/10): fires in the minute of the day `time_min` (0..1439, local time) if it is enabled (checkbox)
+// and the duration is at least 1 minute. `secs_of_day` is the local time of day in seconds.
+inline bool daily_sleep_due(bool enabled, uint16_t time_min, uint16_t duration_min, uint32_t secs_of_day) {
+  return enabled && duration_min > 0 && time_min < 1440 && (secs_of_day / 60) == time_min;
 }
 
 // Value read from the pack: 9261 (vehicle time) if it is not 0, otherwise 91C1 (pack time), 24 bit. 0 = nothing usable.

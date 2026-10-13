@@ -220,6 +220,11 @@ void init_webserver() {
           (uint16_t)prefs.getUInt("TWDSDUR", datalayer_extended.twingoGen1.daily_sleep_duration_min);
       datalayer_extended.twingoGen1.daily_sleep_km =
           (uint16_t)prefs.getUInt("TWDSKM", datalayer_extended.twingoGen1.daily_sleep_km);
+      datalayer_extended.twingoGen1.daily_sleep_enabled =
+          prefs.getBool("TWDSEN", datalayer_extended.twingoGen1.daily_sleep_enabled);
+      if (datalayer_extended.twingoGen1.daily_sleep_duration_min < 1) {
+        datalayer_extended.twingoGen1.daily_sleep_duration_min = 5;
+      }
       {
         // 64 bit mask since 04.10.: TWINGOSIMMASK = bits 0-31 (unchanged key), TWINGOSIMHI = bits 32 and up.
         uint64_t current = datalayer_extended.twingoGen1.simulator_enabled_mask;
@@ -823,24 +828,28 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
-  // Bau 9: daily sleep - time=HH:MM (local), dur=minutes (0 = off), km=kilometres added to 0x426 at that time
+  // Bau 9/10: daily sleep - time=HH:MM (local), dur=minutes (1..1440), km=kilometres added to 0x426 at that time,
+  // en=1/0 the checkbox "enable"
   def_route_with_auth("/editTwingoDailySleep", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    if (request->hasParam("time") && request->hasParam("dur") && request->hasParam("km")) {
+    if (request->hasParam("time") && request->hasParam("dur") && request->hasParam("km") && request->hasParam("en")) {
       String tm = request->getParam("time")->value();
       int hh = tm.substring(0, 2).toInt();
       int mm = tm.substring(3, 5).toInt();
       int dur = request->getParam("dur")->value().toInt();
       int km = request->getParam("km")->value().toInt();
-      if (tm.length() == 5 && tm.charAt(2) == ':' && hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59 && dur >= 0 &&
+      const bool en = request->getParam("en")->value().toInt() != 0;
+      if (tm.length() == 5 && tm.charAt(2) == ':' && hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59 && dur >= 1 &&
           dur <= 1440 && km >= 0 && km <= 65535) {
         datalayer_extended.twingoGen1.daily_sleep_time_min = (uint16_t)(hh * 60 + mm);
         datalayer_extended.twingoGen1.daily_sleep_duration_min = (uint16_t)dur;
         datalayer_extended.twingoGen1.daily_sleep_km = (uint16_t)km;
+        datalayer_extended.twingoGen1.daily_sleep_enabled = en;
         Preferences prefs;
         prefs.begin("batterySettings", false);
         prefs.putUInt("TWDSTIME", (uint16_t)(hh * 60 + mm));
         prefs.putUInt("TWDSDUR", (uint16_t)dur);
         prefs.putUInt("TWDSKM", (uint16_t)km);
+        prefs.putBool("TWDSEN", en);
         prefs.end();
         request->send(200, "text/plain", "OK");
         return;

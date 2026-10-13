@@ -152,6 +152,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // from exactly these three bytes. With a value set here the three bytes carry that value and count +1 per minute from
   // then on (runtime only). Off returns to the default.
   static bool time_436_active;
+  static uint16_t time_436_phase;  // minutes counted towards the next step of time_436_value (minute factor)
   static uint32_t time_436_value;
   // "Follow the vehicle age" (stored in the NVM): bytes 1-3 of 0x436 carry the same age as 0x350, so a restart does not
   // send 14 00 01 any more. Without a valid age no 0x436 is sent in this mode. A value set by hand wins over it.

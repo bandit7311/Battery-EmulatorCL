@@ -699,16 +699,16 @@ unsigned long RenaultTwingoGen1Battery::silence_limit_ms(void) {
 }
 
 // Once per second: at the configured local time of day (Bau 9) raise the kilometres of 0x426 and start a
-// "Sleep 0x9281=1" run on the long way. Needs a set clock and a duration above 0 (0 = off). Fires once per minute of
+// "Sleep 0x9281=1" run on the long way. Needs the checkbox "enable", a set clock and a duration of at least 1 minute. Fires once per minute of
 // the day; a run that is still going at that time skips the day.
 void RenaultTwingoGen1Battery::daily_sleep_service(void) {
   auto& t = datalayer_extended.twingoGen1;
   uint32_t secs = 0;
-  if (t.daily_sleep_duration_min == 0 || !get_wall_clock_seconds_of_day(secs)) {
+  if (!t.daily_sleep_enabled || t.daily_sleep_duration_min == 0 || !get_wall_clock_seconds_of_day(secs)) {
     daily_sleep_fired = false;
     return;
   }
-  if (!twingo::daily_sleep_due(t.daily_sleep_time_min, t.daily_sleep_duration_min, secs)) {
+  if (!twingo::daily_sleep_due(t.daily_sleep_enabled, t.daily_sleep_time_min, t.daily_sleep_duration_min, secs)) {
     daily_sleep_fired = false;  // the minute is over: the next day may fire again
     return;
   }
@@ -1061,6 +1061,7 @@ uint64_t RenaultTwingoGen1Battery::sim_mask_saved = 0;
 uint64_t RenaultTwingoGen1Battery::sim_mask_saved_hi = 0;
 bool RenaultTwingoGen1Battery::sim_mask_saved_valid = false;
 bool RenaultTwingoGen1Battery::time_436_active = false;
+uint16_t RenaultTwingoGen1Battery::time_436_phase = 0;
 uint32_t RenaultTwingoGen1Battery::time_436_value = 0;
 uint32_t RenaultTwingoGen1Battery::odo_5d7_km = 19400;
 uint8_t RenaultTwingoGen1Battery::bus_state_shown = 1;
@@ -1298,6 +1299,7 @@ void RenaultTwingoGen1Battery::time_436_follow_set(bool on) {
 void RenaultTwingoGen1Battery::time_436_set(uint32_t minutes) {
   time_436_value = minutes > AGE_MANUAL_MAX ? AGE_MANUAL_MAX : minutes;
   time_436_active = true;
+  time_436_phase = 0;  // counting by the minute factor starts from the typed value
   ZOE_436_VEHICLE_STATUS.data.u8[1] = (uint8_t)(time_436_value >> 16);
   ZOE_436_VEHICLE_STATUS.data.u8[2] = (uint8_t)(time_436_value >> 8);
   ZOE_436_VEHICLE_STATUS.data.u8[3] = (uint8_t)time_436_value;
@@ -4077,8 +4079,12 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
       previousMillis60000_436 = currentMillis;
       zoe_436_counter++;
       if (time_436_active) {
-        if (time_436_value < AGE_MANUAL_MAX) {
-          time_436_value++;
+        // Bau 11: the typed time of 0x436 counts +1 only every N minutes (minute factor of the age)
+        if (++time_436_phase >= twingo::age_factor_sane(datalayer_extended.twingoGen1.age_minute_factor)) {
+          time_436_phase = 0;
+          if (time_436_value < AGE_MANUAL_MAX) {
+            time_436_value++;
+          }
         }
         ZOE_436_VEHICLE_STATUS.data.u8[1] = (uint8_t)(time_436_value >> 16);
         ZOE_436_VEHICLE_STATUS.data.u8[2] = (uint8_t)(time_436_value >> 8);
@@ -4292,11 +4298,13 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
       const uint16_t tmin = datalayer_extended.twingoGen1.daily_sleep_time_min;
       char hhmm[8];
       snprintf(hhmm, sizeof(hhmm), "%02u:%02u", (unsigned)(tmin / 60) % 24, (unsigned)(tmin % 60));
-      content += "<h4>Daily sleep</h4><h4>Time <input type='time' id='twingoDsTime' value='";
+      content += "<h4>Daily sleep</h4><h4><input type='checkbox' id='twingoDsEn' ";
+      content += datalayer_extended.twingoGen1.daily_sleep_enabled ? "checked" : "";
+      content += "> enable Time <input type='time' id='twingoDsTime' value='";
       content += hhmm;
-      content += "'> Duration <input type='number' id='twingoDsDur' min='0' max='1440' value='";
+      content += "'> Duration <input type='number' id='twingoDsDur' min='1' max='1440' value='";
       content += String(datalayer_extended.twingoGen1.daily_sleep_duration_min);
-      content += "'> min (0 = off) Km <input type='number' id='twingoDsKm' min='0' max='65535' value='";
+      content += "'> min Km <input type='number' id='twingoDsKm' min='0' max='65535' value='";
       content += String(datalayer_extended.twingoGen1.daily_sleep_km);
       content +=
           "'> <button onclick='twingoSetDailySleep()'>Set</button></h4>"
@@ -4386,8 +4394,10 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "var t=document.getElementById('twingoDsTime').value;";
     content += "var d=document.getElementById('twingoDsDur').value;";
     content += "var k=document.getElementById('twingoDsKm').value;";
+    content += "var e=document.getElementById('twingoDsEn').checked?1:0;";
     content +=
-        "var x=new XMLHttpRequest();x.open('GET','/editTwingoDailySleep?time='+t+'&dur='+d+'&km='+k,true);x.send();}";
+        "var x=new XMLHttpRequest();x.open('GET','/editTwingoDailySleep?time='+t+'&dur='+d+'&km='+k+'&en='+e,true);"
+        "x.send();}";
     content += "function twingoSetAgeFactor(){";
     content += "var f=document.getElementById('twingoAgeFactor').value;";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoAgeFactor?value='+f,true);x.send();}";
@@ -4456,7 +4466,20 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
              "DTC details - " << String(DTC_DETAILS_CODES[0], HEX) << ": " << dtc_ext_log_details[0] << "<br>"
              "DTC details - " << String(DTC_DETAILS_CODES[1], HEX) << ": " << dtc_ext_log_details[1] << "<br>";
   // clang-format on
-  append_quiet_html(content);
+  {
+    // Bau 10: the block of the sleep run is a collapsible section: open while a run is going, closed afterwards, so
+    // that the buttons below it stay in sight
+    String quiet_block;
+    append_quiet_html(quiet_block);
+    const bool run_going =
+        UserRequestNVROLReset || NVROLstateMachine == 5 || NVROLstateMachine == 7 || NVROLstateMachine == 8;
+    if (!run_going && !nvrol_silence_done) {
+      content << quiet_block;  // before the first run: only the one line "not run yet", nothing to fold
+    } else {
+      content << (run_going ? "<details id='twingoQuiet' open>" : "<details id='twingoQuiet'>")
+              << "<summary><b>Sleep run details</b></summary>" << quiet_block << "</details>";
+    }
+  }
   content << "</div>";
   append_refresh_script_html(content, nvrol_busy);
 #endif
