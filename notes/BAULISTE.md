@@ -306,6 +306,10 @@ Anlass: Wunsch des Nutzers vom 12.10.; Einordnung "hohe Bedeutung" ebenfalls vom
 - NICHT bewiesen: dass 0x423=04 das Schreiben der Zeit in den MCPU-Speicher (9261) ausloest. Bench-Test T2 klaert das.
 - Ein Test-Hilfsmittel: die Simulator-Maske wird vor jedem Test zurueckgesetzt (Tests hatten sich gegenseitig die Maske verstellt).
 
+## Zum Bauen vorgemerkt (Bau 8, klein): Zeilenumbruch bei "Frames per second (first 60 s)" (Stand 13.10.; wartet auf "bauen")
+- Problem (Screenshot des Nutzers, 13.10.): Die Zeile "Frames per second (first 60 s): 360,360,384,..." hat 60 Zahlen ohne Leerzeichen und bricht nicht um; sie laeuft ueber den rechten Rand der Seite hinaus. Die Zeile "Frames per 10 s" ist kurz genug.
+- Stelle im Code: `BATTERY.cpp:1951-1962` (Komma ohne Leerzeichen, `s += ','`). Vorschlag: Trennzeichen ", " (Komma mit Leerzeichen) oder nach je 10 Werten ein `<br>`. Reine Anzeige, kein Einfluss auf das Senden.
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
