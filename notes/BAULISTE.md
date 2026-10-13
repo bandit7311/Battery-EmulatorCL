@@ -359,6 +359,8 @@ Bisher nur "Nice-to-have" (Prioritaet 3: "Abschalt-Taster, Sleep inkl. 0x9281 oh
   3. **Dauer der Stille: 15 Minuten**; der Akku ist dabei ohnehin komplett abgeschaltet (der Bus ist still). Eigene feste Dauer, unabhaengig vom Fenster "Sleep failsafe manual" und von der Dauer des Daily sleep.
   4. **Kein Wecken per Taster**: ein Druck in der Stille tut nichts (Wecken wie bisher ueber die Seite oder nach Ablauf der 15 Minuten).
 - Noch offen: ob die 15 Minuten spaeter ein einstellbares Feld werden sollen (heute fest).
+- **Anzeige (Nutzer, 13.10.: "die Anzeige im SSD1306 haben wir ja schon vorbereitet fuer den Taster"):** Die Texte "Sleep requested" / "Sleep pls wait" mit Zeit (Bau 3, `sleep_display.h`, `display.cpp:467`) haengen am laufenden Lauf und erscheinen beim Taster-Sleep ohne neuen Anzeigecode. Die Texte "Shutdown requested" und "Battery sleeping - Turn off now!!" aus der Wunschliste sind nicht gebaut.
+- **Lueckenschluss, in Bau 12 aufgenommen (Nutzer, 13.10.: "ja"):** Die Gesamtzeit in Zeile 5 des Displays (`BATTERY.cpp:3935` und `:3941`) und der Text "safety limit" auf der Stille-Seite (`:1983`) nehmen heute immer das Fenster "Sleep failsafe manual" (`sleep_manual_failsafe_ms()`). Sie sollen die tatsaechliche Dauer des laufenden Laufs zeigen (`silence_limit_ms()`): Fenster beim Knopf, Dauer beim Daily sleep (Bau 9, dort heute falsch), 15 Minuten beim Taster. Dazu braucht `silence_limit_ms()` einen Merker fuer den Taster-Lauf (15 min).
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
