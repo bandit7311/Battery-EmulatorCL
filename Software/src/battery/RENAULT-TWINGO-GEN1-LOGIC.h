@@ -29,7 +29,7 @@ inline bool battery_current_plausible(double amps) {
 // clock (the clock value of 2.97 million is far above what this bench pack holds). It counts +1 per minute from a
 // reference (value + Unix time). Since 10.10. (decision of the user) there is no safety lead any more and the pack
 // reading higher no longer raises the reference: exactly the pack time of THIS bench pack is sent.
-constexpr uint32_t AGE_SAFETY_MIN = 0;  // was one day until 09.10.
+constexpr uint32_t AGE_SAFETY_MIN = 0;       // was one day until 09.10.
 constexpr bool AGE_RAISE_FROM_PACK = false;  // was true until 09.10. (age_note_pack_read)
 constexpr uint32_t AGE_MAX_24 = 0xFFFFFF;
 constexpr int64_t UNIX_PLAUSIBLE_MIN = 1700000000LL;  // 14.11.2023; anything below is "clock not set"
@@ -43,19 +43,31 @@ inline uint32_t age_clamp24(uint64_t v) {
   return v > AGE_MAX_24 ? AGE_MAX_24 : (uint32_t)v;
 }
 
-// Whole minutes between two Unix times (0 if `now` is not after `from`, so a clock step back never lowers the age).
-inline uint32_t age_elapsed_min(int64_t from_unix, int64_t now_unix) {
-  return now_unix > from_unix ? (uint32_t)((now_unix - from_unix) / 60) : 0;
+// Minute factor (Bau 9): 1 = real time, N = the age counts +1 only every N minutes (0 is treated as 1).
+inline uint32_t age_factor_sane(uint32_t factor) {
+  return factor < 1 ? 1 : factor;
+}
+
+// Whole minutes between two Unix times (0 if `now` is not after `from`, so a clock step back never lowers the age),
+// divided by the minute factor and rounded down: the age steps up once per `factor` minutes.
+inline uint32_t age_elapsed_min(int64_t from_unix, int64_t now_unix, uint32_t factor = 1) {
+  return now_unix > from_unix ? (uint32_t)(((now_unix - from_unix) / 60) / age_factor_sane(factor)) : 0;
 }
 
 // Reference value carried to `now` without the safety lead.
-inline uint32_t age_plain(uint32_t ref_value, int64_t ref_unix, int64_t now_unix) {
-  return age_clamp24((uint64_t)ref_value + age_elapsed_min(ref_unix, now_unix));
+inline uint32_t age_plain(uint32_t ref_value, int64_t ref_unix, int64_t now_unix, uint32_t factor = 1) {
+  return age_clamp24((uint64_t)ref_value + age_elapsed_min(ref_unix, now_unix, factor));
 }
 
 // What is sent in the automatic mode: reference carried to `now` plus the safety lead.
-inline uint32_t age_auto(uint32_t ref_value, int64_t ref_unix, int64_t now_unix) {
-  return age_clamp24((uint64_t)age_plain(ref_value, ref_unix, now_unix) + AGE_SAFETY_MIN);
+inline uint32_t age_auto(uint32_t ref_value, int64_t ref_unix, int64_t now_unix, uint32_t factor = 1) {
+  return age_clamp24((uint64_t)age_plain(ref_value, ref_unix, now_unix, factor) + AGE_SAFETY_MIN);
+}
+
+// Daily sleep (Bau 9): fires in the minute of the day `time_min` (0..1439, local time) with a duration above 0
+// (0 = off). `secs_of_day` is the local time of day in seconds.
+inline bool daily_sleep_due(uint16_t time_min, uint16_t duration_min, uint32_t secs_of_day) {
+  return duration_min > 0 && time_min < 1440 && (secs_of_day / 60) == time_min;
 }
 
 // Value read from the pack: 9261 (vehicle time) if it is not 0, otherwise 91C1 (pack time), 24 bit. 0 = nothing usable.

@@ -228,6 +228,15 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
    *  Info", persisted to NVM. Clamped to 1-1440 by the driver if out of range. */
   uint16_t sleep_failsafe_minutes;
 
+  /** Minute factor of the vehicle age (Bau 9): 1 = real time, N = the age (0x350/0x436/0x523/0x376) counts +1 only
+   *  every N minutes. Persisted to NVM (TWAGEFAC). */
+  uint16_t age_minute_factor;
+  /** Daily sleep (Bau 9): time of day (minutes after local midnight, 0..1439), duration of the sleep in minutes
+   *  (0 = off) and the kilometres added to the 0x426 odometer at that time. Persisted to NVM. */
+  uint16_t daily_sleep_time_min;
+  uint16_t daily_sleep_duration_min;
+  uint16_t daily_sleep_km;
+
   /** Cellwatch: fast single-cell poll diagnostic (see RENAULT-TWINGO-GEN1-BATTERY.cpp /cellwatch page).
    *  Runtime only, NOT persisted to NVM - always starts disabled after a reboot, so it can never be
    *  left running unattended across a power cycle. While enabled, the normal 135-PID extended
@@ -1151,6 +1160,7 @@ class DataLayerExtended {
     // nvrol_temporisation_write_value = 0 and nvrol_b009_use_programming_session = false are already
     // correct via the memset(0) above; only the non-zero default needs setting here.
     twingoGen1.sleep_failsafe_minutes = 30;
+    twingoGen1.age_minute_factor = 1;  // Bau 9: real time
     twingoGen1.cellwatch_cell = 1;
     twingoGen1.bus_state = 1;  // awake (door open)
     twingoGen1.simulator_enabled_mask =

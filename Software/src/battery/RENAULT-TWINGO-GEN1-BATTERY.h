@@ -137,6 +137,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static int64_t age_manual_anchor_unix;  // Unix time at which age_manual_start_min was valid, 0 = not yet known
   static void age_manual_set(uint32_t minutes, int64_t unix_s = 0);  // unix_s 0 = unknown, millis() counts instead
   static void age_manual_clear();
+  static void age_set_factor(uint16_t factor);  // Bau 9: the age keeps its value, then counts +1 per `factor` minutes
   // Odometer (runtime only): 0x5D7 (row 39, kilometres * 100 << 4 in bytes 2-5, up to 2,684,354 km) and the Zoe frame
   // 0x426 (I row 4, bytes 4-6 = km * 256, so 0 .. 65,535 km; byte 7 free). Defaults: 19,400 km (the value the pack
   // showed as $925F), byte 7 = 0x40.
@@ -793,6 +794,13 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // settable via "More Battery Info") is ever 0 or otherwise implausible.
   static const unsigned long SLEEP_MANUAL_FAILSAFE_DEFAULT_MIN = 30;
   unsigned long sleep_manual_failsafe_ms(void);  // reads the configured minutes, clamped, *60000
+  // Daily sleep (Bau 9): at the configured time of day (local time) the kilometres of 0x426 are raised and a
+  // "Sleep 0x9281=1" run on the long way starts; its silence lasts the configured duration instead of the failsafe.
+  bool daily_sleep_run = false;          // the running sleep run was started by the daily sleep
+  bool daily_sleep_fired = false;        // already fired in the current minute of the day
+  uint8_t daily_sleep_prev_path = 0;     // the sleep path before the run (restored when the run is over)
+  void daily_sleep_service(void);        // once per second (time_service)
+  unsigned long silence_limit_ms(void);  // duration of the daily sleep, otherwise the sleep failsafe
   void start_nvrol_run(uint8_t mode) {
     if (!UserRequestNVROLReset) {
       nvrol_mode = mode;

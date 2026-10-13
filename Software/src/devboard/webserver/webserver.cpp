@@ -208,6 +208,18 @@ void init_webserver() {
           prefs.getBool("TWINGOB009PR", datalayer_extended.twingoGen1.nvrol_b009_use_programming_session);
       datalayer_extended.twingoGen1.sleep_failsafe_minutes =
           (uint16_t)prefs.getUInt("TWINGOSLPMIN", datalayer_extended.twingoGen1.sleep_failsafe_minutes);
+      // Bau 9: minute factor of the vehicle age and the daily sleep (time of day, duration, km)
+      datalayer_extended.twingoGen1.age_minute_factor =
+          (uint16_t)prefs.getUInt("TWAGEFAC", datalayer_extended.twingoGen1.age_minute_factor);
+      if (datalayer_extended.twingoGen1.age_minute_factor < 1) {
+        datalayer_extended.twingoGen1.age_minute_factor = 1;
+      }
+      datalayer_extended.twingoGen1.daily_sleep_time_min =
+          (uint16_t)prefs.getUInt("TWDSTIME", datalayer_extended.twingoGen1.daily_sleep_time_min);
+      datalayer_extended.twingoGen1.daily_sleep_duration_min =
+          (uint16_t)prefs.getUInt("TWDSDUR", datalayer_extended.twingoGen1.daily_sleep_duration_min);
+      datalayer_extended.twingoGen1.daily_sleep_km =
+          (uint16_t)prefs.getUInt("TWDSKM", datalayer_extended.twingoGen1.daily_sleep_km);
       {
         // 64 bit mask since 04.10.: TWINGOSIMMASK = bits 0-31 (unchanged key), TWINGOSIMHI = bits 32 and up.
         uint64_t current = datalayer_extended.twingoGen1.simulator_enabled_mask;
@@ -794,6 +806,47 @@ void init_webserver() {
       }
     }
     request->send(200, "text/plain", "OK");
+  });
+
+  // Bau 9: minute factor of the vehicle age (1 = real time, N = +1 only every N minutes)
+  def_route_with_auth("/editTwingoAgeFactor", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      int value = request->getParam("value")->value().toInt();
+      if (value >= 1 && value <= 1440) {
+        RenaultTwingoGen1Battery::age_set_factor((uint16_t)value);
+        Preferences prefs;
+        prefs.begin("batterySettings", false);
+        prefs.putUInt("TWAGEFAC", (uint16_t)value);
+        prefs.end();
+      }
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  // Bau 9: daily sleep - time=HH:MM (local), dur=minutes (0 = off), km=kilometres added to 0x426 at that time
+  def_route_with_auth("/editTwingoDailySleep", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("time") && request->hasParam("dur") && request->hasParam("km")) {
+      String tm = request->getParam("time")->value();
+      int hh = tm.substring(0, 2).toInt();
+      int mm = tm.substring(3, 5).toInt();
+      int dur = request->getParam("dur")->value().toInt();
+      int km = request->getParam("km")->value().toInt();
+      if (tm.length() == 5 && tm.charAt(2) == ':' && hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59 && dur >= 0 &&
+          dur <= 1440 && km >= 0 && km <= 65535) {
+        datalayer_extended.twingoGen1.daily_sleep_time_min = (uint16_t)(hh * 60 + mm);
+        datalayer_extended.twingoGen1.daily_sleep_duration_min = (uint16_t)dur;
+        datalayer_extended.twingoGen1.daily_sleep_km = (uint16_t)km;
+        Preferences prefs;
+        prefs.begin("batterySettings", false);
+        prefs.putUInt("TWDSTIME", (uint16_t)(hh * 60 + mm));
+        prefs.putUInt("TWDSDUR", (uint16_t)dur);
+        prefs.putUInt("TWDSKM", (uint16_t)km);
+        prefs.end();
+        request->send(200, "text/plain", "OK");
+        return;
+      }
+    }
+    request->send(400, "text/plain", "bad value");
   });
 
   // Cellwatch: runtime-only diagnostic (fast single-cell poll), NOT persisted to NVM on purpose - always

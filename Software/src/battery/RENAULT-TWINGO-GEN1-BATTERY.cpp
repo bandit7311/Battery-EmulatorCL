@@ -689,6 +689,46 @@ unsigned long RenaultTwingoGen1Battery::sleep_manual_failsafe_ms(void) {
   return (unsigned long)configured_min * 60UL * 1000UL;
 }
 
+// Length of the true silence: the duration of the daily sleep if this run was started by it, otherwise the manual
+// failsafe window.
+unsigned long RenaultTwingoGen1Battery::silence_limit_ms(void) {
+  if (daily_sleep_run && datalayer_extended.twingoGen1.daily_sleep_duration_min > 0) {
+    return (unsigned long)datalayer_extended.twingoGen1.daily_sleep_duration_min * 60UL * 1000UL;
+  }
+  return sleep_manual_failsafe_ms();
+}
+
+// Once per second: at the configured local time of day (Bau 9) raise the kilometres of 0x426 and start a
+// "Sleep 0x9281=1" run on the long way. Needs a set clock and a duration above 0 (0 = off). Fires once per minute of
+// the day; a run that is still going at that time skips the day.
+void RenaultTwingoGen1Battery::daily_sleep_service(void) {
+  auto& t = datalayer_extended.twingoGen1;
+  uint32_t secs = 0;
+  if (t.daily_sleep_duration_min == 0 || !get_wall_clock_seconds_of_day(secs)) {
+    daily_sleep_fired = false;
+    return;
+  }
+  if (!twingo::daily_sleep_due(t.daily_sleep_time_min, t.daily_sleep_duration_min, secs)) {
+    daily_sleep_fired = false;  // the minute is over: the next day may fire again
+    return;
+  }
+  if (daily_sleep_fired || UserRequestNVROLReset || NVROLstateMachine != 0) {
+    return;
+  }
+  daily_sleep_fired = true;
+  uint64_t km = (uint64_t)odo_426_km + t.daily_sleep_km;
+  odo_426_km = km > ODO_426_BUS_MAX_KM ? ODO_426_BUS_MAX_KM : (uint32_t)km;
+  sim_settings_save();
+  daily_sleep_prev_path = t.bus_sleep_path;
+  t.bus_sleep_path = twingo_bus::SLEEP_LANG;
+  start_nvrol_run(2);
+  daily_sleep_run = UserRequestNVROLReset;  // false if the start was refused
+  if (!daily_sleep_run) {
+    t.bus_sleep_path = daily_sleep_prev_path;
+  }
+  note_action("daily sleep");
+}
+
 void RenaultTwingoGen1Battery::start_powerdown(void) {
   powerdown_c0_burst = 0;
   powerdown_c0_burst_ms = 0;
@@ -905,8 +945,7 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
       if (now - powerdown_stage_start_ms >= stage_len) {
         if (powerdown_stage + 1 >= 4) {
           // The 00 stage's own duration has elapsed too: stop everything, true silence begins.
-          nvrol_silence_start_ms = now;
-          nvrol_silence_last_rx_ms = 0;
+          nvrol_silence_start_ms = now;  // nvrol_silence_last_rx_ms stays: the display needs the real last frame
           NVROLstateMachine = 5;
         } else {
           powerdown_stage++;
@@ -916,7 +955,7 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
       break;
     }
     case 5:  // true silence: nothing is transmitted at all (see transmit_can()), only the timer runs
-      if (nvrol_wake_request || (millis() - nvrol_silence_start_ms) >= sleep_manual_failsafe_ms()) {
+      if (nvrol_wake_request || (millis() - nvrol_silence_start_ms) >= silence_limit_ms()) {
 #ifdef EXTENDED_UDS_DEBUG
         logging.println("NVROL: true silence over, waking up");
 #endif
@@ -957,6 +996,10 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
       NVROLstateMachine = 0;
       nvrol_mode = 0;
       UserRequestNVROLReset = false;
+      if (daily_sleep_run) {
+        datalayer_extended.twingoGen1.bus_sleep_path = daily_sleep_prev_path;
+        daily_sleep_run = false;
+      }
       break;
   }
 }
@@ -979,6 +1022,10 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
   // Point 7 (09.10.): the events raised by the silence and the wake-up (missing battery, CAN errors, ...) are
   // acknowledged like the "clear all events" button of the events page does, as soon as the polling resumes.
   reset_all_events();
+  if (daily_sleep_run) {
+    datalayer_extended.twingoGen1.bus_sleep_path = daily_sleep_prev_path;  // the daily sleep used the long way
+    daily_sleep_run = false;
+  }
   nvrol_silence_done = true;
   nvrol_last_mode = nvrol_mode;
   nvrol_mode = 0;
@@ -1265,6 +1312,46 @@ void RenaultTwingoGen1Battery::time_436_clear() {
   sim_settings_save();
 }
 
+// A new factor must not lower the age that is already being sent: the current value becomes the new start and the
+// counting starts from now with the new factor.
+void RenaultTwingoGen1Battery::age_set_factor(uint16_t factor) {
+  auto& t = datalayer_extended.twingoGen1;
+  if (factor < 1) {
+    factor = 1;
+  }
+  uint32_t current = 0;
+  const time_t now_t = time(nullptr);  // static function: same source as the web handler of the manual age
+  const int64_t now_unix = (int64_t)now_t;
+  const bool have_clock = now_unix >= twingo::UNIX_PLAUSIBLE_MIN;
+  const unsigned long now_ms = millis();
+  bool have_age = false;
+  if (age_manual_active) {
+    if (have_clock && age_manual_anchor_unix != 0) {
+      current = twingo::age_plain(age_manual_start_min, age_manual_anchor_unix, now_unix, t.age_minute_factor);
+      have_age = true;
+    } else if (age_manual_ms_valid) {
+      current = twingo::age_clamp24(
+          (uint64_t)age_manual_start_min +
+          (uint64_t)(((now_ms - age_manual_set_ms) / 60000UL) / twingo::age_factor_sane(t.age_minute_factor)));
+      have_age = true;
+    }
+    t.age_minute_factor = factor;
+    if (have_age) {
+      age_manual_set(current, (have_clock && age_manual_anchor_unix != 0) ? now_unix : 0);  // keeps the way of counting
+    }
+  } else {
+    if (have_clock) {
+      current = twingo::age_auto(t.age_pack_value, (int64_t)t.age_pack_unix, now_unix, t.age_minute_factor);
+      t.age_minute_factor = factor;
+      t.age_pack_value = current;
+      t.age_pack_unix = (uint32_t)now_unix;
+      age_save_to_nvm();
+    } else {
+      t.age_minute_factor = factor;
+    }
+  }
+}
+
 void RenaultTwingoGen1Battery::age_manual_clear() {
   age_manual_active = false;
   age_save_to_nvm();
@@ -1289,10 +1376,12 @@ bool RenaultTwingoGen1Battery::vehicle_age_available(unsigned long nowMillis, ui
   uint32_t v;
   if (age_manual_active) {
     if (clock_ok && age_manual_anchor_unix != 0) {
-      v = twingo::age_plain(age_manual_start_min, age_manual_anchor_unix, now_unix);
+      v = twingo::age_plain(age_manual_start_min, age_manual_anchor_unix, now_unix, t.age_minute_factor);
       t.age_source = 3;
     } else if (age_manual_ms_valid) {
-      v = twingo::age_clamp24((uint64_t)age_manual_start_min + (uint64_t)((nowMillis - age_manual_set_ms) / 60000UL));
+      v = twingo::age_clamp24(
+          (uint64_t)age_manual_start_min +
+          (uint64_t)(((nowMillis - age_manual_set_ms) / 60000UL) / twingo::age_factor_sane(t.age_minute_factor)));
       t.age_source = 3;
     } else {
       return false;
@@ -1301,7 +1390,7 @@ bool RenaultTwingoGen1Battery::vehicle_age_available(unsigned long nowMillis, ui
     if (!clock_ok) {
       return false;
     }
-    v = twingo::age_auto(t.age_pack_value, (int64_t)t.age_pack_unix, now_unix);
+    v = twingo::age_auto(t.age_pack_value, (int64_t)t.age_pack_unix, now_unix, t.age_minute_factor);
     t.age_source = 1;
   }
   if (v < t.age_last_sent && !age_manual_active) {
@@ -1939,12 +2028,20 @@ void RenaultTwingoGen1Battery::append_quiet_html(String& s) {
       snprintf(b, sizeof(b), ", last one %lu.%lu s ago", age / 1000, (age % 1000) / 100);
       s += b;
       if (age > 3000) {
-        s += " - <b>BMS SILENT since ";
-        // Relative to true silence's own start while quiet (unchanged); during state 7, true silence has
-        // not begun yet, so use the shutdown sequence's start instead - the same base the table below uses.
-        append_mmss(s, quiet ? (nvrol_silence_last_rx_ms - nvrol_silence_start_ms)
-                             : (nvrol_silence_last_rx_ms - powerdown_start_ms));
-        s += "</b>";
+        if (quiet && nvrol_silence_last_rx_ms <= nvrol_silence_start_ms) {
+          // The last frame came before the quiet phase began (the BMS stopped during the shutdown sequence).
+          const unsigned long before_ms = nvrol_silence_start_ms - nvrol_silence_last_rx_ms;
+          snprintf(b, sizeof(b), " - <b>BMS SILENT: last frame %lu.%lu s before the quiet phase began</b>",
+                   before_ms / 1000, (before_ms % 1000) / 100);
+          s += b;
+        } else {
+          s += " - <b>BMS SILENT since ";
+          // Relative to true silence's own start while quiet; during state 7, true silence has not begun yet, so use
+          // the shutdown sequence's start instead - the same base the table below uses.
+          append_mmss(s, quiet ? (nvrol_silence_last_rx_ms - nvrol_silence_start_ms)
+                               : (nvrol_silence_last_rx_ms - powerdown_start_ms));
+          s += "</b>";
+        }
       }
     }
   }
@@ -1958,6 +2055,9 @@ void RenaultTwingoGen1Battery::append_quiet_html(String& s) {
     s += b;
     if (i + 1 < shown) {
       s += ',';
+      if ((i + 1) % 10 == 0) {
+        s += "<br>";  // one group of ten seconds per line (the line of 60 numbers did not wrap)
+      }
     }
   }
   s += "<br>";
@@ -2363,6 +2463,7 @@ void RenaultTwingoGen1Battery::time_service(unsigned long currentMillis) {
     return;
   }
   previousMillis_time_service = currentMillis;
+  daily_sleep_service();
   if (!ntp_started && network_ready()) {
     start_ntp();
     ntp_started = true;
@@ -4181,10 +4282,29 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += " Programming (0x02)</h4>";
 
     content +=
-        "<h4>Sleep failsafe (auto wake after): "
+        "<h4>Sleep failsafe manual (auto wake after): "
         "<input type='number' id='twingoSleepMinutes' min='1' max='1440' value='";
     content += String(datalayer_extended.twingoGen1.sleep_failsafe_minutes);
     content += "'> min <button onclick='twingoSetSleepMinutes()'>Set</button></h4>";
+
+    {
+      // Bau 9: daily sleep (time of day, duration, kilometres) in one line, and the minute factor of the age
+      const uint16_t tmin = datalayer_extended.twingoGen1.daily_sleep_time_min;
+      char hhmm[8];
+      snprintf(hhmm, sizeof(hhmm), "%02u:%02u", (unsigned)(tmin / 60) % 24, (unsigned)(tmin % 60));
+      content += "<h4>Daily sleep</h4><h4>Time <input type='time' id='twingoDsTime' value='";
+      content += hhmm;
+      content += "'> Duration <input type='number' id='twingoDsDur' min='0' max='1440' value='";
+      content += String(datalayer_extended.twingoGen1.daily_sleep_duration_min);
+      content += "'> min (0 = off) Km <input type='number' id='twingoDsKm' min='0' max='65535' value='";
+      content += String(datalayer_extended.twingoGen1.daily_sleep_km);
+      content +=
+          "'> <button onclick='twingoSetDailySleep()'>Set</button></h4>"
+          "<h4>Age minute factor: <input type='number' id='twingoAgeFactor' min='1' max='1440' value='";
+      content += String(datalayer_extended.twingoGen1.age_minute_factor);
+      content +=
+          "'> <button onclick='twingoSetAgeFactor()'>Set</button> (1 = real time, 10 = +1 only every 10 min)</h4>";
+    }
 
     content +=
         "<h4>Cellwatch (fast single-cell poll): "
@@ -4262,6 +4382,15 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "function twingoSetSleepMinutes(){";
     content += "var m=document.getElementById('twingoSleepMinutes').value;";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoSleepMinutes?value='+m,true);x.send();}";
+    content += "function twingoSetDailySleep(){";
+    content += "var t=document.getElementById('twingoDsTime').value;";
+    content += "var d=document.getElementById('twingoDsDur').value;";
+    content += "var k=document.getElementById('twingoDsKm').value;";
+    content +=
+        "var x=new XMLHttpRequest();x.open('GET','/editTwingoDailySleep?time='+t+'&dur='+d+'&km='+k,true);x.send();}";
+    content += "function twingoSetAgeFactor(){";
+    content += "var f=document.getElementById('twingoAgeFactor').value;";
+    content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoAgeFactor?value='+f,true);x.send();}";
     content += "function twingoSetCellwatchEnable(v){";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoCellwatchEnable?value='+(v?1:0),true);x.send();}";
     content += "function twingoSetDtcAllStatus(v){";
