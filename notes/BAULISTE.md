@@ -347,17 +347,18 @@ Alle vier Felder stehen auf der Advanced-Seite (Seite mit "Sleep failsafe") unte
 - Bau 11: "Time in 0x436" (ACTIVE) zaehlt nur noch alle N Minuten +1 (Minutenfaktor); vorher zaehlte er jede Minute und ignorierte den Faktor (Ursache fuer "SCPU laeuft trotz Faktor 3 im Minutentakt weiter", Befund 13.10.: Screenshot Time in 0x436 ACTIVE 62549). Nicht angefasst: der Standardzaehler "14 00 xx" (`zoe_436_counter`), wenn der Eigenwert aus ist.
 - Auffaellig (13.10., nicht geaendert): "Manual vehicle age" steht auf 1.372.407 min, "Time in 0x436" auf ca. 62.5k; 0x350 und 0x436 senden also verschiedene Alter.
 
-## Zum Bauen vorgemerkt (Bau 12): Hardware-Taster "Sleep anfordern" an GPIO15 (Wunsch Nutzer, 13.10.; wartet auf "bauen")
+## Zum Bauen vorgemerkt (Bau 12): Hardware-Taster "Sleep anfordern" an GPIO15 (Wunsch Nutzer, 13.10.; Funktion entschieden; wartet auf "bauen")
 Bisher nur "Nice-to-have" (Prioritaet 3: "Abschalt-Taster, Sleep inkl. 0x9281 ohne Wiederanlauf, SSD1306-Hinweise"); jetzt konkretisiert.
 - **Pin (Nutzer, 13.10.): GPIO15** auf der Stiftleiste des T-2CAN (linke Spalte, 8. Pin von oben, `hw_lilygo2can.h`). Gewaehlt, weil er im Code nirgends belegt ist (nur CHAdeMO-Zusatzfunktion `CHADEMO_PIN_10`) und kein Strapping-Pin ist. Verworfen: 46 (Strapping, SMA-Schuetz), 17 (Minus-Schuetz), 3 (BMS_POWER), 0 (AP-Taster, Werksreset auf derselben Taste), 43/44 (RS485, Bootloader-Text auf 43).
 - **Schaltung:** Taster zwischen GPIO15 und GND, **nur GND schalten, keine 12 V** (der GPIO vertraegt nur 3,3 V). Interner Pull-up (`INPUT_PULLUP`), Software-Entprellung; Leitung kurz halten, bei langen Kabeln 1 kOhm in Reihe und 100 nF nach GND.
 - **Code (Vorschlag, nach dem Muster des Equipment-Stop-Tasters, `comm_equipmentstopbutton.cpp`):** neue Hardware-Funktion `SLEEP_BUTTON_PIN()` (Voreinstellung nicht verbunden; T-2CAN: GPIO15), Pin ueber `alloc_pins` anfordern, `DebouncedButton`. Schalter "Sleep button enable" (Checkbox, im NVM, Voreinstellung aus), damit der Pin ohne Taster nicht ausloest.
-- **Funktion:** Ein Druck startet **"Sleep 0x9281=1"** (`request_sleep_temporisation()`, derselbe Lauf wie der Knopf auf der Seite): 9281 wird geschrieben, die Abschaltfolge laeuft, danach ist der Bus still; die Display-Hinweise (Bau 3: "Sleep requested", "Sleep pls wait" mit Zeit) erscheinen wie beim Knopf. Waehrend ein Lauf schon laeuft, wird ein weiterer Druck ignoriert.
-- **Noch nicht entschieden (Nutzer fragen vor dem Bauen):**
-  1. Kurzer Druck oder langer Druck (z. B. 2 s gegen versehentliches Beruehren)?
-  2. Einschlafweg: der aktuell gewaehlte (Radiobutton) oder fest "lang" wie beim Daily sleep?
-  3. Dauer der Stille: das Sicherheitsfenster "Sleep failsafe manual" (wie beim Knopf) oder die Dauer des Daily sleep?
-  4. Soll ein Druck in der Stille den Akku wieder wecken (`request_wake_up`)?
+- **Funktion:** Ein langer Druck startet **"Sleep 0x9281=1"** (`request_sleep_temporisation()`, derselbe Lauf wie der Knopf auf der Seite): 9281 wird geschrieben, die Abschaltfolge laeuft, danach ist der Bus still; die Display-Hinweise (Bau 3: "Sleep requested", "Sleep pls wait" mit Zeit) erscheinen wie beim Knopf. Waehrend ein Lauf schon laeuft (auch in der Stille), wird ein weiterer Druck ignoriert.
+- **Entschieden (Nutzer, 13.10.):**
+  1. **Langer Druck** startet den Sleep (Vorschlag der Haltezeit: 2 s, gegen versehentliches Beruehren; ein kurzer Druck tut nichts).
+  2. **Einschlafweg: lang**, fest (wie beim Daily sleep); der Radiobutton-Wert wird fuer den Lauf ueberschrieben und danach wiederhergestellt.
+  3. **Dauer der Stille: 15 Minuten**; der Akku ist dabei ohnehin komplett abgeschaltet (der Bus ist still). Eigene feste Dauer, unabhaengig vom Fenster "Sleep failsafe manual" und von der Dauer des Daily sleep.
+  4. **Kein Wecken per Taster**: ein Druck in der Stille tut nichts (Wecken wie bisher ueber die Seite oder nach Ablauf der 15 Minuten).
+- Noch offen: ob die 15 Minuten spaeter ein einstellbares Feld werden sollen (heute fest).
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
