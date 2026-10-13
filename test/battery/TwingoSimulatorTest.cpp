@@ -422,21 +422,31 @@ TEST(TwingoSimulatorSwitches, AllIRowsOffMeansNoVehicleFramesAtAll) {
   set_mask(0x3FF);
 }
 
-TEST(TwingoSimulatorSwitches, SleepSequenceStillSendsItsOwn350EvenIfTheRunFrameIsOff) {
-  set_mask(0x3FF & ~(1u << row_of(0x350)));
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 1000, 100, log);
-  EXPECT_EQ(count_id(log, 0x350), 0u);
-  b.request_sleep();
-  log.clear();
-  run(b, t, 3000, 100, log);
-  auto f = with_id(log, 0x350);
-  ASSERT_FALSE(f.empty());
-  EXPECT_EQ(f[0].f.data.u8[0], 0xC3);  // C3 stage of the shutdown sequence
-  set_mask(0x3FF);
+// Bau 6 (12.10.): the stages of the sleep sequence keep their clock, but the 0x350 frames of it only go onto the bus
+// when the row 0x350 is switched on (before they were sent in any case).
+TEST(TwingoSimulatorSwitches, SleepSequenceSends350OnlyWhenTheRowIsOn) {
+  struct MaskGuard {
+    ~MaskGuard() { set_mask(0x3FF); }
+  } guard;
+  for (int on = 0; on < 2; on++) {
+    set_mask(on ? 0x3FF : (0x3FF & ~(1u << row_of(0x350))));
+    TestTwingo b;
+    b.setup();
+    uint64_t t = 1000;
+    std::vector<Tx> log;
+    run(b, t, 1000, 100, log);
+    EXPECT_EQ(count_id(log, 0x350), on ? count_id(log, 0x350) : 0u);
+    b.request_sleep();
+    log.clear();
+    run(b, t, 3000, 100, log);
+    auto f = with_id(log, 0x350);
+    if (on) {
+      ASSERT_FALSE(f.empty());
+      EXPECT_EQ(f[0].f.data.u8[0], 0xC3);  // C3 stage of the shutdown sequence
+    } else {
+      EXPECT_TRUE(f.empty()) << "row 0x350 off: no 0x350 in the sleep sequence";
+    }
+  }
 }
 
 TEST(TwingoSimulatorSwitches, Row214OnlyInShutdownAndItsSwitchWorks) {

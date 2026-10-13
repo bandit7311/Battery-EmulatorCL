@@ -93,6 +93,19 @@ std::string hex_of(const uint8_t* d, int n) {
   return s;
 }
 
+// only_rows() changes the static simulator mask for good; every test starts again with the ten old rows on, so
+// no test depends on what an earlier one left behind (also in the other test files of this binary).
+class SimulatorMaskReset : public testing::EmptyTestEventListener {
+  void OnTestStart(const testing::TestInfo&) override {
+    datalayer_extended.twingoGen1.simulator_enabled_mask = 0x3FF;  // the 10 old rows, as the older tests expect
+    datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
+  }
+};
+[[maybe_unused]] const bool simulator_mask_reset_registered = [] {
+  testing::UnitTest::GetInstance()->listeners().Append(new SimulatorMaskReset);
+  return true;
+}();
+
 void only_rows(std::initializer_list<uint32_t> ids) {
   datalayer_extended.twingoGen1.simulator_enabled_mask = 0;
   datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
@@ -227,7 +240,7 @@ TEST(TwingoCellBroadcast, BroadcastModeSkipsTheUdsCellPolls) {
     datalayer_extended.twingoGen1.cell_source_broadcast = (broadcast == 1);
     uint64_t t = 1000;
     std::vector<Tx> log;
-    run(b, t, 30000, 10, log);  // more than one full poll cycle of 136 PIDs
+    run(b, t, 150000, 10, log);  // more than one full poll cycle of 136 PIDs (one request per second since 12.10.)
     int cell_polls = 0, other_polls = 0;
     for (const Tx& x : with_id(log, 0x18DADBF1, true)) {
       if (x.f.data.u8[1] != 0x22) {
@@ -658,7 +671,7 @@ TEST(TwingoDriveRamp, TheRowStartsTheRampWhenTheStateIsEntered) {
 
 namespace {
 // Runs the Sleep button through the shutdown sequence up to and including the silence; returns the log from the start of
-// the 00 stage on (stage 3 is the last second before the silence).
+// the 00 stage on (stage 3 is the closing stage before the silence: 50.8 s on the long way since Bau 7).
 struct SleepRun {
   std::vector<Tx> before;  // everything before the 00 stage
   std::vector<Tx> stage00;
@@ -670,11 +683,11 @@ SleepRun run_sleep(BusTwingo& b) {
   SleepRun r;
   b.request_sleep();
   std::vector<Tx> all;
-  // C3 66 s + C2 60 s + C0 10 s = 136 s, then the 00 stage (1 s): find it by the end of the frames of 0x350 C0
+  // C3 66 s + C2 60 s + C0 10 s = 136 s, then the closing stage (50.8 s on the long way)
   run(b, r.t, 135000, 10, all);
   r.before = all;
   std::vector<Tx> late;
-  run(b, r.t, 3000, 10, late);
+  run(b, r.t, 55000, 10, late);
   r.stage00 = late;
   return r;
 }
@@ -994,7 +1007,7 @@ TEST(TwingoStateSequence, TenMillisecondFramesRunDuringTheWakeUpBurstToo) {
   run(b, t, 5000, 10, up);
   b.request_sleep();
   std::vector<Tx> down;
-  run(b, t, 140000, 10, down);
+  run(b, t, 195000, 10, down);  // 136 s of stages + 50.8 s of closing
   std::vector<Tx> silent;
   run(b, t, 3000, 10, silent);
   b.request_wake_up();
@@ -1143,4 +1156,189 @@ TEST(TwingoStateSequence, FreeRequestAnswerHoldsAMissionList) {
   std::string res = b.user_query_result();
   EXPECT_NE(res.find("80 00 01 A0"), std::string::npos) << "the end of the list is cut off: " << res.size();
   EXPECT_EQ(res.find("..."), std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// Bau 6 (12.10.): a row that is not ticked sends nothing, in no state - all 71 rows one by one
+// ---------------------------------------------------------------------------
+
+TEST(TwingoBau6, OnlyTheTickedRowSendsOnTheCanBusInEveryState) {
+  datalayer.battery.status.voltage_dV = 3840;
+  for (int row = 0; row < Bat::SIM_SIGNAL_COUNT; row++) {
+    const uint32_t own = Bat::sim_signals[row].id;
+    BusTwingo b;
+    b.setup();
+    datalayer_extended.twingoGen1.bus_state_manual = false;
+    datalayer_extended.twingoGen1.simulator_enabled_mask = 0;
+    datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
+    Bat::sim_row_set((uint8_t)row, true);
+    uint64_t t = 1000;
+    std::vector<Tx> log;
+    run(b, t, 20000, 10, log);  // awake
+    b.request_sleep();
+    run(b, t, 195000, 10, log);  // all stages, the closing stage, the silence
+    b.request_wake_up();
+    run(b, t, 4000, 10, log);  // wake-up burst
+    for (const Tx& x : log) {
+      if (!x.f.ext_ID && x.f.ID != own) {
+        ADD_FAILURE() << "row " << row << " (0x" << std::hex << own << ") is the only one ticked, but 0x" << x.f.ID
+                      << " was sent at " << std::dec << x.t;
+        break;
+      }
+      EXPECT_FALSE(x.f.ext_ID && x.f.ID == 0x79B);
+    }
+    datalayer_extended.twingoGen1.bus_state_manual = true;
+  }
+}
+
+TEST(TwingoBau6, RowOff350IsSilentAndRowOn350SendsTheSleepProtocol) {
+  for (int on = 0; on < 2; on++) {
+    BusTwingo b;
+    b.setup();
+    datalayer_extended.twingoGen1.simulator_enabled_mask = 0;
+    datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
+    if (on) {
+      Bat::sim_row_set(2, true);
+    }
+    ASSERT_EQ(Bat::sim_signals[2].id, 0x350u);
+    uint64_t t = 1000;
+    std::vector<Tx> log;
+    run(b, t, 2000, 10, log);
+    b.request_sleep();
+    run(b, t, 150000, 10, log);
+    EXPECT_EQ(with_id(log, 0x350).empty(), on == 0);
+    if (on) {
+      bool c3 = false, z00 = false;
+      for (const Tx& x : with_id(log, 0x350)) {
+        c3 |= x.f.data.u8[0] == 0xC3;
+        z00 |= x.f.data.u8[0] == 0x00;
+      }
+      EXPECT_TRUE(c3 && z00);
+    }
+  }
+}
+
+TEST(TwingoBau6, UdsRoundRobinSendsOneRequestPerSecond) {
+  BusTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  std::vector<Tx> log;
+  run(b, t, 30000, 10, log);
+  uint32_t requests = 0;
+  for (const Tx& x : log) {
+    if (x.f.ext_ID && x.f.ID == 0x18DADBF1 && x.f.data.u8[1] == 0x22) {
+      requests++;
+    }
+  }
+  EXPECT_GE(requests, 25u);
+  EXPECT_LE(requests, 32u);  // 30 s, one request per second (was 5 per second)
+}
+
+// ---------------------------------------------------------------------------
+// Bau 7 (12.10.): the closing form and the wake-up form of 0x423
+// ---------------------------------------------------------------------------
+
+TEST(TwingoBau7, ClosingFormOfTheFramesFollowsTheCarTimes) {
+  for (uint8_t path : {twingo_bus::SLEEP_LADELOG2, twingo_bus::SLEEP_LANG, twingo_bus::SLEEP_KURZ}) {
+    const twingo_bus::ClosingTimes& c = twingo_bus::closing_times(path);
+    // order in the car: 0x0ED B2=00, then 0x423 B0=04 (0.08 s later), 0x435 B5=FC, 0x435 B3=EB
+    EXPECT_LT(c.ed00_ms, c.t04_ms) << (int)path;
+    EXPECT_LT(c.t04_ms, c.b5fc_ms) << (int)path;
+    EXPECT_LT(c.b5fc_ms, c.b3eb_ms) << (int)path;
+    EXPECT_LE(c.t04_ms - c.ed00_ms, 100u) << (int)path;
+    EXPECT_LT(c.b3eb_ms, c.stage_ms) << (int)path;
+    const twingo_bus::FrameDef* d423 = twingo_bus::find_frame(0x423);
+    const twingo_bus::FrameDef* d0ed = twingo_bus::find_frame(0x0ED);
+    const twingo_bus::FrameDef* d435 = twingo_bus::find_frame(0x435);
+    ASSERT_TRUE(d423 && d0ed && d435);
+    uint8_t a[8] = {0x07, 1, 2, 3, 4, 5, 6, 7};
+    twingo_bus::apply_closing_form_at(*d423, a, c.t04_ms - 1, path);
+    EXPECT_EQ(a[0], 0x07);
+    twingo_bus::apply_closing_form_at(*d423, a, c.t04_ms, path);
+    EXPECT_EQ(a[0], 0x04);
+    uint8_t e[8] = {0x60, 0xFF, 0x80, 3, 4, 5, 6, 7};
+    twingo_bus::apply_closing_form_at(*d0ed, e, c.ed00_ms - 1, path);
+    EXPECT_EQ(e[2], 0x80);
+    twingo_bus::apply_closing_form_at(*d0ed, e, c.ed00_ms, path);
+    EXPECT_EQ(e[2], 0x00);
+    uint8_t m[8] = {0, 1, 2, 0x11, 4, 0x22, 6, 7};
+    twingo_bus::apply_closing_form_at(*d435, m, c.b5fc_ms, path);
+    EXPECT_EQ(m[5], 0xFC);
+    EXPECT_EQ(m[3], 0x11);
+    twingo_bus::apply_closing_form_at(*d435, m, c.b3eb_ms, path);
+    EXPECT_EQ(m[3], 0xEB);
+  }
+  // the times of the car logs: Ladelog 2 10.03 s to 04, ends 11.04 s; drive log 49.81 s to 04, ends about 50.76 s
+  EXPECT_EQ(twingo_bus::CLOSING_LADELOG2_TIMES.t04_ms, 10030u);
+  EXPECT_EQ(twingo_bus::CLOSING_FAHRLOG_TIMES.t04_ms, 49810u);
+  EXPECT_EQ(twingo_bus::CLOSING_LADELOG2_TIMES.end_157_ms, 11040u);
+  EXPECT_EQ(twingo_bus::CLOSING_FAHRLOG_TIMES.end_157_ms, 50760u);
+}
+
+TEST(TwingoBau7, WakeForm423IsThirtyThenThirtyThree) {
+  uint8_t f[8];
+  twingo_bus::wake_form_423(0, f);
+  EXPECT_EQ(hex_of(f, 8), "30 7F FF FF FF E0 FF FF");
+  twingo_bus::wake_form_423(1, f);
+  EXPECT_EQ(hex_of(f, 8), "33 7F FF FF FF E0 FF FF");
+  EXPECT_EQ(twingo_bus::WAKE_423_FRAMES, 2u);
+}
+
+TEST(TwingoBau7, DriverSends0x423With04InTheLastSecondAndWakesWith30Then33) {
+  for (uint8_t path : {twingo_bus::SLEEP_LADELOG2, twingo_bus::SLEEP_LANG}) {
+    BusTwingo b;
+    b.setup();
+    datalayer_extended.twingoGen1.bus_state_manual = false;
+    datalayer_extended.twingoGen1.bus_sleep_path = path;
+    only_rows({0x423, 0x426, 0x0ED});
+    uint64_t t = 1000;
+    std::vector<Tx> log;
+    run(b, t, 20000, 10, log);
+    b.request_sleep();
+    const uint64_t t0 = t;
+    std::vector<Tx> down;
+    run(b, t, 195000, 10, down);
+    uint64_t t_closed = 0;
+    for (const Tx& x : with_id(down, 0x426)) {
+      if (x.f.data.u8[2] == 0x02) {
+        t_closed = x.t;
+        break;
+      }
+    }
+    ASSERT_GT(t_closed, t0) << (int)path;
+    const twingo_bus::ClosingTimes& c = twingo_bus::closing_times(path);
+    uint64_t first04 = 0, last423 = 0;
+    for (const Tx& x : with_id(down, 0x423)) {
+      if (x.t > t_closed && x.f.data.u8[0] == 0x04 && first04 == 0) {
+        first04 = x.t;
+      }
+      if (x.t > t_closed && first04 == 0) {
+        EXPECT_NE(x.f.data.u8[0], 0x04) << "04 before its time at +" << (x.t - t_closed);
+      }
+      last423 = x.t;
+    }
+    ASSERT_GT(first04, 0u) << (int)path;
+    EXPECT_NEAR((double)(first04 - t_closed), (double)c.t04_ms, 250.0) << (int)path;
+    EXPECT_NEAR((double)(last423 - t_closed), (double)c.end_423_ms, 250.0) << (int)path;
+    // 0x0ED: B2 = 00 only just before the 04
+    for (const Tx& x : with_id(down, 0x0ED)) {
+      // t_closed is the first 0x426 in closed, which comes up to 250 ms after the real start of the stage
+      if (x.t > t_closed && x.t + 250 < t_closed + c.ed00_ms) {
+        EXPECT_NE(x.f.data.u8[2], 0x00) << "0x0ED B2=00 too early at +" << (x.t - t_closed);
+      }
+    }
+    // wake-up: the first two 0x423 frames 30 .. / 33 .. 50 ms apart, then the regular ones
+    b.request_wake_up();
+    std::vector<Tx> wake;
+    run(b, t, 3000, 10, wake);
+    auto w = with_id(wake, 0x423);
+    ASSERT_GE(w.size(), 3u) << (int)path;
+    EXPECT_EQ(hex_of(w[0].f.data.u8, 8), "30 7F FF FF FF E0 FF FF");
+    EXPECT_EQ(hex_of(w[1].f.data.u8, 8), "33 7F FF FF FF E0 FF FF");
+    EXPECT_NEAR((double)(w[1].t - w[0].t), 50.0, 10.0);
+    EXPECT_NE(w[2].f.data.u8[0], 0x30);
+    EXPECT_NE(w[2].f.data.u8[0], 0x33);
+    datalayer_extended.twingoGen1.bus_state_manual = true;
+  }
+  datalayer_extended.twingoGen1.bus_sleep_path = twingo_bus::SLEEP_LANG;
 }

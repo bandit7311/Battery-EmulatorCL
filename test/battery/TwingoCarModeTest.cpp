@@ -135,7 +135,7 @@ SleepRun run_sleep(TestTwingo& b, uint64_t& t, uint64_t step) {
   run(b, t, 500, step, warm);
   b.request_sleep();
   r.start = t;
-  run(b, t, 140000, step, r.log);
+  run(b, t, 200000, step, r.log);
   for (const Tx& x : with_id(r.log, 0x350)) {
     uint8_t s = x.f.data.u8[0];
     if (s == 0xC3 && r.t_first_c3 == 0) {
@@ -162,6 +162,10 @@ const time_t AGE_EPOCH = 1613387588;  // 15.02.2021 11:13:08 UTC = zero of the 0
 // "which frames are on the bus". In the real car the last frames of the other ECUs come up to 60 ms after the last
 // 0x350 (log of 02.10.: 0x350 +0.90 s, 0x5DE +0.93 s, 0x657 +0.95 s), so one 100 ms period is allowed.
 const uint64_t AFTER_LAST_350_MS = 100;
+// Bau 7: after the 00 stage of 0x350 the closing stage of the bus goes on (long way: as in the drive log 50.82 s)
+uint64_t end_of_bus(const SleepRun& r) {
+  return r.t_00 + twingo_bus::closing_stage_ms(twingo_bus::SLEEP_LANG, true) + AFTER_LAST_350_MS;
+}
 bool is_old_kwp_poll(const CAN_frame& f) {
   return f.ID == 0x79B && !f.ext_ID;
 }
@@ -322,7 +326,7 @@ TEST(TwingoCarMode, ShutdownStageTimesAndBytes) {
   // Silence afterwards: nothing after the last 0x350 of the sequence (apart from the last frames of the 00 stage).
   for (const Tx& x : r.log) {
     if (!is_old_kwp_poll(x.f)) {
-      EXPECT_LE(x.t, r.t_last_350 + AFTER_LAST_350_MS) << "frame after the sequence: ID 0x" << std::hex << x.f.ID;
+      EXPECT_LE(x.t, end_of_bus(r)) << "frame after the sequence: ID 0x" << std::hex << x.f.ID;
     }
   }
 }
@@ -571,7 +575,7 @@ TEST(TwingoCarMode, EveryRowEndsWhereItEndsInTheCar) {
     uint64_t l = last_t(id);
     ASSERT_GT(l, 0u) << "0x" << std::hex << id << " never sent";
     EXPECT_GT(l, r.t_00 + 400) << "0x" << std::hex << id << " runs through the 00 stage";
-    EXPECT_LE(l, r.t_last_350 + AFTER_LAST_350_MS) << "0x" << std::hex << id << " must not outlast the bus";
+    EXPECT_LE(l, end_of_bus(r)) << "0x" << std::hex << id << " must not outlast the bus";
   }
   // the Zoe frames and 0x214 stay out of the 00 stage
   for (uint32_t id : {0x19Fu, 0x426u, 0x436u, 0x423u, 0x214u}) {
@@ -579,7 +583,7 @@ TEST(TwingoCarMode, EveryRowEndsWhereItEndsInTheCar) {
   }
   for (const Tx& x : r.log) {
     if (!is_old_kwp_poll(x.f)) {
-      EXPECT_LE(x.t, r.t_last_350 + AFTER_LAST_350_MS) << "frame after the end of the bus: ID 0x" << std::hex << x.f.ID;
+      EXPECT_LE(x.t, end_of_bus(r)) << "frame after the end of the bus: ID 0x" << std::hex << x.f.ID;
     }
   }
 }
@@ -611,13 +615,14 @@ TEST(TwingoCarMode, EndOfTheRowsAsBeforeIsUnchanged) {
     }
   }
   for (const Tx& x : r.log) {
-    if (x.t > r.t_00 + 20 && x.f.ID != 0x350 && !is_old_kwp_poll(x.f) && bus_ids.count(x.f.ID) == 0) {
+    if (x.t > r.t_00 + 20 && x.f.ID != 0x350 && x.f.ID != 0x69F && !is_old_kwp_poll(x.f) &&
+        bus_ids.count(x.f.ID) == 0) {
       ADD_FAILURE() << "0x" << std::hex << x.f.ID << " in the 00 stage as before";
     }
   }
 }
 
-TEST(TwingoCarMode, AllRowsOffMeansOnlyTheSleepProtocolItself) {
+TEST(TwingoCarMode, AllRowsOffMeansNoFrameAtAllNotEvenTheSleepProtocol) {
   Switches g(true);
   datalayer_extended.twingoGen1.simulator_enabled_mask = 0;
   TestTwingo b;
@@ -630,7 +635,8 @@ TEST(TwingoCarMode, AllRowsOffMeansOnlyTheSleepProtocolItself) {
       ids.insert(x.f.ID);
     }
   }
-  EXPECT_EQ(ids, std::set<uint32_t>({0x350}));
+  // Bau 6: row 0x350 is off as well, so the sleep protocol of 0x350 is not sent either: the bus stays silent
+  EXPECT_TRUE(ids.empty());
 }
 
 // ---------------------------------------------------------------------------

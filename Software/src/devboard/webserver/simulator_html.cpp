@@ -264,7 +264,7 @@ String simulator_processor(const String& var) {
       content += RenaultTwingoGen1Battery::shutdown_like_car ? "checked " : "";
       content += "onclick=\"fetch('/editTwingoCarMode?value=1')\"> like the car (vehicle log of 04.10.)</label> ";
       content +=
-          "<span class='note'>- runtime only, back to \"as before\" after a restart. \"Like the car\" changes the "
+          "<span class='note'>- kept over a restart. \"Like the car\" changes the "
           "stage "
           "times and 0x350 bytes of the shutdown (C3 63.2 s, 00 0.9 s), the wake-up (12 steps, about 10 s), sends "
           "0x214 also while awake (FB FE, F8 3E, 08 02, every 20 ms) and lets every row end where it ends in the "

@@ -563,7 +563,8 @@ TEST(TwingoBuild0810, EventsAreAcknowledgedWhenThePollingResumes) {
   uint64_t t = 1000;
   sleep_temporisation_frames(b, t, 700);
   b.request_sleep_temporisation();
-  sleep_temporisation_frames(b, t, 150000);  // write, shutdown sequence (about 135 s), then the silence
+  sleep_temporisation_frames(b, t,
+                             200000);  // write, shutdown sequence (about 137 s), closing (50.8 s), then the silence
   EXPECT_TRUE(sleep_temporisation_frames(b, t, 500).empty());
   set_event(EVENT_CAN_BATTERY_MISSING, 0);  // raised during the silence
   EXPECT_EQ(get_event_pointer(EVENT_CAN_BATTERY_MISSING)->state, EVENT_STATE_ACTIVE);
@@ -581,7 +582,8 @@ TEST(TwingoBuild0810, ReadRequestsInTheSilenceOnlyWithTheSwitch) {
   uint64_t t = 1000;
   sleep_temporisation_frames(b, t, 700);
   b.request_sleep_temporisation();
-  sleep_temporisation_frames(b, t, 150000);  // write, shutdown sequence (about 135 s), then the silence
+  sleep_temporisation_frames(b, t,
+                             200000);  // write, shutdown sequence (about 137 s), closing (50.8 s), then the silence
   // the silence: nothing is on the bus any more
   EXPECT_TRUE(sleep_temporisation_frames(b, t, 500).empty());
   // switch off (default): refused

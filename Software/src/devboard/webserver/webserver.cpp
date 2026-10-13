@@ -240,6 +240,8 @@ void init_webserver() {
       }
       datalayer_extended.twingoGen1.cell_source_broadcast =
           prefs.getBool("TWCELLSRC", datalayer_extended.twingoGen1.cell_source_broadcast);
+      RenaultTwingoGen1Battery::shutdown_like_car =
+          prefs.getBool("TWLIKECAR", RenaultTwingoGen1Battery::shutdown_like_car);  // switch "like the car" (Bau 7)
       datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled =
           prefs.getBool("TWINGOSIM55DDRV", datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled);
       prefs.end();
@@ -862,10 +864,14 @@ void init_webserver() {
   });
 
   // Switch A (04.10.): shutdown sequence, wake-up, 0x214 and end of the rows - 0 = as before (default), 1 = like the
-  // car. Runtime only, like the steady 0x350 frame above.
+  // car. Kept over a restart since 12.10. (key TWLIKECAR, Bau 7).
   def_route_with_auth("/editTwingoCarMode", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (request->hasParam("value")) {
       RenaultTwingoGen1Battery::shutdown_like_car = request->getParam("value")->value().toInt() != 0;
+      Preferences prefs;
+      prefs.begin("batterySettings", false);
+      prefs.putBool("TWLIKECAR", RenaultTwingoGen1Battery::shutdown_like_car);
+      prefs.end();
     }
     request->send(200, "text/plain", "OK");
   });

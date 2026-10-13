@@ -329,10 +329,11 @@ TEST(TwingoSleepPaths, ChargeLog2WayKeepsTheTimesOfTheLog) {
   }
 }
 
-TEST(TwingoSleepPaths, ClosingStageIsElevenSecondsOnTheChargeLog2WayAndAboutOneSecondOtherwise) {
-  EXPECT_EQ(twingo_bus::closing_stage_ms(twingo_bus::SLEEP_LANG, false), 1000u);
-  EXPECT_EQ(twingo_bus::closing_stage_ms(twingo_bus::SLEEP_LANG, true), 900u);
-  EXPECT_EQ(twingo_bus::closing_stage_ms(twingo_bus::SLEEP_KURZ, false), 1000u);
+TEST(TwingoSleepPaths, ClosingStageIsElevenSecondsOnTheChargeLog2WayAndFiftyOneSecondsOtherwise) {
+  // Bau 7: the closing stage of the long and short way is as long as in the drive log (00/02 from 697.96 s to 748.72 s)
+  EXPECT_EQ(twingo_bus::closing_stage_ms(twingo_bus::SLEEP_LANG, false), 50820u);
+  EXPECT_EQ(twingo_bus::closing_stage_ms(twingo_bus::SLEEP_LANG, true), 50820u);
+  EXPECT_EQ(twingo_bus::closing_stage_ms(twingo_bus::SLEEP_KURZ, false), 50820u);
   EXPECT_EQ(twingo_bus::closing_stage_ms(twingo_bus::SLEEP_LADELOG2, false), 11100u);
   EXPECT_EQ(twingo_bus::closing_stage_ms(twingo_bus::SLEEP_LADELOG2, true), 11100u);
 }
@@ -352,9 +353,15 @@ TEST(TwingoSleepPaths, Frame157AndFrame0EDEndLastOnTheChargeLog2Way) {
   EXPECT_LT(twingo_bus::closing_end_ms(0x426, false, L), twingo_bus::closing_end_ms(0x423, false, L));
   EXPECT_LT(twingo_bus::closing_end_ms(0x423, false, L), e157);
   EXPECT_LE(e157, twingo_bus::CLOSING_LADELOG2_MS);
-  // the other ways: every frame goes on until the stage ends
-  EXPECT_EQ(twingo_bus::closing_end_ms(0x157, false, twingo_bus::SLEEP_LANG), 0xFFFFFFFFu);
-  EXPECT_EQ(twingo_bus::closing_end_ms(0x157, false, twingo_bus::SLEEP_KURZ), 0xFFFFFFFFu);
+  // the other ways (drive log): 0x157/0x0ED also end last, inside the stage of 50.82 s
+  for (uint8_t path : {twingo_bus::SLEEP_LANG, twingo_bus::SLEEP_KURZ}) {
+    EXPECT_EQ(twingo_bus::closing_end_ms(0x157, false, path), 50760u);
+    EXPECT_EQ(twingo_bus::closing_end_ms(0x0ED, false, path), 50760u);
+    EXPECT_LE(twingo_bus::closing_end_ms(0x157, false, path), twingo_bus::closing_stage_ms(path, false));
+    for (uint16_t id : {0x1A1, 0x69F, 0x426, 0x435, 0x436, 0x423}) {
+      EXPECT_GT(50760u, twingo_bus::closing_end_ms(id, false, path)) << std::hex << id;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -462,7 +469,7 @@ struct PathRun {
   uint64_t t_closing = 0;  // first 0x426 frame in "closed"
 };
 
-PathRun run_path(PathTwingo& b, uint8_t path, std::initializer_list<uint32_t> rows, uint64_t total_ms = 160000) {
+PathRun run_path(PathTwingo& b, uint8_t path, std::initializer_list<uint32_t> rows, uint64_t total_ms = 200000) {
   datalayer_extended.twingoGen1.bus_sleep_path = path;
   datalayer_extended.twingoGen1.bus_state_manual = false;
   only_rows(rows);
@@ -473,16 +480,17 @@ PathRun run_path(PathTwingo& b, uint8_t path, std::initializer_list<uint32_t> ro
   b.request_sleep();
   r.t0 = t;
   run(b, t, total_ms, 10, r.log);
-  // the start of the closing stage: the first 0x0ED in the closing form (60 FF 00, a 10 ms row), else the first 0x426 in "closed"
-  for (const Tx& x : with_id(r.log, 0x0ED)) {
-    if (x.f.data.u8[0] == 0x60 && x.f.data.u8[1] == 0xFF && x.f.data.u8[2] == 0x00) {
+  // the start of the closing stage: the first 0x426 in "closed" (00/02); since Bau 7 the closing form of 0x0ED
+  // (60 FF 00) comes only about 0.1 s before the 04 of 0x423, so it is the fallback
+  for (const Tx& x : with_id(r.log, 0x426)) {
+    if (x.f.data.u8[2] == 0x02) {
       r.t_closing = x.t;
       break;
     }
   }
   if (r.t_closing == 0) {
-    for (const Tx& x : with_id(r.log, 0x426)) {
-      if (x.f.data.u8[2] == 0x02) {
+    for (const Tx& x : with_id(r.log, 0x0ED)) {
+      if (x.f.data.u8[0] == 0x60 && x.f.data.u8[1] == 0xFF && x.f.data.u8[2] == 0x00) {
         r.t_closing = x.t;
         break;
       }
@@ -552,9 +560,9 @@ TEST(TwingoSleepPathsDriver, ChargeLog2ClosingLastsElevenSecondsAndEndsWith157An
   }
   EXPECT_LE(l423, 11030);
   EXPECT_GE(l423, 10800);
-  EXPECT_GE(l157, 10950);
+  EXPECT_GE(l157, 10900);
   EXPECT_LE(l157, 11040);
-  EXPECT_GE(led, 10950);
+  EXPECT_GE(led, 10900);
   EXPECT_LE(led, 11040);
   // 0x157 and 0x0ED are the last frames of the whole bus
   for (int64_t v : {l426, l435, l436, l423, l1a1, l69f}) {
@@ -577,15 +585,24 @@ TEST(TwingoSleepPathsDriver, ChargeLog2ClosingLastsElevenSecondsAndEndsWith157An
   }
 }
 
-TEST(TwingoSleepPathsDriver, LongAndShortWaysCloseInAboutOneSecondLikeBefore) {
+TEST(TwingoSleepPathsDriver, LongAndShortWaysCloseInFiftyOneSecondsLikeTheDriveLog) {
   for (uint8_t path : {twingo_bus::SLEEP_LANG, twingo_bus::SLEEP_KURZ}) {
     PathTwingo b;
     b.setup();
-    PathRun r = run_path(b, path, {0x157, 0x0ED, 0x426, 0x1A1});  // t_closing from the closing form of 0x0ED
+    PathRun r = run_path(b, path, {0x157, 0x0ED, 0x426, 0x1A1, 0x423});  // t_closing = first 0x426 in closed
     ASSERT_GT(r.t_closing, 0u) << (int)path;
-    EXPECT_LE(last_of(r.log, 0x157, r.t_closing), 1100) << (int)path;
-    EXPECT_LE(last_of(r.log, 0x0ED, r.t_closing), 1100) << (int)path;
-    EXPECT_LE(last_of(r.log, 0x426, r.t_closing), 1100) << (int)path;
+    const int64_t l157 = last_of(r.log, 0x157, r.t_closing);
+    const int64_t led = last_of(r.log, 0x0ED, r.t_closing);
+    const int64_t l426 = last_of(r.log, 0x426, r.t_closing);
+    const int64_t l423 = last_of(r.log, 0x423, r.t_closing);
+    EXPECT_GE(l157, 50600) << (int)path;
+    EXPECT_LE(l157, 50800) << (int)path;
+    EXPECT_GE(led, 50600) << (int)path;
+    EXPECT_LE(led, 50800) << (int)path;
+    EXPECT_GE(l426, 50300) << (int)path;
+    EXPECT_LE(l426, 50700) << (int)path;
+    EXPECT_GT(l157, l426) << (int)path;
+    EXPECT_GT(l157, l423) << (int)path;
   }
 }
 

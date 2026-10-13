@@ -881,9 +881,10 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
                                                          POWERDOWN_00_MS};
       static const unsigned long stage_duration_car_ms[4] = {POWERDOWN_C3_MS_CAR, POWERDOWN_C2_MS_CAR,
                                                              POWERDOWN_C0_MS_CAR, POWERDOWN_00_MS_CAR};
-      // The 00 stage lasts longer on the way "Ladelog 2" (the bus closes for 11.1 s); 0x350 stays at 00 only for its own time.
+      // The closing stage lasts much longer than the 00 stage of 0x350 (the bus closes for 11.1 s on the way "Ladelog 2",
+      // 50.8 s on the long and short way); 0x350 stays at 00 only for its own time.
       const bool stage00_350_over =
-          powerdown_stage >= 3 && datalayer_extended.twingoGen1.bus_sleep_path == twingo_bus::SLEEP_LADELOG2 &&
+          powerdown_stage >= 3 &&
           (now - powerdown_stage_start_ms) >= (shutdown_like_car ? POWERDOWN_00_MS_CAR : POWERDOWN_00_MS);
       if (stage00_350_over) {
         // nothing more on the vehicle CAN 0x350
@@ -1496,7 +1497,11 @@ void RenaultTwingoGen1Battery::send_350_frame(uint8_t byte0, uint8_t b5, uint8_t
   }
   CAN_frame f = {
       .FD = false, .ext_ID = false, .DLC = 8, .ID = 0x350, .data = {byte0, age[0], age[1], age[2], 0x14, b5, b6, b7}};
-  transmit_can_frame(&f);
+  // Bau 6 (12.10.): the stages of the sleep sequence and of the wake-up keep their clock (the HV model watches them),
+  // but the frame only goes onto the bus when the row 0x350 of the simulator is switched on.
+  if (sim_enabled(2)) {
+    transmit_can_frame(&f);
+  }
   hv_observe_350(byte0, millis());
 }
 
@@ -3672,8 +3677,29 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
       // 0x19F: the ignition ramp is only run on the way up; coming down from a higher state A0 stays
       bus_state_frames[idx] = (prev != 255 && prev > twingo_bus::BUS_ZUENDUNG1) ? twingo_bus::Z1_19F_RAMP_DONE : 0;
     }
-    twingo_bus::build_frame(*def, state, bus_seq[idx]++, age_min, odo_426_km, f.data.u8, bus_state_frames[idx]++, o426,
+    const uint32_t seq = bus_seq[idx]++;
+    if (def->kind == twingo_bus::K_423 && !in_00_stage && !datalayer_extended.twingoGen1.bus_state_manual &&
+        seq < twingo_bus::WAKE_423_FRAMES) {
+      // Bau 7: the first two 0x423 of every wake-up are 30 7F FF FF FF E0 FF FF and, 50 ms later, 33 7F ...; the regular
+      // frames follow about 10 ms after the second one (all three car logs).
+      twingo_bus::wake_form_423((uint8_t)seq, f.data.u8);
+      if (now >= def->interval_ms) {
+        bus_last_ms[it.slot] = now - (def->interval_ms - (seq == 0 ? 50UL : 10UL));
+      }
+      send_measured(&f);
+      continue;
+    }
+    // 0x423: the two wake-up frames above are not part of the 100 ms pattern (B4/B6 change every 5 frames)
+    const uint32_t seq_regular = (def->kind == twingo_bus::K_423 && seq >= twingo_bus::WAKE_423_FRAMES &&
+                                  !datalayer_extended.twingoGen1.bus_state_manual)
+                                     ? seq - twingo_bus::WAKE_423_FRAMES
+                                     : seq;
+    twingo_bus::build_frame(*def, state, seq_regular, age_min, odo_426_km, f.data.u8, bus_state_frames[idx]++, o426,
                             odo_426_b7, def->kind == twingo_bus::K_436 ? bus_b0_436(now) : (int16_t)-1);
+    if (in_00_stage) {
+      twingo_bus::apply_closing_form_at(*def, f.data.u8, (uint32_t)(now - powerdown_stage_start_ms),
+                                        datalayer_extended.twingoGen1.bus_sleep_path);
+    }
     send_measured(&f);
   }
 }
@@ -3775,7 +3801,8 @@ void RenaultTwingoGen1Battery::send_bus_closing(unsigned long now) {
     sim_last_send_ms[i] = now;
     CAN_frame f = {.FD = false, .ext_ID = false, .DLC = def->dlc, .ID = def->id};
     twingo_bus::build_frame(*def, twingo_bus::BUS_ZU, bus_seq[def - twingo_bus::FRAMES]++, 0, odo_426_km, f.data.u8);
-    twingo_bus::apply_closing_form(*def, f.data.u8);
+    twingo_bus::apply_closing_form_at(*def, f.data.u8, (uint32_t)(now - powerdown_stage_start_ms),
+                                      datalayer_extended.twingoGen1.bus_sleep_path);
     send_measured(&f);
   }
 }
@@ -3861,9 +3888,9 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
     datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;
     send_bus_closing(currentMillis);               // the bus closes: 0x426 = zu, 0x0EC ends, 0x0ED goes on
     send_bus_vehicle_frames(currentMillis, true);  // 0x19F/0x423/0x426/0x436 in the state "closed"
-    // The way "Ladelog 2": 0x69F goes on until 10.5 s of the closing stage, also when the other own frames stop here.
-    if (suppress_own_broadcast && datalayer_extended.twingoGen1.bus_sleep_path == twingo_bus::SLEEP_LADELOG2 &&
-        sim_enabled(7) && !bus_closing_over(0x69F, false, currentMillis) &&
+    // 0x69F goes on until its end in the closing stage (10.5 s on the way "Ladelog 2", 50.4 s on the long and short way),
+    // also when the other own frames stop here.
+    if (suppress_own_broadcast && sim_enabled(7) && !bus_closing_over(0x69F, false, currentMillis) &&
         currentMillis - previousMillis1000_69f >= INTERVAL_1_S) {
       previousMillis1000_69f = currentMillis;
       transmit_can_frame(&ZOE_69F_BCM_GATEWAY);
@@ -4325,13 +4352,9 @@ void RenaultTwingoGen1Battery::setup(void) {  // Performs one time setup at star
   // The Twngo Gen1 BMS only speaks KWP2000-style one-byte local identifiers.
   set_pid_scan_mode(PidScanMode::OneByteLocalId);
 
-  static const uint16_t pid_scan_list[] = {
-      GROUP1_CELLVOLTAGES_1_POLL,  // Cells 1-62
-      GROUP2_CELLVOLTAGES_2_POLL,  // Cells 63-96
-      GROUP6_BALANCING,            // Balancing status bits
-      GROUP3_METRICS,              // Mileage + alltime energy
-  };
-  set_pid_scan_list(pid_scan_list, sizeof(pid_scan_list) / sizeof(pid_scan_list[0]));
+  // No PID scan list (12.10., Bau 6): the standard path 0x79B/0x7BB is never answered by this battery and 0x79B does
+  // not occur on the bus between battery and EVC; with a list the driver sent about 5 requests per second on 0x79B
+  // although no row of the simulator switches them. The extended path 0x18DADBF1 does all the polling.
 
   strncpy(datalayer.system.info.battery_protocol, Name, 63);
   datalayer.system.info.battery_protocol[63] = '\0';

@@ -663,7 +663,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // + 2 balancing counters while awake + 2 time PIDs + 16 display-only PIDs (mileage/voltage/SOC/SOH/power,
   // see the comment above) + 1 display-only Battery Current PID (0x900D, see the comment above) = 136 poll
   // targets, cycled continuously, one every
-  // 200ms (same cadence as Battery-Emulator's own Zoe Ph2 driver) -> ~27.2s/cycle.
+  // 1 s (since 12.10., Bau 6; was 200 ms, the cadence of Battery-Emulator's own Zoe Ph2 driver) -> ~136 s/cycle.
   static const uint8_t EXT_POLL_LIST_LENGTH = 136;
   const uint16_t ext_poll_list[EXT_POLL_LIST_LENGTH] = {
       0x9021, 0x9022, 0x9023, 0x9024, 0x9025, 0x9026, 0x9027, 0x9028, 0x9029, 0x902A, 0x902B, 0x902C, 0x902D, 0x902E,
@@ -691,7 +691,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
 
   uint8_t ext_poll_index = 0;
   unsigned long previousMillisExtPoll = 0;
-  static const unsigned long EXT_POLL_INTERVAL_MS = 200;  // Matches Zoe Ph2 driver's proven cadence
+  static const unsigned long EXT_POLL_INTERVAL_MS =
+      1000;  // 12.10. (Bau 6): was 200 ms (Zoe Ph2 cadence); the car's EVC only reads single values now and then, 1 s is enough
 
   // Cellwatch (see datalayer_extended.twingoGen1.cellwatch_*): own timer, independent of
   // previousMillisExtPoll, so the round-robin's position/phase is left untouched while paused.
@@ -743,7 +744,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   uint32_t time_pid_raw[2] = {0, 0};  // 0 = 0x9261, 1 = 0x91C1: reply data bytes, big endian
   uint8_t time_pid_len[2] = {0, 0};   // number of reply data bytes, 0 = not yet read
 
-  // After the quiet phase these PIDs are asked first (round-robin, every 200ms) until each has
+  // After the quiet phase these PIDs are asked first (round-robin, every 1 s) until each has
   // answered, for at most 30s: 0x9270, 0x9281, 0x9251, 0x9252 (bit n of the mask = list entry n).
   static const uint8_t EXT_PRIORITY_COUNT = 4;
   const uint16_t ext_priority_list[EXT_PRIORITY_COUNT] = {EXT_POLL_BMS_STATE, EXT_POLL_TEMPORISATION,

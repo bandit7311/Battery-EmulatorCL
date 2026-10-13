@@ -953,40 +953,106 @@ inline uint8_t laden_end_b0(uint32_t t_ms) {
   return 0x80;
 }
 
-// The closing stage (the bus in the state "closed", 0x426 = 00/02) lasts about 1 s in the car log 22aaf176 and 11.1 s at
-// the end of the charge log 445a1527 (00/02 from 677.87 s, the last frame 688.91 s). like_car: 0.9 s instead of 1.0 s.
-inline constexpr uint32_t CLOSING_LADELOG2_MS = 11100;
-inline uint32_t closing_stage_ms(uint8_t path, bool like_car) {
-  return path == SLEEP_LADELOG2 ? CLOSING_LADELOG2_MS : (like_car ? 900U : 1000U);
+// The closing stage (the bus in the state "closed", 0x426 = 00/02) as the three car logs show it (12.10., Bau 7). All
+// times in ms after the start of the stage (= the first 0x426 frame 00/02):
+//  - stage_ms:  length of the stage (a little more than the last frame),
+//  - ed00_ms:   0x0ED byte 2 goes from 80 to 00,
+//  - t04_ms:    0x423 byte 0 goes from 07 to 04 (the shutdown request; the battery stops sending at this moment),
+//  - b5fc_ms / b3eb_ms: 0x435 byte 5 goes from 00 to FC, byte 3 from 0B to EB,
+//  - end_*_ms:  up to this time a frame is still sent (order of the car: most frames end with the 04, 0x69F, then
+//               0x426/0x435/0x436, then 0x423, 0x0ED and 0x157 last).
+// SLEEP_LADELOG2: charge log 445a1527 (00/02 from 677.87 s, 04 from 687.90 s, the last frame 688.91 s; the same in the
+// PuTTY log 598b197c: 00/02 from 1273.2 s, 04 from 1283.23 s, the last frame 1284.26 s).
+// SLEEP_LANG / SLEEP_KURZ: session 1 of the car log 22aaf176 (00/02 from 697.96 s, 04 from 747.77 s, 0x0ED to 00 at
+// 747.69 s, 0x435 FC at 748.16 s and EB at 748.46 s, 0x69F at 748.36 s, 0x426/0x435/0x436 to 748.66 s, 0x423 to 748.67 s,
+// 0x0ED/0x157 to 748.72 s; the other frames end at 747.77 s).
+struct ClosingTimes {
+  uint32_t stage_ms;
+  uint32_t ed00_ms;
+  uint32_t t04_ms;
+  uint32_t b5fc_ms;
+  uint32_t b3eb_ms;
+  uint32_t end_other_ms;
+  uint32_t end_69f_ms;
+  uint32_t end_426_ms;
+  uint32_t end_423_ms;
+  uint32_t end_157_ms;
+};
+inline constexpr ClosingTimes CLOSING_LADELOG2_TIMES = {11100, 9940,  10030, 10500, 10600,
+                                                        10000, 10500, 11000, 11030, 11040};
+inline constexpr ClosingTimes CLOSING_FAHRLOG_TIMES = {50820, 49730, 49810, 50200, 50500,
+                                                       49800, 50400, 50700, 50710, 50760};
+inline const ClosingTimes& closing_times(uint8_t path) {
+  return path == SLEEP_LADELOG2 ? CLOSING_LADELOG2_TIMES : CLOSING_FAHRLOG_TIMES;
 }
 
-// Time (ms after the start of the closing stage) up to which a frame is still sent. For the way SLEEP_LADELOG2 the order of
-// the charge log 445a1527 (Ladelog 2: 677.87 s = 0; the same pattern in the PuTTY log 598b197c): 0x0EC ends at once,
-// most frames about 10.0 s later (0x155 +10.03, 0x424 +10.03, 0x1A1 +10.04, 0x419 +10.02, 0x428/0x42F +9.97, 0x4F7 +9.95,
-// 0x511 +9.98), 0x69F at +10.5 s, 0x426/0x435/0x436 at +11.00 s, 0x423 at +11.03 s, and 0x0ED with 0x157 last (+11.04 s).
-// For the other ways every frame goes on until the stage ends.
+inline constexpr uint32_t CLOSING_LADELOG2_MS = CLOSING_LADELOG2_TIMES.stage_ms;
+// like_car is not used any more (before Bau 7 it shortened the stage of the long and short way from 1.0 s to 0.9 s).
+inline uint32_t closing_stage_ms(uint8_t path, bool like_car) {
+  (void)like_car;
+  return closing_times(path).stage_ms;
+}
+
+// Time (ms after the start of the closing stage) up to which a frame is still sent, see ClosingTimes.
 inline uint32_t closing_end_ms(uint16_t id, bool is_0ec, uint8_t path) {
-  if (path != SLEEP_LADELOG2) {
-    return 0xFFFFFFFFU;
-  }
   if (is_0ec) {
     return 0;
   }
+  const ClosingTimes& c = closing_times(path);
   switch (id) {
     case 0x0ED:
     case 0x157:
-      return 11040;
+      return c.end_157_ms;
     case 0x423:
-      return 11030;
+      return c.end_423_ms;
     case 0x426:
     case 0x435:
     case 0x436:
-      return 11000;
+      return c.end_426_ms;
     case 0x69F:
-      return 10500;
+      return c.end_69f_ms;
     default:
-      return 10000;
+      return c.end_other_ms;
   }
+}
+
+// The closing form of the frames that change in the last second (Bau 7): t_ms = time since the start of the closing
+// stage. 0x0ED byte 2 -> 00, 0x423 byte 0 -> 04 (bit 1:0 = 0 is the shutdown request), 0x435 byte 5 -> FC and byte 3 -> EB.
+inline void apply_closing_form_at(const FrameDef& d, uint8_t out[8], uint32_t t_ms, uint8_t path) {
+  const ClosingTimes& c = closing_times(path);
+  switch (d.id) {
+    case 0x0ED:
+      if (t_ms >= c.ed00_ms) {
+        out[2] = 0x00;
+      }
+      break;
+    case 0x423:
+      if (t_ms >= c.t04_ms) {
+        out[0] = 0x04;
+      }
+      break;
+    case 0x435:
+      if (t_ms >= c.b5fc_ms) {
+        out[5] = 0xFC;
+      }
+      if (t_ms >= c.b3eb_ms) {
+        out[3] = 0xEB;
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+// The first two 0x423 frames of every wake-up (all three car logs, 50 ms apart; the regular frames follow about 10 ms
+// after the second one): n = 0 -> 30 7F FF FF FF E0 FF FF, n = 1 -> 33 7F FF FF FF E0 FF FF.
+inline constexpr uint8_t WAKE_423_FRAMES = 2;
+inline void wake_form_423(uint8_t n, uint8_t out[8]) {
+  static constexpr uint8_t F[8] = {0x30, 0x7F, 0xFF, 0xFF, 0xFF, 0xE0, 0xFF, 0xFF};
+  for (uint8_t i = 0; i < 8; i++) {
+    out[i] = F[i];
+  }
+  out[0] = (n == 0) ? 0x30 : 0x33;
 }
 
 // ---------------------------------------------------------------------------------------------------------------

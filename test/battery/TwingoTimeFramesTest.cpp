@@ -288,7 +288,7 @@ TEST(TwingoTimeFramesTests, SleepAndWakeSequenceUseTheVehicleAgeFromTheClock) {
   std::vector<Tx> sleep_log;
   b.request_sleep();
   uint64_t sleep_start = t;
-  for (; t < sleep_start + 160000; t += 100) {
+  for (; t < sleep_start + 200000; t += 100) {
     tick_log(b, t, sleep_log);
   }
   auto f350 = with_id(sleep_log, 0x350);
@@ -329,9 +329,11 @@ TEST(TwingoTimeFramesTests, SleepAndWakeSequenceUseTheVehicleAgeFromTheClock) {
     EXPECT_LT(x.t, t_first_00) << "0x53B must stop together with the other own frames at stage 00";
   }
   EXPECT_GE(f53b.size(), 120u);  // ~1 Hz for the ~136 s before stage 00
-  // Silence afterwards: nothing at all on the bus.
+  // Silence afterwards: nothing at all on the bus. Since Bau 7 the closing stage (0x69F only here) runs on after the
+  // last 0x350 for at most the 50.82 s of the drive log.
   for (const Tx& x : sleep_log) {
-    EXPECT_LE(x.t, t_last_350 + 0) << "frame after the last 0x350 of the sequence: ID 0x" << std::hex << x.f.ID;
+    EXPECT_LE(x.t, t_last_350 + twingo_bus::closing_stage_ms(twingo_bus::SLEEP_LANG, false))
+        << "frame after the last 0x350 of the sequence: ID 0x" << std::hex << x.f.ID;
   }
 
   // Wake up: first the burst (C0 once, then C3 x10) with the same age from the frozen clock, while 0x53B is back at once.
@@ -516,7 +518,7 @@ TEST(TwingoTimeFramesTests, TimePidsAreInThePollList) {
   b.setup();
   std::set<uint16_t> pids;
   uint32_t requests = 0;
-  for (uint64_t t = 1000; t < 1000 + 30000; t += 100) {
+  for (uint64_t t = 1000; t < 1000 + 150000; t += 100) {  // one request per second: a cycle of 136 PIDs lasts 136 s
     for (const CAN_frame& f : tick(b, t)) {
       if (f.ext_ID && f.ID == 0x18DADBF1 && f.data.u8[0] == 0x03 && f.data.u8[1] == 0x22) {
         pids.insert((uint16_t)((f.data.u8[2] << 8) | f.data.u8[3]));
@@ -527,10 +529,10 @@ TEST(TwingoTimeFramesTests, TimePidsAreInThePollList) {
   EXPECT_TRUE(pids.count(0x9261) == 1);
   EXPECT_TRUE(pids.count(0x91C1) == 1);
   // 96 cells + 23 others + 16 new display-only PIDs + the display-only battery current 0x900D = 136 poll
-  // targets, one request every 200 ms (see the comment at ext_poll_list in the header)
+  // targets, one request every 1 s since 12.10. (see the comment at ext_poll_list in the header)
   EXPECT_EQ(pids.size(), 136u);
   EXPECT_TRUE(pids.count(0x900D) == 1);
-  EXPECT_GE(requests, 119u);
+  EXPECT_GE(requests, 136u);
 }
 
 // ---------------------------------------------------------------------------
@@ -717,14 +719,14 @@ TEST(TwingoFastFramesTests, NothingInTrueSilence) {
   run_ms(b, t, 2000, log);
   std::vector<Tx> sleep_log;
   b.request_sleep();
-  run_ms(b, t, 141000, sleep_log);  // through the whole sequence (137 s) into the silence
+  run_ms(b, t, 195000, sleep_log);  // through the whole sequence (137 s + 50.8 s closing) into the silence
   uint64_t t_last_350 = 0;
   for (const Tx& x : with_id(sleep_log, 0x350)) {
     t_last_350 = x.t;
   }
   ASSERT_GT(t_last_350, 0u);
   for (const Tx& x : sleep_log) {
-    if (x.t > t_last_350 + 5) {
+    if (x.t > t_last_350 + twingo_bus::closing_stage_ms(twingo_bus::SLEEP_LANG, false) + 5) {
       ADD_FAILURE() << "frame 0x" << std::hex << x.f.ID << " in true silence at t=" << std::dec << x.t;
       break;
     }
@@ -945,7 +947,7 @@ TEST(TwingoNewDisplayPidsTests, NewPidsAreInThePollListAndNoneAreDuplicated) {
   RenaultTwingoGen1Battery b;
   b.setup();
   std::set<uint16_t> pids;
-  for (uint64_t t = 1000; t < 1000 + 30000; t += 100) {
+  for (uint64_t t = 1000; t < 1000 + 150000; t += 100) {  // one request per second: a cycle of 136 PIDs lasts 136 s
     for (const CAN_frame& f : tick(b, t)) {
       if (f.ext_ID && f.ID == 0x18DADBF1 && f.data.u8[0] == 0x03 && f.data.u8[1] == 0x22) {
         pids.insert((uint16_t)((f.data.u8[2] << 8) | f.data.u8[3]));
