@@ -35,5 +35,18 @@ Der Twingo-Treiber soll im Repo von Dala (dalathegreat/Battery-Emulator) laufen,
 - `transmit_reset_nvrol_frames` (246 Zeilen) enthaelt neben dem NVROL-Reset (nie erfolgreich) auch die Abschaltfolge (Zustand 7) und muss aufgeteilt werden, nicht gestrichen.
 - Die Gesamtzeit der Sleep-Anzeige und der "safety limit"-Text haengen heute am Fenster "Sleep failsafe manual" (Luecke, in Bau 12 vorgemerkt).
 
+## Parameterblock am Anfang der Twingo-Header-Datei (Idee des Nutzers, 13.10.)
+Die heute zur Laufzeit eingestellten und fest eingebauten Werte stehen gesammelt als benannte Konstanten ganz oben in `RENAULT-TWINGO-GEN1-BATTERY.h`, damit man sie an einer Stelle aendert (kein Webserver noetig). Dort heute verstreut gefundene Werte (Name: Stand im Code):
+- Bauschalter: `TWINGO_EXTENDED_CELL_POLLING`, `TWINGO_TIME_FRAMES`, `TWINGO_FAST_VEHICLE_FRAMES` (`BATTERY.h:30, 46, 56`).
+- Fahrzeugalter: Startwert und Bezugszeit `AGE_SEED_VALUE` = 1.025.301 und `AGE_SEED_UNIX` (`LOGIC.h:39-40`), Sicherheitszuschlag `AGE_SAFETY_MIN` = 0, `AGE_RAISE_FROM_PACK` = false; Minutenfaktor (heute `age_minute_factor`, Voreinstellung 1); manuelles Alter (heute zur Laufzeit gesetzt); "Time in 0x436".
+- Kilometer: `odo_426_km` = 6.844, `odo_426_b7` = 0x40, `odo_5d7_km` = 19.400 (`BATTERY.cpp:1066-1069`); Km-Inkrement pro Nacht.
+- Bus-Zustand und Wege: `bus_state`, `bus_sleep_path` (lang/kurz/Ladelog 2), `bus_wake_target`, `bus_format_zoe_old`, `shutdown_like_car` (heute false), `steady_350_use_c3`.
+- Zeiten der Abschaltfolge: `POWERDOWN_C3_MS` 66.000, `C2` 60.000, `C0` 10.000, `00` 1.000 und die `_CAR`-Werte (`BATTERY.h:830-844`); Schliessphase 11,1 s / 50,8 s (`BUS.h`, `ClosingTimes`); `WAKE_BURST_COUNT` = 10.
+- Sleep: `sleep_failsafe_minutes` (30), `SLEEP_MANUAL_FAILSAFE_DEFAULT_MIN` = 30, `nvrol_temporisation_write_value` (0x00), B009-Session (Extended), Daily sleep (an/aus, Uhrzeit, Dauer 5 min, km), Taster (GPIO15, 2 s Haltezeit, 15 min).
+- Abfragen: `EXT_POLL_INTERVAL_MS` = 1000, `cell_source_broadcast`, `dtc_ext_read_mask` = 0x09.
+- Standard der Zeilenmaske (heute `0x387` im Datalayer, in den Tests `0x3FF`).
+- Uhr: `TIME_FALLBACK_START_S` = 12:00:00, Zeitzone `CET-1CEST,M3.5.0,M10.5.0/3`, NTP-Server.
+Hinweis: Einstellungen, die heute der Webserver beim Start aus dem Flash laedt (`init_webserver`), muessten dann entweder entfallen oder der Treiber liest sie selbst; die Tests setzen heute viele dieser Werte zur Laufzeit.
+
 ## Naechster Schritt (wenn der Nutzer weitermacht)
 Streichliste mit den drei Spalten "bleibt / fliegt raus / unklar" gemeinsam durchgehen; danach eigener Branch mit der schlanken Fassung; zuerst pruefen, ob und wie Dala den Twingo schon hat (dann waere Dalas Repo als Quelle hinzuzufuegen; Netzwerkaktion nur auf Ja des Nutzers).
