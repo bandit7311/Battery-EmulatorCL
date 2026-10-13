@@ -39,6 +39,11 @@ Nur Vorgemerktes zum Testen am Bench. Nichts davon ist gemacht, solange kein Erg
   - Nach dem Sleep: MCPU `9261` = `91C1` = 62455 min (`00 F3 E7`), SCPU `9261` = 62456 (`00 F3 F8`); `925F` = `9262` = 6854,00 km; `925B` = `00 00`; `925E` = `13 88 6F`; `19 02 09` beide ohne Fehler (war schon vorher so).
   - Befund: MCPU-Zeit ist nach dem Sleep gemeinsam von 62436 auf 62455 gesprungen (Schnappschuss, 1 min unter der SCPU). Einzelner Lauf; Ursache nicht bewiesen (Neustart hatte den Wert 62436 vorher auch gesetzt; seit 12.10. mehrere Aenderungen). `9261 - 91C1` = 0 (Auto: 784.382).
   - Stille-Anzeige im Lauf: "SILENT for 00:22 (safety limit 05:00)"; Akku-Frames endeten gemeinsam bei T+183,0 s (Zellframes 180,1 s).
+- **Messwerte 13.10., zweiter Lauf (gleiche Firmware f8b9acd, Sleep mit 9281, Weg lang):**
+  - Vor dem Lauf: MCPU `9261` = `91C1` = 62455 (`00 F3 F7`); `91CF` = 350,00 km; `925F` = 6854,00 km; BMS-Zustand durchgehend `06`; Balancing-Zaehler 0.
+  - Nach dem Lauf: MCPU `9261` = `91C1` = 62542 (`00 F4 4E`); SCPU `9261` = 62543 (`00 F4 4F`); `91CF` = 350,00 km (`80 00 2B C0`, unveraendert); `925F` = `9262` = 6856,00 km; `925B` = `00 00`; SCPU `925E` = `20 80`; `19 02 09` beide ohne Fehler ("DTC Read: OK, 0 DTC(s)"); `0x155` verworfene Frames 287 (vorher 1; Zeitpunkt nicht geprueft).
+  - Befund: MCPU-Zeit wieder gemeinsam gesprungen (62455 -> 62542), wieder 1 min unter der SCPU. Damit zweimal reproduziert (Weg lang). Nicht geprueft: Weg Ladelog 2; E14381 war vor dem Lauf nicht vorhanden, daher keine Aussage zum Fehler.
+  - Anzeigefehler "BMS SILENT since 71481:14" / "last one 6233.6 s ago" in der Stille: siehe BAULISTE Bau 8.
 
 ## T3: Reset-Register nach jedem Schritt lesen (bereits vorgeschlagen)
 - Nach Sleep-Lauf, 9281-Schreiben und Wake je `22 92 5B` (MCPU) und `[DC] 22 92 5E`: zeigt, welcher Schritt zuerst ein Reset-Bit setzt und ob dann 1B0E41 / 1BB587 zurueckkommen.
