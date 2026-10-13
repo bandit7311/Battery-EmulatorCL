@@ -34,6 +34,11 @@ Nur Vorgemerktes zum Testen am Bench. Nichts davon ist gemacht, solange kein Erg
 - Bedingungen fuer Zeit-Zuwaechse nach der Quelle "dj2cs" (Hypothese, `QUELLE_dj2cs_Frames_und_Zeitpruefungen.md`): `0x69F` an und mit der ID aus `925E` (jetzt `13 88 6F`); Zeit in `0x436` streng steigend; beim Hochlauf gesendete Zeit >= gespeicherter Wert; keine Werte ab `0xFFFFFF`.
 
 - Nach Bau 7 (Schlaf-Anforderung `0x423` B0 = `04` in der letzten Sekunde, siehe `BAULISTE.md`, Bau 7): derselbe Lauf, danach zusaetzlich `19 02 09` beider Prozessoren lesen (der Fehlerspeicher wird laut Quelle im selben Fenster geschrieben).
+- **Messwerte 13.10. (Firmware f8b9acd, Bau 6 und 7; Sleep mit 9281, Weg lang, ca. 183 s Busverkehr, dann Stille, Auto-Wake):**
+  - Vor dem Sleep (nur Update, ohne Schlaf, nach Neustart): MCPU `9261` = `91C1` = 62436 min (`00 F3 E4`), blieb bei zwei Lesungen unveraendert; SCPU `9261` = 62441, spaeter 62446 (laeuft live); `925F` MCPU 6852 km, SCPU 6854 km; `19 02 09` beide ohne Fehler.
+  - Nach dem Sleep: MCPU `9261` = `91C1` = 62455 min (`00 F3 E7`), SCPU `9261` = 62456 (`00 F3 F8`); `925F` = `9262` = 6854,00 km; `925B` = `00 00`; `925E` = `13 88 6F`; `19 02 09` beide ohne Fehler (war schon vorher so).
+  - Befund: MCPU-Zeit ist nach dem Sleep gemeinsam von 62436 auf 62455 gesprungen (Schnappschuss, 1 min unter der SCPU). Einzelner Lauf; Ursache nicht bewiesen (Neustart hatte den Wert 62436 vorher auch gesetzt; seit 12.10. mehrere Aenderungen). `9261 - 91C1` = 0 (Auto: 784.382).
+  - Stille-Anzeige im Lauf: "SILENT for 00:22 (safety limit 05:00)"; Akku-Frames endeten gemeinsam bei T+183,0 s (Zellframes 180,1 s).
 
 ## T3: Reset-Register nach jedem Schritt lesen (bereits vorgeschlagen)
 - Nach Sleep-Lauf, 9281-Schreiben und Wake je `22 92 5B` (MCPU) und `[DC] 22 92 5E`: zeigt, welcher Schritt zuerst ein Reset-Bit setzt und ob dann 1B0E41 / 1BB587 zurueckkommen.
