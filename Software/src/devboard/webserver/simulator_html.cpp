@@ -89,6 +89,185 @@ static void append_cell_frame_rows(String& content, uint8_t cols) {
   }
 }
 
+// The control block of the bus (Bau 15, 14.10.: moved from the /simulator page to the Twingo part of the Advanced page, same
+// elements, same routes): format, mode, way of the sleep, state, cell source, stage times, vehicle age, manual age,
+// time in 0x436, kilometres of 0x426. Contains no percent sign (template engine).
+String simulator_controls_html() {
+  String content;
+  content.reserve(11000);
+  content += "<style>.sim-note { color: #999; font-size: 0.85em; }</style>";
+  // Controls for the bus mode (10.10.)
+  {
+    const auto& tg = datalayer_extended.twingoGen1;
+    content += "<div>";
+    content += "<b>Format der BMS&harr;EVC-Frames (0x423, 0x426, 0x436, 0x19F, 0x69F):</b> ";
+    content += "<label><input type='radio' name='busfmt' id='busfmt0' ";
+    content += tg.bus_format_zoe_old ? "" : "checked ";
+    content += "onclick=\"fetch('/twingoBusFormat?value=0')\"> Fahrzeug (Standard)</label> ";
+    content += "<label><input type='radio' name='busfmt' id='busfmt1' ";
+    content += tg.bus_format_zoe_old ? "checked " : "";
+    content += "onclick=\"fetch('/twingoBusFormat?value=1')\"> Zoe alt</label><br>";
+    content += "<b>Betriebsart (Ziel der automatischen Folge):</b> ";
+    {
+      static const char* const TGT[twingo_bus::TARGET_COUNT] = {"Fahren", "Laden", "Schlafen"};
+      for (uint8_t k = 0; k < twingo_bus::TARGET_COUNT; k++) {
+        content += "<label><input type='radio' name='bustgt' id='bustgt" + String(k) + "' ";
+        content += (tg.bus_wake_target == k) ? "checked " : "";
+        content += "onclick=\"fetch('/twingoBusTarget?value=" + String(k) + "')\"> " + TGT[k] + "</label> ";
+      }
+    }
+    content +=
+        "<span class='sim-note'>- gespeichert; Fahren und Laden bestimmen, wo das Aufwecken endet (Laden: Aufwecken "
+        "&uuml;ber den Stecker mit Zustand A0/41), Schlafen hat noch keine eigene Folge</span><br>";
+    content += "<b>Einschlafweg (Sleep, Sleep 0x9281=1, NVROL reset):</b> ";
+    {
+      static const char* const PTH[twingo_bus::SLEEP_PATH_COUNT] = {
+          "lang (Fahrlog Sitzung 1)", "kurz (Fahrlog Sitzung 3)", "Ladelog 2 (vollst&auml;ndig gemessen)"};
+      for (uint8_t k = 0; k < twingo_bus::SLEEP_PATH_COUNT; k++) {
+        content += "<label><input type='radio' name='slpath' id='slpath" + String(k) + "' ";
+        content += (tg.bus_sleep_path == k) ? "checked " : "";
+        content += "onclick=\"fetch('/twingoSleepPath?value=" + String(k) + "')\"> " + PTH[k] + "</label> ";
+      }
+    }
+    content +=
+        "<span class='sim-note'>- gespeichert; Ladelog 2 endet mit 00/02 f&uuml;r 11,1 s und 0x157/0x0ED als letzten "
+        "Frames</span><br>";
+    const uint8_t shown = tg.bus_state_manual ? tg.bus_state : Bat::bus_state_shown;
+    content += "<b>Zustand:</b> <select id='busstate' ";
+    content += tg.bus_state_manual ? "" : "disabled ";
+    content += "onchange=\"fetch('/twingoBusState?value='+this.value)\">";
+    for (uint8_t k = 0; k < twingo_bus::BUS_STATE_COUNT; k++) {
+      content += "<option value='" + String(k) + "'" + (shown == k ? " selected" : "") + ">" +
+                 String(twingo_bus::state_name(k)) + "</option>";
+    }
+    content += "</select> <label><input type='checkbox' id='busmanual' ";
+    content += tg.bus_state_manual ? "checked " : "";
+    content +=
+        "onchange=\"fetch('/twingoBusManual?value='+(this.checked?1:0));"
+        "document.getElementById('busstate').disabled=!this.checked;\"> manuell</label> ";
+    content +=
+        "<span class='sim-note'>- aus: der Zustand l&auml;uft von selbst (nach Start und Aufwecken von zu bis driving, "
+        "bei Sleep/NVROL zur&uuml;ck bis zu); an: das Feld bestimmt den Zustand. Bestimmt den Inhalt der "
+        "Block-1-Zeilen.</span><br>";
+    content += "<b>0x69F gesendet:</b> <span id='tx69f'>" + String((unsigned long)Bat::tx_69f_count) +
+               "</span> Frames (Fahrzeug-ID <code>46 13 88 6F</code>, 1 s)<br>";
+    content += "<b>Zellwerte-Quelle:</b> <label><input type='radio' name='cellsrc' id='cellsrc0' ";
+    content += tg.cell_source_broadcast ? "" : "checked ";
+    content += "onclick=\"fetch('/twingoCellSource?value=0')\"> UDS (heute)</label> ";
+    content += "<label><input type='radio' name='cellsrc' id='cellsrc1' ";
+    content += tg.cell_source_broadcast ? "checked " : "";
+    content += "onclick=\"fetch('/twingoCellSource?value=1')\"> Broadcast (20 Zellframes)</label> ";
+    content +=
+        "<span class='sim-note'>- die Werte gehen in beiden Faellen unveraendert zum Wechselrichter</span></div>";
+  }
+
+  // Switch A (04.10.): stage times of the shutdown sequence and of the wake-up "as before" or "like the car".
+  content +=
+      "<p><b>Shutdown and wake-up (stage times):</b> <label><input type='radio' name='carmode' "
+      "id='carmode0' ";
+  content += RenaultTwingoGen1Battery::shutdown_like_car ? "" : "checked ";
+  content += "onclick=\"fetch('/editTwingoCarMode?value=0')\"> as before (default)</label> &nbsp; ";
+  content += "<label><input type='radio' name='carmode' id='carmode1' ";
+  content += RenaultTwingoGen1Battery::shutdown_like_car ? "checked " : "";
+  content += "onclick=\"fetch('/editTwingoCarMode?value=1')\"> like the car (vehicle log of 04.10.)</label> ";
+  content +=
+      "<span class='sim-note'>- kept over a restart. \"Like the car\" changes the stage times of the shutdown (C3 63.2 "
+      "s, "
+      "00 0.9 s) and the wake-up (12 steps, about 10 s); the frames of the bus have their own times (way of the "
+      "sleep above).</span></p>";
+
+  // Vehicle age (point 17): automatic from the pack reference, or a manual final value.
+  {
+    const auto& tg = datalayer_extended.twingoGen1;
+    content += "<p><b>Vehicle age (0x436, bytes 1-3):</b> ";
+    if (tg.age_source != 0) {
+      content += String(tg.age_last_sent) + " min (";
+      content += tg.age_source == 3 ? "manual" : (tg.age_source == 2 ? "automatic, raised from the pack" : "automatic");
+      content += ")";
+    } else {
+      content += "none yet (nothing is sent without an age)";
+    }
+    content += " <span class='sim-note'>- automatic: reference " + String(tg.age_pack_value) + " min at Unix " +
+               String(tg.age_pack_unix) +
+               " counted +1 per minute by the clock, no safety lead and never raised from the pack (since 10.10.). "
+               "Without a valid clock (NTP) no age is sent. Persisted.</span></p>";
+  }
+
+  // Manual vehicle age: own final value in minutes, replaces the automatic mode while set.
+  content += "<p><b>Manual vehicle age:</b> <input type='number' id='ageManual' min='0' max='16777215' value='";
+  content += RenaultTwingoGen1Battery::age_manual_active ? String(RenaultTwingoGen1Battery::age_manual_start_min)
+                                                         : String("1025301");
+  content += "' style='width:9em'> minutes <button onclick=\"ageManualSet()\">Set</button> ";
+  content += "<button onclick=\"ageManualOff()\">Off</button> <span id='ageManualState'>";
+  content += RenaultTwingoGen1Battery::age_manual_active ? "ACTIVE - started at the value shown, +1 per minute"
+                                                         : "off - automatic mode";
+  content +=
+      "</span> <span class='sim-note'>- the typed value is final (no safety lead added), used in all age frames, "
+      "persisted. 24 bit: 0 to 16777215.</span></p>";
+  content += "<script>function ageManualSet(){var v=document.getElementById('ageManual').value;";
+  content += "fetch('/editTwingoAgeManual?value='+encodeURIComponent(v)).then(function(r){return r.text();})";
+  content += ".then(function(t){document.getElementById('ageManualState').textContent=";
+  content += "(t==='OK')?'ACTIVE - started at '+v+', +1 per minute':t;});}";
+  content += "function ageManualOff(){fetch('/editTwingoAgeManual?value=off').then(function(){";
+  content += "document.getElementById('ageManualState').textContent='off - automatic mode';});}";
+  content += "</script>";
+
+  // Time in the Zoe frame 0x436 (bytes 1-3), the bench SCPU seems to take its $9261 from there.
+  content += "<p><b>Time in 0x436 (bytes 1-3):</b> <input type='number' id='t436' min='0' max='16777215' value='";
+  {
+    const uint32_t shown =
+        RenaultTwingoGen1Battery::time_436_active
+            ? RenaultTwingoGen1Battery::time_436_value
+            : (datalayer_extended.twingoGen1.age_last_sent != 0 ? datalayer_extended.twingoGen1.age_last_sent
+                                                                : 1025301UL);
+    content += String(shown);
+  }
+  content += "' style='width:9em'> minutes <button onclick=\"t436Set()\">Set</button> ";
+  content += "<button onclick=\"t436Off()\">Off</button> <span id='t436State'>";
+  content += RenaultTwingoGen1Battery::time_436_active ? "ACTIVE - counts +1 per minute" : "off - default 14 00 xx";
+  content +=
+      "</span> <span class='sim-note'>- stored, comes back after a restart. The row 0x436 must be on. Default: 14 00 "
+      "xx (xx = minutes since "
+      "the start of the emulator).</span></p>";
+  content += "<p><label><input type='checkbox' id='t436follow' ";
+  content += RenaultTwingoGen1Battery::time_436_follow_age ? "checked " : "";
+  content +=
+      "onclick=\"fetch('/editTwingoTime436Follow?value='+(this.checked?1:0))\"> 0x436 carries the vehicle age "
+      "(stored)</label> <span class='sim-note'>- the vehicle age, also after a restart. Without a "
+      "valid "
+      "age (no clock) no 0x436 is sent. A value set above by hand wins over it.</span></p>";
+  content += "<script>function t436Set(){var v=document.getElementById('t436').value;";
+  content += "fetch('/editTwingoTime436?value='+encodeURIComponent(v)).then(function(r){return r.text();})";
+  content += ".then(function(t){document.getElementById('t436State').textContent=(t==='OK')?";
+  content += "'ACTIVE - started at '+v+', +1 per minute':t;});}";
+  content += "function t436Off(){fetch('/editTwingoTime436?value=off').then(function(){";
+  content += "document.getElementById('t436State').textContent='off - default 14 00 xx';});}</script>";
+
+  // Odometer (stored since 11.10.): the frame 0x426.
+  content += "<p><b>0x426:</b> <input type='number' id='odo426' min='0' max='16777215' value='";
+  content += String(RenaultTwingoGen1Battery::odo_426_km);
+  content += "' style='width:6em'> km, byte 7 <input type='number' id='odo426b7' min='0' max='255' value='";
+  content += String(RenaultTwingoGen1Battery::odo_426_b7);
+  content += "' style='width:4em'> <button onclick=\"odoSet('426')\">Set</button> <span id='odoState'></span> ";
+  content +=
+      "<span class='sim-note'>- stored, comes back after a restart. 0x426 holds the km in 24 bit (bytes 3-5) in the "
+      "vehicle form, the old Zoe form only up to 65,535 km and it triggers E14381. Defaults: 6,844 km (pack value "
+      "91CF), byte 7 = 64 (0x40).</span></p>";
+  content += "<script>function odoSet(w){var u='/editTwingoOdo?which='+w+'&km='+encodeURIComponent(";
+  content += "document.getElementById('odo426').value);";
+  content += "u+='&b7='+encodeURIComponent(document.getElementById('odo426b7').value);";
+  content += "fetch(u).then(function(r){return r.text();}).then(function(t){";
+  content += "document.getElementById('odoState').textContent=t;});}</script>";
+
+  // Live values of the block (the page of the simulator has its own poll): state shown while it runs by itself, frames of 0x69F.
+  content +=
+      "<script>setInterval(function(){fetch('/twingoRxStatus').then(function(r){return r.json();}).then(function(j){";
+  content += "var sel=document.getElementById('busstate');if(sel&&j.bm===0){sel.value=j.bs;}";
+  content += "var t69=document.getElementById('tx69f');if(t69&&j.t69!==undefined){t69.textContent=j.t69;}";
+  content += "}).catch(function(){});},1000);</script>";
+  return content;
+}
+
 String simulator_processor(const String& var) {
   const bool all = (var == "X");  // the whole page in one piece (tests); the web server asks for the parts A, B and D
   const bool part_a = all || var == "A", part_b = all || var == "B", part_d = all || var == "D";
@@ -135,179 +314,16 @@ String simulator_processor(const String& var) {
           "des "
           "Busses.</p>";
 
-      // Controls for the bus mode (10.10.)
-      {
-        const auto& tg = datalayer_extended.twingoGen1;
-        content += "<div class='box'><button onclick=\"fetch('/twingoSimAllOff')\">Alle Zeilen aus</button> ";
-        content +=
-            "<span class='note'>T+0 = letzter Druck auf \"Alle Zeilen aus\" (setzt alle \"Erstmals gesehen\" "
-            "zur&uuml;ck)</span> ";
-        content += "<button onclick=\"fetch('/twingoSimRestore')\">Zeilen wie vorher</button> ";
-        content += "<span class='note'>- nur Laufzeit, Seite neu laden fuer die Haken.</span><br>";
-        content += "<b>Format der BMS&harr;EVC-Frames (0x423, 0x426, 0x436, 0x19F, 0x69F):</b> ";
-        content += "<label><input type='radio' name='busfmt' id='busfmt0' ";
-        content += tg.bus_format_zoe_old ? "" : "checked ";
-        content += "onclick=\"fetch('/twingoBusFormat?value=0')\"> Fahrzeug (Standard)</label> ";
-        content += "<label><input type='radio' name='busfmt' id='busfmt1' ";
-        content += tg.bus_format_zoe_old ? "checked " : "";
-        content += "onclick=\"fetch('/twingoBusFormat?value=1')\"> Zoe alt</label><br>";
-        content += "<b>Betriebsart (Ziel der automatischen Folge):</b> ";
-        {
-          static const char* const TGT[twingo_bus::TARGET_COUNT] = {"Fahren", "Laden", "Schlafen"};
-          for (uint8_t k = 0; k < twingo_bus::TARGET_COUNT; k++) {
-            content += "<label><input type='radio' name='bustgt' id='bustgt" + String(k) + "' ";
-            content += (tg.bus_wake_target == k) ? "checked " : "";
-            content += "onclick=\"fetch('/twingoBusTarget?value=" + String(k) + "')\"> " + TGT[k] + "</label> ";
-          }
-        }
-        content +=
-            "<span class='note'>- gespeichert; Fahren und Laden bestimmen, wo das Aufwecken endet (Laden: Aufwecken "
-            "&uuml;ber den Stecker mit Zustand A0/41), Schlafen hat noch keine eigene Folge</span><br>";
-        content += "<b>Einschlafweg (Sleep, Sleep 0x9281=1, NVROL reset):</b> ";
-        {
-          static const char* const PTH[twingo_bus::SLEEP_PATH_COUNT] = {
-              "lang (Fahrlog Sitzung 1)", "kurz (Fahrlog Sitzung 3)", "Ladelog 2 (vollst&auml;ndig gemessen)"};
-          for (uint8_t k = 0; k < twingo_bus::SLEEP_PATH_COUNT; k++) {
-            content += "<label><input type='radio' name='slpath' id='slpath" + String(k) + "' ";
-            content += (tg.bus_sleep_path == k) ? "checked " : "";
-            content += "onclick=\"fetch('/twingoSleepPath?value=" + String(k) + "')\"> " + PTH[k] + "</label> ";
-          }
-        }
-        content +=
-            "<span class='note'>- gespeichert; Ladelog 2 endet mit 00/02 f&uuml;r 11,1 s und 0x157/0x0ED als letzten "
-            "Frames</span><br>";
-        const uint8_t shown = tg.bus_state_manual ? tg.bus_state : Bat::bus_state_shown;
-        content += "<b>Zustand:</b> <select id='busstate' ";
-        content += tg.bus_state_manual ? "" : "disabled ";
-        content += "onchange=\"fetch('/twingoBusState?value='+this.value)\">";
-        for (uint8_t k = 0; k < twingo_bus::BUS_STATE_COUNT; k++) {
-          content += "<option value='" + String(k) + "'" + (shown == k ? " selected" : "") + ">" +
-                     String(twingo_bus::state_name(k)) + "</option>";
-        }
-        content += "</select> <label><input type='checkbox' id='busmanual' ";
-        content += tg.bus_state_manual ? "checked " : "";
-        content +=
-            "onchange=\"fetch('/twingoBusManual?value='+(this.checked?1:0));"
-            "document.getElementById('busstate').disabled=!this.checked;\"> manuell</label> ";
-        content +=
-            "<span class='note'>- aus: der Zustand l&auml;uft von selbst (nach Start und Aufwecken von zu bis driving, "
-            "bei Sleep/NVROL zur&uuml;ck bis zu); an: das Feld bestimmt den Zustand. Bestimmt den Inhalt der "
-            "Block-1-Zeilen.</span><br>";
-        content += "<b>0x69F gesendet:</b> <span id='tx69f'>" + String((unsigned long)Bat::tx_69f_count) +
-                   "</span> Frames (Fahrzeug-ID <code>46 13 88 6F</code>, 1 s)<br>";
-        content += "<b>Zellwerte-Quelle:</b> <label><input type='radio' name='cellsrc' id='cellsrc0' ";
-        content += tg.cell_source_broadcast ? "" : "checked ";
-        content += "onclick=\"fetch('/twingoCellSource?value=0')\"> UDS (heute)</label> ";
-        content += "<label><input type='radio' name='cellsrc' id='cellsrc1' ";
-        content += tg.cell_source_broadcast ? "checked " : "";
-        content += "onclick=\"fetch('/twingoCellSource?value=1')\"> Broadcast (20 Zellframes)</label> ";
-        content +=
-            "<span class='note'>- die Werte gehen in beiden Faellen unveraendert zum Wechselrichter</span></div>";
-      }
-
-      // Switch A (04.10.): stage times of the shutdown sequence and of the wake-up "as before" or "like the car".
       content +=
-          "<p><b>Shutdown and wake-up (stage times):</b> <label><input type='radio' name='carmode' "
-          "id='carmode0' ";
-      content += RenaultTwingoGen1Battery::shutdown_like_car ? "" : "checked ";
-      content += "onclick=\"fetch('/editTwingoCarMode?value=0')\"> as before (default)</label> &nbsp; ";
-      content += "<label><input type='radio' name='carmode' id='carmode1' ";
-      content += RenaultTwingoGen1Battery::shutdown_like_car ? "checked " : "";
-      content += "onclick=\"fetch('/editTwingoCarMode?value=1')\"> like the car (vehicle log of 04.10.)</label> ";
-      content +=
-          "<span class='note'>- kept over a restart. \"Like the car\" changes the stage times of the shutdown (C3 63.2 "
-          "s, "
-          "00 0.9 s) and the wake-up (12 steps, about 10 s); the frames of the bus have their own times (way of the "
-          "sleep above).</span></p>";
-
-      // Vehicle age (point 17): automatic from the pack reference, or a manual final value.
-      {
-        const auto& tg = datalayer_extended.twingoGen1;
-        content += "<p><b>Vehicle age (0x436, bytes 1-3):</b> ";
-        if (tg.age_source != 0) {
-          content += String(tg.age_last_sent) + " min (";
-          content +=
-              tg.age_source == 3 ? "manual" : (tg.age_source == 2 ? "automatic, raised from the pack" : "automatic");
-          content += ")";
-        } else {
-          content += "none yet (nothing is sent without an age)";
-        }
-        content += " <span class='note'>- automatic: reference " + String(tg.age_pack_value) + " min at Unix " +
-                   String(tg.age_pack_unix) +
-                   " counted +1 per minute by the clock, no safety lead and never raised from the pack (since 10.10.). "
-                   "Without a valid clock (NTP) no age is sent. Persisted.</span></p>";
-      }
-
-      // Manual vehicle age: own final value in minutes, replaces the automatic mode while set.
-      content += "<p><b>Manual vehicle age:</b> <input type='number' id='ageManual' min='0' max='16777215' value='";
-      content += RenaultTwingoGen1Battery::age_manual_active ? String(RenaultTwingoGen1Battery::age_manual_start_min)
-                                                             : String("1025301");
-      content += "' style='width:9em'> minutes <button onclick=\"ageManualSet()\">Set</button> ";
-      content += "<button onclick=\"ageManualOff()\">Off</button> <span id='ageManualState'>";
-      content += RenaultTwingoGen1Battery::age_manual_active ? "ACTIVE - started at the value shown, +1 per minute"
-                                                             : "off - automatic mode";
-      content +=
-          "</span> <span class='note'>- the typed value is final (no safety lead added), used in all age frames, "
-          "persisted. 24 bit: 0 to 16777215.</span></p>";
-      content += "<script>function ageManualSet(){var v=document.getElementById('ageManual').value;";
-      content += "fetch('/editTwingoAgeManual?value='+encodeURIComponent(v)).then(function(r){return r.text();})";
-      content += ".then(function(t){document.getElementById('ageManualState').textContent=";
-      content += "(t==='OK')?'ACTIVE - started at '+v+', +1 per minute':t;});}";
-      content += "function ageManualOff(){fetch('/editTwingoAgeManual?value=off').then(function(){";
-      content += "document.getElementById('ageManualState').textContent='off - automatic mode';});}";
-      content += "</script>";
-
-      // Time in the Zoe frame 0x436 (bytes 1-3), the bench SCPU seems to take its $9261 from there.
-      content += "<p><b>Time in 0x436 (bytes 1-3):</b> <input type='number' id='t436' min='0' max='16777215' value='";
-      {
-        const uint32_t shown =
-            RenaultTwingoGen1Battery::time_436_active
-                ? RenaultTwingoGen1Battery::time_436_value
-                : (datalayer_extended.twingoGen1.age_last_sent != 0 ? datalayer_extended.twingoGen1.age_last_sent
-                                                                    : 1025301UL);
-        content += String(shown);
-      }
-      content += "' style='width:9em'> minutes <button onclick=\"t436Set()\">Set</button> ";
-      content += "<button onclick=\"t436Off()\">Off</button> <span id='t436State'>";
-      content += RenaultTwingoGen1Battery::time_436_active ? "ACTIVE - counts +1 per minute" : "off - default 14 00 xx";
-      content +=
-          "</span> <span class='note'>- stored, comes back after a restart. The row 0x436 must be on. Default: 14 00 "
-          "xx (xx = minutes since "
-          "the start of the emulator).</span></p>";
-      content += "<p><label><input type='checkbox' id='t436follow' ";
-      content += RenaultTwingoGen1Battery::time_436_follow_age ? "checked " : "";
-      content +=
-          "onclick=\"fetch('/editTwingoTime436Follow?value='+(this.checked?1:0))\"> 0x436 carries the vehicle age "
-          "(stored)</label> <span class='note'>- the vehicle age, also after a restart. Without a "
-          "valid "
-          "age (no clock) no 0x436 is sent. A value set above by hand wins over it.</span></p>";
+          "<p class='note'>Die Steuerfelder (Format, Betriebsart, Einschlafweg, Zustand, Zellwerte-Quelle, Shutdown "
+          "and wake-up, "
+          "Fahrzeugalter, Time in 0x436, 0x426) stehen auf der Advanced-Seite (More Battery Info).</p>";
       content += "<p><button onclick=\"fetch('/twingoSimAllOff')\">All rows off at once</button> ";
       content += "<button onclick=\"fetch('/twingoSimRestore')\">Rows back as before</button> ";
       content +=
           "<span class='note'>- runtime only, not stored. Every frame ends at once, without the shutdown "
-          "sequence. Reload the page to see the checkboxes.</span></p>";
-      content += "<script>function t436Set(){var v=document.getElementById('t436').value;";
-      content += "fetch('/editTwingoTime436?value='+encodeURIComponent(v)).then(function(r){return r.text();})";
-      content += ".then(function(t){document.getElementById('t436State').textContent=(t==='OK')?";
-      content += "'ACTIVE - started at '+v+', +1 per minute':t;});}";
-      content += "function t436Off(){fetch('/editTwingoTime436?value=off').then(function(){";
-      content += "document.getElementById('t436State').textContent='off - default 14 00 xx';});}</script>";
-
-      // Odometer (stored since 11.10.): the frame 0x426.
-      content += "<p><b>0x426:</b> <input type='number' id='odo426' min='0' max='16777215' value='";
-      content += String(RenaultTwingoGen1Battery::odo_426_km);
-      content += "' style='width:6em'> km, byte 7 <input type='number' id='odo426b7' min='0' max='255' value='";
-      content += String(RenaultTwingoGen1Battery::odo_426_b7);
-      content += "' style='width:4em'> <button onclick=\"odoSet('426')\">Set</button> <span id='odoState'></span> ";
-      content +=
-          "<span class='note'>- stored, comes back after a restart. 0x426 holds the km in 24 bit (bytes 3-5) in the "
-          "vehicle form, the old Zoe form only up to 65,535 km and it triggers E14381. Defaults: 6,844 km (pack value "
-          "91CF), byte 7 = 64 (0x40).</span></p>";
-      content += "<script>function odoSet(w){var u='/editTwingoOdo?which='+w+'&km='+encodeURIComponent(";
-      content += "document.getElementById('odo426').value);";
-      content += "u+='&b7='+encodeURIComponent(document.getElementById('odo426b7').value);";
-      content += "fetch(u).then(function(r){return r.text();}).then(function(t){";
-      content += "document.getElementById('odoState').textContent=t;});}</script>";
+          "sequence. Reload the page to see the checkboxes. T+0 in the bar above = last press on \"All rows off at "
+          "once\" (resets all \"Erstmals gesehen\").</span></p>";
     }
     if (part_b) {
       // ---- Block 1: the LBC<>EVC bus ----
@@ -378,8 +394,6 @@ String simulator_processor(const String& var) {
       content += "var h='';for(i=0;i<j.o.length;i++){var o=j.o[i];";
       content += "h+='<tr><td>0x'+o[0].toString(16).toUpperCase()+'</td><td>'+T(o[1])+'</td><td>'+";
       content += "((j.now-o[2])/1000).toFixed(1).replace('.',',')+' s</td><td>'+o[3]+'</td></tr>';}";
-      content += "var sel=document.getElementById('busstate');if(sel&&j.bm===0){sel.value=j.bs;}";
-      content += "var t69=document.getElementById('tx69f');if(t69&&j.t69!==undefined){t69.textContent=j.t69;}";
       content += "document.getElementById('othRows').innerHTML=h;}).catch(function(){});}";
       content += "poll();setInterval(poll,1000);";
       content += "</script>";

@@ -1158,3 +1158,11 @@ TEST(TwingoPagePercent, SimulatorPageHasNoRawPercentSignEither) {
 // ---------------------------------------------------------------------------
 // 03.10.: steady 0x350 frame C7 / C3
 // ---------------------------------------------------------------------------
+
+TEST(TwingoPagePercent, AdvancedPageWithTheControlBlockHasNoRawPercentSign) {
+  TestTwingo b;
+  b.setup();
+  std::string c(simulator_controls_html().c_str());
+  ASSERT_GT(c.size(), 3000u);
+  EXPECT_EQ(c.find('%'), std::string::npos);
+}

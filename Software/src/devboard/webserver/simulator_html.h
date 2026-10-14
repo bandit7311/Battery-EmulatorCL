@@ -13,4 +13,10 @@
  */
 String simulator_processor(const String& var);
 
+/**
+ * @brief The control block of the bus (format, mode, way of the sleep, state, cell source, stage times, vehicle age,
+ * manual age, time in 0x436, kilometres of 0x426). Since Bau 15 it is part of the Twingo section of the Advanced page.
+ */
+String simulator_controls_html();
+
 #endif

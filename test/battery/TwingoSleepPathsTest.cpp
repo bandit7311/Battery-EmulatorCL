@@ -625,7 +625,7 @@ TEST(TwingoSleepPathsDriver, ShortWayFromDrivingGoesStraightTo00_07) {
 TEST(TwingoSleepPathsPage, HasTheRadioButtonsForWayAndMode) {
   PathTwingo b;
   b.setup();
-  std::string page(simulator_processor(String("X")).c_str());
+  std::string page(simulator_controls_html().c_str());
   for (int k = 0; k < 3; k++) {
     EXPECT_NE(page.find("id='slpath" + std::to_string(k) + "'"), std::string::npos) << k;
     EXPECT_NE(page.find("id='bustgt" + std::to_string(k) + "'"), std::string::npos) << k;
@@ -640,7 +640,7 @@ TEST(TwingoSleepPathsPage, HasTheRadioButtonsForWayAndMode) {
   EXPECT_NE(page.find("id='bustgt0' checked"), std::string::npos);
   datalayer_extended.twingoGen1.bus_sleep_path = twingo_bus::SLEEP_LADELOG2;
   datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_LADEN;
-  std::string page2(simulator_processor(String("X")).c_str());
+  std::string page2(simulator_controls_html().c_str());
   EXPECT_NE(page2.find("id='slpath2' checked"), std::string::npos);
   EXPECT_NE(page2.find("id='bustgt1' checked"), std::string::npos);
 }

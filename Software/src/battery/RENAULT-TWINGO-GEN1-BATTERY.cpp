@@ -7,6 +7,7 @@
 #include "../devboard/utils/events.h"
 #include "../devboard/utils/logging.h"
 #include "../devboard/webserver/BatteryHtmlRenderer.h"
+#include "../devboard/webserver/simulator_html.h"
 #ifndef UNIT_TEST
 #include <Preferences.h>
 #include <WiFi.h>  // WiFi.status() for the NTP start
@@ -3266,6 +3267,9 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
       content +=
           "'> <button onclick='twingoSetAgeFactor()'>Set</button> (1 = real time, 10 = +1 only every 10 min)</h4>";
     }
+
+    // Bau 15: the control block of the bus (moved here from the /simulator page)
+    content += simulator_controls_html();
 
     content +=
         "<h4>Cellwatch (fast single-cell poll): "

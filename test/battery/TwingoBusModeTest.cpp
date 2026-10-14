@@ -513,7 +513,7 @@ TEST(TwingoBusDefaults, AgeSeedAndKilometres) {
   EXPECT_EQ((uint32_t)Bat::ODO_426_MAX_KM, 65535u);
 }
 
-TEST(TwingoBusPage, HasBothBlocksTheControlsAndAllCellFrames) {
+TEST(TwingoBusPage, SimulatorPageHasBlock1AndTheOtherIdsAndAllCellFrames) {
   BusTwingo b;
   b.setup();
   std::string page(simulator_processor(String("X")).c_str());
@@ -521,17 +521,79 @@ TEST(TwingoBusPage, HasBothBlocksTheControlsAndAllCellFrames) {
   EXPECT_EQ(page.find("Block 2"), std::string::npos);  // removed in Bau 13
   EXPECT_EQ(page.find("EXPERIMENTAL"), std::string::npos);
   EXPECT_NE(page.find("/twingoRxStatus"), std::string::npos);
-  EXPECT_NE(page.find("/twingoBusFormat"), std::string::npos);
-  EXPECT_NE(page.find("/twingoBusState"), std::string::npos);
-  EXPECT_NE(page.find("/twingoCellSource"), std::string::npos);
   EXPECT_NE(page.find("Weitere empfangene IDs"), std::string::npos);
-  EXPECT_NE(page.find("value='1025301'"), std::string::npos);
-  EXPECT_EQ(page.find("1314935"), std::string::npos);
+  EXPECT_NE(page.find("CAN Signal Simulator"), std::string::npos);
+  // the two buttons (English) stay, the German ones and the control block (Bau 15) are gone
+  EXPECT_NE(page.find("All rows off at once"), std::string::npos);
+  EXPECT_NE(page.find("Rows back as before"), std::string::npos);
+  EXPECT_EQ(page.find("Alle Zeilen aus</button>"), std::string::npos);
+  EXPECT_EQ(page.find("Zeilen wie vorher</button>"), std::string::npos);
+  for (const char* gone : {"id='busfmt0'", "id='busstate'", "id='cellsrc0'", "id='carmode0'", "id='ageManual'",
+                           "id='t436'", "id='odo426'", "/twingoBusFormat", "/twingoCellSource"}) {
+    EXPECT_EQ(page.find(gone), std::string::npos) << gone;
+  }
   for (int k = 0; k < twingo_bus::CELL_FRAME_COUNT; k++) {
     char id[12];
     snprintf(id, sizeof(id), "id='Fc%d'", k);
     EXPECT_NE(page.find(id), std::string::npos) << id;
   }
+}
+
+TEST(TwingoBusPage, ControlBlockHasAllItsElementsAndRoutes) {
+  BusTwingo b;
+  b.setup();
+  std::string c(simulator_controls_html().c_str());
+  for (const char* want : {"id='busfmt0'",
+                           "id='busfmt1'",
+                           "id='bustgt0'",
+                           "id='slpath0'",
+                           "id='busstate'",
+                           "id='busmanual'",
+                           "id='tx69f'",
+                           "id='cellsrc0'",
+                           "id='cellsrc1'",
+                           "id='carmode0'",
+                           "id='carmode1'",
+                           "id='ageManual'",
+                           "id='ageManualState'",
+                           "id='t436'",
+                           "id='t436State'",
+                           "id='t436follow'",
+                           "id='odo426'",
+                           "id='odo426b7'",
+                           "id='odoState'",
+                           "/twingoBusFormat",
+                           "/twingoBusState",
+                           "/twingoBusManual",
+                           "/twingoBusTarget",
+                           "/twingoSleepPath",
+                           "/twingoCellSource",
+                           "/editTwingoCarMode",
+                           "/editTwingoAgeManual",
+                           "/editTwingoTime436",
+                           "/editTwingoTime436Follow",
+                           "/editTwingoOdo",
+                           "function ageManualSet",
+                           "function t436Set",
+                           "function odoSet",
+                           "value='1025301'"}) {
+    EXPECT_NE(c.find(want), std::string::npos) << want;
+  }
+  EXPECT_EQ(c.find("1314935"), std::string::npos);
+  EXPECT_EQ(c.find('%'), std::string::npos);  // template engine
+  // the two row buttons stay on the simulator page
+  EXPECT_EQ(c.find("/twingoSimAllOff"), std::string::npos);
+  // and it sits on the Advanced page between "Age minute factor" and "Cellwatch"
+  std::string adv(b.get_uds_info_html().c_str());
+  const size_t age = adv.find("Age minute factor");
+  const size_t fmt = adv.find("id='busfmt0'");
+  const size_t cw = adv.find("Cellwatch (fast single-cell poll)");
+  ASSERT_NE(age, std::string::npos);
+  ASSERT_NE(fmt, std::string::npos);
+  ASSERT_NE(cw, std::string::npos);
+  EXPECT_LT(age, fmt);
+  EXPECT_LT(fmt, cw);
+  EXPECT_LT(adv.find("id='odo426'"), cw);
 }
 
 TEST(TwingoBusPage, Block1ShowsAllThirtyRowsAndNothingBehindIt) {
@@ -1097,11 +1159,11 @@ TEST(TwingoStateSequence, PageHasTheManualCheckboxAndTheFieldIsLockedWhileAutoma
   BusTwingo b;
   b.setup();
   datalayer_extended.twingoGen1.bus_state_manual = false;
-  std::string page(simulator_processor(String("A")).c_str());
+  std::string page(simulator_controls_html().c_str());
   EXPECT_NE(page.find("id='busmanual'"), std::string::npos);
   EXPECT_NE(page.find("<select id='busstate' disabled"), std::string::npos);
   datalayer_extended.twingoGen1.bus_state_manual = true;
-  page = simulator_processor(String("A")).c_str();
+  page = simulator_controls_html().c_str();
   EXPECT_EQ(page.find("<select id='busstate' disabled"), std::string::npos);
   EXPECT_NE(page.find("id='busmanual' checked"), std::string::npos);
 }
