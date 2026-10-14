@@ -9,20 +9,38 @@
 // Available generic battery commands that are taken into use based on what the selected battery supports.
 std::vector<BatteryCommand> battery_commands = {
     {"clearIsolation", "Clear isolation fault", "clear any active isolation fault?",
-     [](Battery* b) { return b && b->supports_clear_isolation(); }, [](Battery* b) { b->clear_isolation(); }},
+     [](Battery* b) { return b && b->supports_clear_isolation(); },
+     [](Battery* b) {
+       b->clear_isolation();
+     }},
     {"calibrateSOC", "Calibrate SOC", "calibrate SOC? Note this will calibrate BMS according to set targets",
-     [](Battery* b) { return b && b->supports_calibrate_SOC(); }, [](Battery* b) { b->reset_SOC(); }},
+     [](Battery* b) { return b && b->supports_calibrate_SOC(); },
+     [](Battery* b) {
+       b->reset_SOC();
+     }},
     {"chademoRestart", "Restart", "restart the V2X session?",
-     [](Battery* b) { return b && b->supports_chademo_restart(); }, [](Battery* b) { b->chademo_restart(); }},
+     [](Battery* b) { return b && b->supports_chademo_restart(); },
+     [](Battery* b) {
+       b->chademo_restart();
+     }},
     {"chademoStop", "Stop", "stop V2X?", [](Battery* b) { return b && b->supports_chademo_restart(); },
-     [](Battery* b) { b->chademo_restart(); }},
+     [](Battery* b) {
+       b->chademo_restart();
+     }},
     {"resetBMS", "BMS Reset", "Reset the BMS?", [](Battery* b) { return b && b->supports_reset_BMS(); },
-     [](Battery* b) { b->reset_BMS(); }},
+     [](Battery* b) {
+       b->reset_BMS();
+     }},
     {"resetSOC", "SOC Reset", "Reset SOC?", [](Battery* b) { return b && b->supports_reset_SOC(); },
-     [](Battery* b) { b->reset_SOC(); }},
+     [](Battery* b) {
+       b->reset_SOC();
+     }},
     {"resetCrash", "Unlock crashed BMS",
      "reset crash data? Note this will unlock your BMS and enable contactor closing and SOC calculation.",
-     [](Battery* b) { return b && b->supports_reset_crash(); }, [](Battery* b) { b->reset_crash(); }},
+     [](Battery* b) { return b && b->supports_reset_crash(); },
+     [](Battery* b) {
+       b->reset_crash();
+     }},
     {"resetNVROL", "Perform NVROL reset",
      "trigger an NVROL reset? After the reset sequence nothing is sent until you press Wake up (safety limit 30 "
      "minutes)!",
@@ -37,7 +55,10 @@ std::vector<BatteryCommand> battery_commands = {
     {"wakeUp", "Wake up", nullptr, [](Battery* b) { return b && b->supports_sleep_control(); },
      [](Battery* b) { b->request_wake_up(); }, true},
     {"resetContactor", "Perform contactor reset", "reset contactors?",
-     [](Battery* b) { return b && b->supports_contactor_reset(); }, [](Battery* b) { b->reset_contactor(); }},
+     [](Battery* b) { return b && b->supports_contactor_reset(); },
+     [](Battery* b) {
+       b->reset_contactor();
+     }},
     {"resetDTC", "Erase DTC", "erase DTCs?", [](Battery* b) { return b && b->supports_reset_DTC(); },
      [](Battery* b) { b->reset_DTC(); }, true},
     {"resetDTCscpu", "Erase DTC SCPU", "erase the DTCs of the safety CPU (SCPU)?",
@@ -46,36 +67,68 @@ std::vector<BatteryCommand> battery_commands = {
      "continue? Please charge battery fully for this to work. After a couple of minutes, battery will sleep and do "
      "balancing. It often takes many hours. There will be no progress indication.",
      [](Battery* b) { return b && b->supports_balancing() && !b->is_balancing_active(); },
-     [](Battery* b) { b->initiate_balancing(); }},
+     [](Battery* b) {
+       b->initiate_balancing();
+     }},
     {"endBalancing", "Stop Balancing Mode", "end offline balancing?",
      [](Battery* b) { return b && b->supports_balancing() && b->is_balancing_active(); },
-     [](Battery* b) { b->end_balancing(); }},
+     [](Battery* b) {
+       b->end_balancing();
+     }},
     {"startBalancingRequest", "Start Balancing", "request the BMS to start cell balancing?",
-     [](Battery* b) { return b && b->supports_balancing_request(); }, [](Battery* b) { b->initiate_balancing(); }},
+     [](Battery* b) { return b && b->supports_balancing_request(); },
+     [](Battery* b) {
+       b->initiate_balancing();
+     }},
     {"stopBalancingRequest", "Stop Balancing", "request the BMS to stop cell balancing?",
-     [](Battery* b) { return b && b->supports_balancing_request(); }, [](Battery* b) { b->end_balancing(); }},
+     [](Battery* b) { return b && b->supports_balancing_request(); },
+     [](Battery* b) {
+       b->end_balancing();
+     }},
     {"isolationTest", "Isolation Test", "start an isolation test?",
-     [](Battery* b) { return b && b->supports_isolation_test(); }, [](Battery* b) { b->request_isolation_test(); }},
+     [](Battery* b) { return b && b->supports_isolation_test(); },
+     [](Battery* b) {
+       b->request_isolation_test();
+     }},
     {"readDTC", "Read DTC", nullptr, [](Battery* b) { return b && b->supports_read_DTC(); },
      [](Battery* b) { b->read_DTC(); }, true},
     {"readDTCscpu", "Read DTC SCPU", nullptr, [](Battery* b) { return b && b->supports_read_DTC_scpu(); },
-     [](Battery* b) { b->read_DTC_scpu(); }, false},
+     [](Battery* b) { b->read_DTC_scpu(); }, true},
     {"resetBECM", "Restart BECM module", "restart BECM??", [](Battery* b) { return b && b->supports_reset_BECM(); },
-     [](Battery* b) { b->reset_BECM(); }},
+     [](Battery* b) {
+       b->reset_BECM();
+     }},
     {"contactorClose", "Close Contactors", "a contactor close request?",
-     [](Battery* b) { return b && b->supports_contactor_close(); }, [](Battery* b) { b->request_close_contactors(); }},
+     [](Battery* b) { return b && b->supports_contactor_close(); },
+     [](Battery* b) {
+       b->request_close_contactors();
+     }},
     {"contactorOpen", "Open Contactors", "a contactor open request?",
-     [](Battery* b) { return b && b->supports_contactor_close(); }, [](Battery* b) { b->request_open_contactors(); }},
+     [](Battery* b) { return b && b->supports_contactor_close(); },
+     [](Battery* b) {
+       b->request_open_contactors();
+     }},
     {"resetSOH", "Reset degradation data", "reset degradation data?",
-     [](Battery* b) { return b && b->supports_reset_SOH(); }, [](Battery* b) { b->reset_SOH(); }},
+     [](Battery* b) { return b && b->supports_reset_SOH(); },
+     [](Battery* b) {
+       b->reset_SOH();
+     }},
     {"setFactoryMode", "Set Factory Mode", "set factory mode and disable isolation measurement?",
-     [](Battery* b) { return b && b->supports_factory_mode_method(); }, [](Battery* b) { b->set_factory_mode(); }},
+     [](Battery* b) { return b && b->supports_factory_mode_method(); },
+     [](Battery* b) {
+       b->set_factory_mode();
+     }},
     {"toggleSOC", "Toggle SOC method",
      "toggle SOC method? This will toggle between ESTIMATED and MEASURED SOC methods.",
-     [](Battery* b) { return b && b->supports_toggle_SOC_method(); }, [](Battery* b) { b->toggle_SOC_method(); }},
+     [](Battery* b) { return b && b->supports_toggle_SOC_method(); },
+     [](Battery* b) {
+       b->toggle_SOC_method();
+     }},
     {"resetEnergySavingMode", "Reset Energy Saving Mode", "reset energy saving mode to normal?",
      [](Battery* b) { return b && b->supports_energy_saving_mode_reset(); },
-     [](Battery* b) { b->reset_energy_saving_mode(); }},
+     [](Battery* b) {
+       b->reset_energy_saving_mode();
+     }},
 };
 
 String advanced_battery_processor(const String& var) {
@@ -95,36 +148,67 @@ String advanced_battery_processor(const String& var) {
     // Start a new block with a specific background color
     content += "<div style='background-color: #303E47; padding: 10px; margin-bottom: 10px;border-radius: 50px'>";
 
+    // One command button with the script that calls the backend.
+    auto render_command_button = [&content](const BatteryCommand& cmd, Battery* batt, int ix) {
+      // Button for user action
+      String title = String(cmd.title);
+      if (strcmp(cmd.identifier, "readDTC") == 0 || strcmp(cmd.identifier, "resetDTC") == 0) {
+        title += batt->dtc_title_suffix();  // e.g. " MCPU" when the pack has a second control unit
+      }
+      content += "<button onclick='ask" + String(cmd.identifier) + "(" + String(ix) + ")'>" + title + "</button>";
+
+      // Script that calls the backend to perform the command
+      content += "<script>";
+      content += "function ask" + String(cmd.identifier) + "(batteryNum) { ";
+
+      if (cmd.prompt) {
+        content += "if (window.confirm('Are you sure you want to " + String(cmd.prompt) + "'))";
+      }
+
+      content += "{" + String(cmd.identifier) + "(batteryNum); } }";
+      content += "function " + String(cmd.identifier) + "(batteryNum) {";
+      content += "  var xhr = new XMLHttpRequest();";
+      content += "  xhr.open('PUT', '/" + String(cmd.identifier) + "', true);";
+      if (cmd.reload_after) {
+        content += "  xhr.onload = function(){ setTimeout(function(){ location.reload(); }, 1500); };";
+      }
+      // Send index of the battery as PUT content
+      content += "  xhr.send(batteryNum);";
+      content += "}";
+      content += "</script>";
+    };
+
+    // The four DTC buttons of a pack with two control units are shown as their own group at the end, in the order
+    // Read DTC MCPU, Erase DTC MCPU | Read DTC SCPU, Erase DTC SCPU (Bau 14).
+    static const char* const DTC_GROUP[4] = {"readDTC", "resetDTC", "readDTCscpu", "resetDTCscpu"};
+    auto in_dtc_group = [](const BatteryCommand& cmd) {
+      for (const char* id : DTC_GROUP) {
+        if (strcmp(cmd.identifier, id) == 0) {
+          return true;
+        }
+      }
+      return false;
+    };
+
     // Render buttons dynamically based on what commands the battery supports.
-    auto render_command_buttons = [&content](Battery* batt, int ix) {
+    auto render_command_buttons = [&content, &render_command_button, &in_dtc_group](Battery* batt, int ix) {
+      const bool dtc_group = batt && batt->supports_read_DTC_scpu();
       for (const auto& cmd : battery_commands) {
-        if (cmd.condition(batt)) {
-          // Button for user action
-          String title = String(cmd.title);
-          if (strcmp(cmd.identifier, "readDTC") == 0 || strcmp(cmd.identifier, "resetDTC") == 0) {
-            title += batt->dtc_title_suffix();  // e.g. " MCPU" when the pack has a second control unit
+        if (cmd.condition(batt) && !(dtc_group && in_dtc_group(cmd))) {
+          render_command_button(cmd, batt, ix);
+        }
+      }
+      if (dtc_group) {
+        content += "<br>";
+        for (const char* id : DTC_GROUP) {
+          for (const auto& cmd : battery_commands) {
+            if (strcmp(cmd.identifier, id) == 0 && cmd.condition(batt)) {
+              render_command_button(cmd, batt, ix);
+              if (strcmp(id, "resetDTC") == 0) {
+                content += "&nbsp;&nbsp;&nbsp;";  // gap between the MCPU pair and the SCPU pair
+              }
+            }
           }
-          content += "<button onclick='ask" + String(cmd.identifier) + "(" + String(ix) + ")'>" + title + "</button>";
-
-          // Script that calls the backend to perform the command
-          content += "<script>";
-          content += "function ask" + String(cmd.identifier) + "(batteryNum) { ";
-
-          if (cmd.prompt) {
-            content += "if (window.confirm('Are you sure you want to " + String(cmd.prompt) + "'))";
-          }
-
-          content += "{" + String(cmd.identifier) + "(batteryNum); } }";
-          content += "function " + String(cmd.identifier) + "(batteryNum) {";
-          content += "  var xhr = new XMLHttpRequest();";
-          content += "  xhr.open('PUT', '/" + String(cmd.identifier) + "', true);";
-          if (cmd.reload_after) {
-            content += "  xhr.onload = function(){ setTimeout(function(){ location.reload(); }, 1500); };";
-          }
-          // Send index of the battery as PUT content
-          content += "  xhr.send(batteryNum);";
-          content += "}";
-          content += "</script>";
         }
       }
     };

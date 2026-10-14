@@ -21,17 +21,54 @@ class BatteryHtmlRenderer {
   // reworking a battery integration for double/triple support.
   virtual bool renders_own_battery_data() { return false; }
 
+  static const char* dtc_heading_html() {
+    return "<h4 style='margin-top:20px;color:#27b06c;border-bottom:2px solid #27b06c;padding-bottom:5px;'>&#128295; "
+           "Diagnostic Trouble Codes</h4>";
+  }
+
+  // Two lists side by side (Bau 14, e.g. MCPU / SCPU): one heading, one column per list with its own caption, one
+  // shared description loader below. `second` may be nullptr, then this is the single list of render_dtc_section_html().
+  static String render_dtc_columns_html(DATALAYER_BATTERY_DTC_TYPE& first, DATALAYER_BATTERY_DTC_TYPE* second,
+                                        const char* json_filename, bool standard_code_string) {
+    if (second == nullptr) {
+      return render_dtc_section_html(first, json_filename, standard_code_string);
+    }
+    String content;
+    content.reserve(7000 + (first.dtc_count + second->dtc_count) * 320);
+    content += dtc_heading_html();
+    content += "<div style='display:flex;flex-wrap:wrap;justify-content:center;gap:24px;'>";
+    content += "<div style='flex:1 1 300px;min-width:0;'><b>MCPU</b>";
+    content += render_dtc_section_html(first, json_filename, standard_code_string, false, false, "Read DTC MCPU");
+    content += "</div><div style='flex:1 1 300px;min-width:0;'><b>SCPU</b>";
+    content += render_dtc_section_html(*second, json_filename, standard_code_string, false, false, "Read DTC SCPU");
+    content += "</div></div>";
+    if (dtc_has_table(first) || dtc_has_table(*second)) {
+      content += get_dtc_json_loader_html(GITHUB_RAW_BASE_URL, json_filename);
+    }
+    return content;
+  }
+
+  // A list that is drawn as a table (read, not failed, at least one code).
+  static bool dtc_has_table(const DATALAYER_BATTERY_DTC_TYPE& dtc) {
+    return dtc.dtc_last_read_millis != 0 && !dtc.dtc_read_failed && dtc.dtc_count != 0;
+  }
+
+  // with_heading / with_loader: false when the list is one column of render_dtc_columns_html(); read_hint names the
+  // button in the "not read yet" text.
   static String render_dtc_section_html(DATALAYER_BATTERY_DTC_TYPE& dtc, const char* json_filename,
-                                        bool standard_code_string) {
+                                        bool standard_code_string, bool with_heading = true, bool with_loader = true,
+                                        const char* read_hint = "Read DTC") {
     String content;
 
     // Reserve enough space to avoid reallocs
     content.reserve(3300 + dtc.dtc_count * 320);
-    content +=
-        "<h4 style='margin-top:20px;color:#27b06c;border-bottom:2px solid #27b06c;padding-bottom:5px;'>&#128295; "
-        "Diagnostic Trouble Codes</h4>";
+    if (with_heading) {
+      content += dtc_heading_html();
+    }
     if (dtc.dtc_last_read_millis == 0) {
-      content += "<p style='color:#bbb;'>Not read yet &mdash; use the Read DTC button below to scan.</p>";
+      content += "<p style='color:#bbb;'>Not read yet &mdash; use the ";
+      content += read_hint;
+      content += " button below to scan.</p>";
     } else if (dtc.dtc_read_failed) {
       content += "<p style='color:#ff8a80;'>&#9888; Last DTC read failed or timed out.</p>";
     } else if (dtc.dtc_count == 0) {
@@ -98,7 +135,9 @@ class BatteryHtmlRenderer {
         content += "' style='padding:8px 18px;border-top:1px solid #3a4750;'>Unknown</td></tr>";
       }
       content += "</tbody></table></div>";
-      content += get_dtc_json_loader_html(GITHUB_RAW_BASE_URL, json_filename);
+      if (with_loader) {
+        content += get_dtc_json_loader_html(GITHUB_RAW_BASE_URL, json_filename);
+      }
     }
 
     return content;

@@ -184,14 +184,11 @@ TEST(TwingoRx155Display, ShowsTheLastFrameByte7ToByte0InDecimal) {
   EXPECT_STREQ(b.rx_155_text().c_str(), "0x155 (B7..B0): 167 2 90 15 84 255 143 73");
 }
 
-TEST(TwingoRx155Display, TheFieldStandsRightOfTheDtcDetailsButtonWithItsPoll) {
+TEST(TwingoRx155Display, TheFieldStaysWithItsPollAfterTheDtcDetailsButtonWasRemoved) {
   StatTwingo b;
   b.setup();
   const std::string page = b.get_uds_info_html().c_str();
-  const size_t btn = page.find("subfunction 0x06)</button>");
-  ASSERT_NE(btn, std::string::npos);
-  const size_t span = page.find("<span id='twingoRx155'>", btn);
-  ASSERT_NE(span, std::string::npos);
-  EXPECT_LT(span - btn, 60u) << "directly after the button";
+  EXPECT_NE(page.find("<span id='twingoRx155'>"), std::string::npos);
   EXPECT_NE(page.find("fetch('/twingoRx155')"), std::string::npos);
+  EXPECT_EQ(page.find("subfunction 0x06"), std::string::npos);
 }

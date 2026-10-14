@@ -113,10 +113,6 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static bool sim_row_enabled(uint8_t row);
   static void sim_row_set(uint8_t row, bool on);
 
-  // "Read DTC details" (02.10., UNTESTED) - public so the webserver route can call it; implementation and
-  // its backing state are private, see read_DTC() nearby in the .cpp for the matching pattern.
-  void read_DTC_details();
-
   // Switch A (04.10., /simulator page, runtime): false = shutdown sequence and wake-up with the old stage times;
   // true = "like the car" (measured in the real vehicle logs of 02.10. and 04.10.): stage times of the shutdown and
   // the wake-up sequence.
@@ -224,15 +220,13 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // "Set time now" (point 10): writes $9261 with the vehicle age that is being sent (0x350 bytes 1-3), 3 data bytes,
   // through the same checked write path (session, read before, write, read back). Returns "OK" or the reason.
   const char* write_time_now();
-  const char* fdc_query_result() const { return fdc_result; }
-  // Row "DTC Read SCPU" (13.10.): the last result of the DTC list of the safety CPU, kept until the next SCPU read.
-  const char* dtc_scpu_query_result() const { return dtc_scpu_result; }
+  // Bau 14: the DTC list of the safety CPU (field "SCPU" next to the field of the MCPU), filled by the answer to
+  // "Read DTC SCPU" (19 02 <mask> to the SCPU).
+  DATALAYER_BATTERY_DTC_TYPE* get_dtc_second() override { return &dtc_scpu_data; }
   // Measurement of the own send intervals of 0x426/0x435/0x436 (text for the page; reset starts again).
   void tx_measure_text(char* out, size_t n) const { tx_measure.format(out, n); }
   void tx_measure_reset() { tx_measure.reset(); }
   String rx_155_text() const;  // last 0x155 of the battery, byte 7 to byte 0 in decimal
-  // "Read DTC fault counters": UDS 0x19 0x14 (reportDTCFaultDetectionCounter), shown decoded.
-  void read_DTC_fdc();
   // 0x350 / sleep / wake builders and the simulator rows ask this before sending (bit n = sim_signals[n]).
   bool sim_enabled(uint8_t row);
 
@@ -784,10 +778,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
     DTC_EXT_READ_CMD_SENT,      // command frame sent, waiting for a reply or DTC_EXT_REPLY_TIMEOUT_MS
     DTC_EXT_ERASE_SESSION_SENT,
     DTC_EXT_ERASE_CMD_SENT,
-    DTC_EXT_DETAILS_SESSION_SENT,  // "Read DTC details" button (02.10., see read_DTC_details())
-    DTC_EXT_DETAILS_CMD_SENT,      // queries DTC_DETAILS_CODES[dtc_ext_details_index] in turn
-    DTC_EXT_USER_SESSION_SENT,     // free read request / fault counters (03.10.): session sent, waiting the gap
-    DTC_EXT_USER_CMD_SENT          // request sent, waiting for the (possibly multi-frame) reply
+    DTC_EXT_USER_SESSION_SENT,  // free read request (03.10.): session sent, waiting the gap
+    DTC_EXT_USER_CMD_SENT       // request sent, waiting for the (possibly multi-frame) reply
   };
   uint8_t dtc_ext_state = DTC_EXT_IDLE;
   unsigned long dtc_ext_step_start_ms = 0;
@@ -800,24 +792,14 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   char dtc_ext_log_read[48] = "not run yet";
   char dtc_ext_log_erase[48] = "not run yet";
 
-  // "Read DTC details" (02.10., UNTESTED): queries UDS 0x19 subfunction 0x06 (reportDTCExtDataRecordByDTC
-  // Number, record 0xFF = all) for each of the two currently-known active DTCs in turn. Raw bytes only,
-  // logged exactly like dtc_ext_log_read above - nothing about the format is assumed, since it has never
-  // been seen. Whether the BMS even supports this subfunction is unverified.
-  static const uint8_t DTC_DETAILS_COUNT = 2;
-  static const uint32_t DTC_DETAILS_CODES[DTC_DETAILS_COUNT];  // {0xE14381, 0x1B0715}, defined in the .cpp
-  uint8_t dtc_ext_details_index = 0;
-  char dtc_ext_log_details[DTC_DETAILS_COUNT][120] = {"not run yet", "not run yet"};
-
-  // One reply collector for the free read request, the fault counters (19 14) and the DTC details (19 06)
-  // (03.10.): handles single-frame replies and multi-frame replies of up to 256 bytes (own buffer, the
+  // One reply collector for the free read request (03.10.): handles single-frame replies and multi-frame replies of up to 256 bytes (own buffer, the
   // 40-byte ext_isotp_buffer of the cell polling stays untouched), sends the ISO-TP flow control, ignores
-  // "response pending" (NRC 0x78) and fills the result text of the mode that started it.
-  enum UqMode : uint8_t { UQ_FREE = 0, UQ_FDC, UQ_DETAILS };
+  // "response pending" (NRC 0x78) and fills the result text.
+  enum UqMode : uint8_t { UQ_FREE = 0 };
   uint8_t uq_mode = UQ_FREE;
   // Text buffers of the free request: 832 characters hold a 256 byte answer as "XX XX ..." (the mission lists have 128
-  // bytes; 336 cut them off after about 100 bytes). uq_write_line and fdc_result have the same size because the code copies
-  // by sizeof(uq_result).
+  // bytes; 336 cut them off after about 100 bytes). uq_write_line has the same size because the code copies by
+  // sizeof(uq_result).
   static const size_t UQ_TEXT_SIZE = 832;
   uint8_t uq_req[8] = {0};  // request bytes without the PCI byte
   uint8_t uq_req_len = 0;
@@ -838,13 +820,12 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static const uint16_t UQ_WRITE_DIDS[UQ_WRITE_DID_COUNT];
   static const char* uq_nrc_text(uint8_t nrc);  // short meaning of a negative response code, "" when not known
   char uq_result[UQ_TEXT_SIZE] = "not run yet";
-  char fdc_result[UQ_TEXT_SIZE] = "not run yet";
   twingo_txstat::Measure tx_measure;
   uint8_t rx_155_last[8] = {0, 0, 0, 0, 0, 0, 0, 0};
   bool rx_155_seen = false;
-  char dtc_scpu_result[UQ_TEXT_SIZE] = "not run yet";  // own row on the page, see read_DTC_scpu()
-  bool uq_to_scpu_row = false;                         // the running free request also fills dtc_scpu_result
-  bool uq_scpu_row_pending = false;                    // set by read_DTC_scpu() before the request is started
+  DATALAYER_BATTERY_DTC_TYPE dtc_scpu_data = {};  // list of the safety CPU, see read_DTC_scpu()
+  bool uq_to_scpu_row = false;                    // the running free request fills dtc_scpu_data
+  bool uq_scpu_row_pending = false;               // set by read_DTC_scpu() before the request is started
   bool uq_begin(uint8_t mode, const uint8_t* req, uint8_t len, bool needs_session);
   void uq_send_pre_read();
   bool handle_pre_read_reply(const CAN_frame& f);

@@ -1200,18 +1200,8 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
-  // "Read DTC details" button (02.10., EXPERIMENTAL/UNTESTED) - queries UDS 0x19 subfunction 0x06 for the
-  // two currently-known active DTCs. See read_DTC_details() in RENAULT-TWINGO-GEN1-BATTERY.cpp/.h.
-  // battery is a generic Battery*; this route only exists meaningfully for the Twingo build (the button
-  // itself only renders there), so the cast is safe in context - same caveat applies as any other
-  // single-battery-type Twingo-specific route sharing this file.
-  def_route_with_auth("/triggerTwingoDtcDetails", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    static_cast<RenaultTwingoGen1Battery*>(battery)->read_DTC_details();
-    request->send(200, "text/plain", "OK");
-  });
-
-  // Free read request on "More Battery Info" (03.10.): the Twingo build only, same cast caveat as
-  // /triggerTwingoDtcDetails above. Only the read services 0x22/0x19 are accepted by start_user_query().
+  // Free read request on "More Battery Info" (03.10.): the Twingo build only (battery is a generic Battery*, the
+  // route only exists meaningfully there, so the cast is safe in context). Only the read services 0x22/0x19 are accepted by start_user_query().
   def_route_with_auth("/twingoQuery", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     const char* msg = "missing request";
     if (request->hasParam("hex")) {
@@ -1246,20 +1236,10 @@ void init_webserver() {
     request->send(200, "text/plain", static_cast<RenaultTwingoGen1Battery*>(battery)->write_time_now());
   });
 
-  // Answer of the free read request (which=free) or of the fault counters (which=fdc), polled by the page.
+  // Answer of the free read request, polled by the page.
   def_route_with_auth("/twingoQueryResult", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     RenaultTwingoGen1Battery* twingo = static_cast<RenaultTwingoGen1Battery*>(battery);
-    bool fdc = request->hasParam("which") && request->getParam("which")->value() == "fdc";
-    bool scpu = request->hasParam("which") && request->getParam("which")->value() == "scpu";
-    request->send(
-        200, "text/plain",
-        scpu ? twingo->dtc_scpu_query_result() : (fdc ? twingo->fdc_query_result() : twingo->user_query_result()));
-  });
-
-  // Button "Read DTC SCPU" of the row "DTC Read SCPU" (13.10.): 19 02 <mask> to the safety CPU, the result stays in the row.
-  def_route_with_auth("/triggerTwingoDtcScpu", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    static_cast<RenaultTwingoGen1Battery*>(battery)->read_DTC_scpu();
-    request->send(200, "text/plain", "OK");
+    request->send(200, "text/plain", twingo->user_query_result());
   });
 
   // Measurement of the own send intervals of 0x426/0x435/0x436 (13.10.): text for the page; reset=1 starts again.
@@ -1276,12 +1256,6 @@ void init_webserver() {
   // Last 0x155 of the battery, byte 7 to byte 0 in decimal (13.10.), polled by the page.
   def_route_with_auth("/twingoRx155", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/plain", static_cast<RenaultTwingoGen1Battery*>(battery)->rx_155_text());
-  });
-
-  // "Read DTC fault counters" button: UDS 0x19 0x14.
-  def_route_with_auth("/triggerTwingoDtcFdc", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    static_cast<RenaultTwingoGen1Battery*>(battery)->read_DTC_fdc();
-    request->send(200, "text/plain", "OK");
   });
 
   // Isolation monitor control (RoutineControl 0x2008). One setting, applied to both batteries.

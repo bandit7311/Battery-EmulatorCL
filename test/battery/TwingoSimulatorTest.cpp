@@ -146,18 +146,6 @@ bool contains(const String& s, const char* needle) {
   return std::string(s.c_str()).find(needle) != std::string::npos;
 }
 
-// The two "DTC details" lines of the page (text after the button). The host emulation of String does not print
-// String(x, HEX) as hex (the page label of the code looks odd there, on the ESP32 it is fine), so the tests
-// look at the answer texts only.
-std::string detail_lines(const String& html) {
-  std::string h(html.c_str());
-  size_t p = h.find("subfunction 0x06)</button>");
-  if (p == std::string::npos) {
-    return "";
-  }
-  return h.substr(p, 420);  // the field of 0x155 stands behind the button (13.10.)
-}
-
 // Request frames on 0x18DADBF1 (the driver's own TX of the diagnostic channel).
 std::vector<CAN_frame> diag_tx() {
   std::vector<CAN_frame> out;
@@ -1012,137 +1000,9 @@ TEST(TwingoFreeQuery, CellPollingIsPausedWhileTheRequestRuns) {
 // 19 14: fault detection counters
 // ---------------------------------------------------------------------------
 
-TEST(TwingoFaultCounters, RequestIsSentAfterTheSessionGapAndAnswerIsDecoded) {
-  TestTwingo b;
-  b.setup();
-  set_millis64(1000);
-  clear_transmitted_frames();
-  b.read_DTC_fdc();
-  EXPECT_STREQ(b.fdc_query_result(), "requested");
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 300, 50, log);
-  bool found = false;
-  for (const Tx& x : with_id(log, 0x18DADBF1, true)) {
-    if (x.f.data.u8[1] == 0x19 && x.f.data.u8[2] == 0x14) {
-      found = true;
-      EXPECT_EQ(x.f.data.u8[0], 0x02);
-    }
-  }
-  EXPECT_TRUE(found);
-  // 59 14 E14381 7F 1B0715 FF = 10 bytes (multi-frame): first frame 6 bytes, then 4
-  clear_transmitted_frames();
-  b.handle_incoming_can_frame(reply_frame({0x10, 0x0A, 0x59, 0x14, 0xE1, 0x43, 0x81, 0x7F}));
-  EXPECT_EQ(diag_tx().size(), 1u);  // flow control
-  b.handle_incoming_can_frame(reply_frame({0x21, 0x1B, 0x07, 0x15, 0xFF, 0xAA, 0xAA, 0xAA}));
-  EXPECT_STREQ(b.fdc_query_result(), "OK, 2 entries: E14381=+127 1B0715=-1");
-  // The free query result is a separate field
-  EXPECT_STREQ(b.user_query_result(), "not run yet");
-}
-
-TEST(TwingoFaultCounters, EmptyAnswerAndNegativeAnswerAndOddLength) {
-  {
-    TestTwingo b;
-    b.setup();
-    set_millis64(1000);
-    b.read_DTC_fdc();
-    uint64_t t = 1000;
-    std::vector<Tx> log;
-    run(b, t, 300, 50, log);
-    b.handle_incoming_can_frame(reply_frame({0x02, 0x59, 0x14, 0, 0, 0, 0, 0}));
-    EXPECT_STREQ(b.fdc_query_result(), "OK, no DTC with a fault detection counter");
-  }
-  {
-    TestTwingo b;
-    b.setup();
-    set_millis64(1000);
-    b.read_DTC_fdc();
-    uint64_t t = 1000;
-    std::vector<Tx> log;
-    run(b, t, 300, 50, log);
-    b.handle_incoming_can_frame(reply_frame({0x03, 0x7F, 0x19, 0x12, 0, 0, 0, 0}));
-    EXPECT_STREQ(b.fdc_query_result(), "NEGATIVE 7F 19 12 (SID 0x19, NRC 0x12)");
-  }
-  {
-    TestTwingo b;
-    b.setup();
-    set_millis64(1000);
-    b.read_DTC_fdc();
-    uint64_t t = 1000;
-    std::vector<Tx> log;
-    run(b, t, 300, 50, log);
-    // 59 14 E1 43 81 = 5 bytes: not a multiple of 4 after the sub-function, so shown raw
-    b.handle_incoming_can_frame(reply_frame({0x05, 0x59, 0x14, 0xE1, 0x43, 0x81, 0, 0}));
-    EXPECT_STREQ(b.fdc_query_result(), "OK 59 14 E1 43 81");
-  }
-}
-
-TEST(TwingoFaultCounters, NoAnswerGivesTimeout) {
-  TestTwingo b;
-  b.setup();
-  set_millis64(1000);
-  b.read_DTC_fdc();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 3000, 100, log);
-  EXPECT_STREQ(b.fdc_query_result(), "no response");
-}
-
 // ---------------------------------------------------------------------------
 // 19 06: DTC details now with the multi-frame collector
 // ---------------------------------------------------------------------------
-
-TEST(TwingoDtcDetails, ShowsTheCompleteAnswerOfBothCodes) {
-  TestTwingo b;
-  b.setup();
-  set_millis64(1000);
-  b.read_DTC_details();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 300, 50, log);
-  bool found = false;
-  for (const Tx& x : with_id(log, 0x18DADBF1, true)) {
-    if (x.f.data.u8[1] == 0x19 && x.f.data.u8[2] == 0x06) {
-      found = true;
-      EXPECT_EQ(x.f.data.u8[0], 0x06);
-      EXPECT_EQ(x.f.data.u8[3], 0xE1);
-      EXPECT_EQ(x.f.data.u8[4], 0x43);
-      EXPECT_EQ(x.f.data.u8[5], 0x81);
-      EXPECT_EQ(x.f.data.u8[6], 0xFF);
-    }
-  }
-  EXPECT_TRUE(found);
-  // Single frame answer of the real battery: 59 06 E1 43 81 50
-  b.handle_incoming_can_frame(reply_frame({0x06, 0x59, 0x06, 0xE1, 0x43, 0x81, 0x50, 0}));
-  run(b, t, 300, 50, log);  // next code after the session gap
-  bool second = false;
-  for (const Tx& x : with_id(log, 0x18DADBF1, true)) {
-    if (x.f.data.u8[1] == 0x19 && x.f.data.u8[2] == 0x06 && x.f.data.u8[3] == 0x1B) {
-      second = true;
-    }
-  }
-  EXPECT_TRUE(second);
-  // The second answer is longer (multi-frame): 59 06 1B 07 15 50 AA BB CC DD = 10 bytes
-  b.handle_incoming_can_frame(reply_frame({0x10, 0x0A, 0x59, 0x06, 0x1B, 0x07, 0x15, 0x50}));
-  b.handle_incoming_can_frame(reply_frame({0x21, 0xAA, 0xBB, 0xCC, 0xDD, 0, 0, 0}));
-  std::string lines = detail_lines(b.get_uds_info_html());
-  EXPECT_NE(lines.find(": OK 59 06 E1 43 81 50<br>"), std::string::npos) << lines;
-  EXPECT_NE(lines.find(": OK 59 06 1B 07 15 50 AA BB CC DD<br>"), std::string::npos) << lines;
-}
-
-TEST(TwingoDtcDetails, NoAnswerGivesNoResponseForBothCodes) {
-  TestTwingo b;
-  b.setup();
-  set_millis64(1000);
-  b.read_DTC_details();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 6000, 100, log);
-  std::string lines = detail_lines(b.get_uds_info_html());
-  size_t first = lines.find(": no response<br>");
-  ASSERT_NE(first, std::string::npos) << lines;
-  EXPECT_NE(lines.find(": no response<br>", first + 1), std::string::npos) << lines;
-}
 
 // ---------------------------------------------------------------------------
 // More Battery Info page
@@ -1155,10 +1015,10 @@ TEST(TwingoPage, ShowsInputButtonAndAnswerFieldForTheFreeRequest) {
   EXPECT_TRUE(contains(html, "id='twingoQueryHex'"));
   EXPECT_TRUE(contains(html, "onclick='twingoQuery(-1)'"));
   EXPECT_TRUE(contains(html, "id='twingoQueryResult'"));
-  EXPECT_TRUE(contains(html, "twingoFdc()"));
+  EXPECT_FALSE(contains(html, "twingoFdc()"));  // removed in Bau 14
   EXPECT_TRUE(contains(html, "/twingoQuery?hex="));
   EXPECT_TRUE(contains(html, "/twingoQueryResult?which="));
-  EXPECT_TRUE(contains(html, "/triggerTwingoDtcFdc"));
+  EXPECT_FALSE(contains(html, "/triggerTwingoDtcFdc"));
 }
 
 TEST(TwingoPage, AnswerFieldShowsTheLastResult) {
@@ -1195,21 +1055,6 @@ TEST(TwingoReplyMatching, LateReplyStillReachesTheNormalHandlerAndIsNotLost) {
   b.handle_incoming_can_frame(did_reply(0x9005, {0x0E, 0x55}));
   EXPECT_TRUE(contains(b.get_uds_info_html(), "22 90 05: OK 62 90 05 0E 55"));
   EXPECT_EQ(datalayer.battery.status.cell_voltages_mV[79], 3831);
-}
-
-TEST(TwingoReplyMatching, SessionConfirmationIsNotTakenAsTheFaultCounterAnswer) {
-  // Screenshot case: the button "Read DTC fault counters (19 14)" showed OK 50 03 00 32 01 F4.
-  TestTwingo b;
-  b.setup();
-  set_millis64(1000);
-  b.read_DTC_fdc();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 300, 50, log);  // session gap over, 19 14 sent, now waiting for the reply
-  b.handle_incoming_can_frame(reply_frame({0x06, 0x50, 0x03, 0x00, 0x32, 0x01, 0xF4, 0}));
-  EXPECT_STREQ(b.fdc_query_result(), "requested");
-  b.handle_incoming_can_frame(reply_frame({0x02, 0x59, 0x14, 0, 0, 0, 0, 0}));
-  EXPECT_STREQ(b.fdc_query_result(), "OK, no DTC with a fault detection counter");
 }
 
 TEST(TwingoReplyMatching, NegativeReplyOfAnotherServiceIsIgnored) {
@@ -1259,21 +1104,6 @@ TEST(TwingoReplyMatching, NoMatchingReplyStillEndsWithTheTimeout) {
   run(b, t, 2500, 100, log);
   EXPECT_STREQ(b.user_query_result(), "no response");
   EXPECT_STREQ(b.start_user_query("22925E"), "OK");  // channel free again
-}
-
-TEST(TwingoReplyMatching, DtcDetailsIgnoreTheSessionConfirmationToo) {
-  TestTwingo b;
-  b.setup();
-  set_millis64(1000);
-  b.read_DTC_details();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 300, 50, log);
-  b.handle_incoming_can_frame(reply_frame({0x06, 0x50, 0x03, 0x00, 0x32, 0x01, 0xF4, 0}));  // not the answer
-  b.handle_incoming_can_frame(reply_frame({0x06, 0x59, 0x06, 0xE1, 0x43, 0x81, 0x2F, 0}));
-  std::string lines = detail_lines(b.get_uds_info_html());
-  EXPECT_NE(lines.find(": OK 59 06 E1 43 81 2F<br>"), std::string::npos) << lines;
-  EXPECT_EQ(lines.find("50 03 00 32"), std::string::npos) << lines;
 }
 
 TEST(TwingoReplyMatching, ReadServiceNineteenSubFunctionMustBeEchoed) {

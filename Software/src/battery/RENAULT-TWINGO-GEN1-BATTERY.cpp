@@ -540,14 +540,38 @@ void RenaultTwingoGen1Battery::handle_extended_multiframe_complete() {
   datalayer_battery->status.balancing_status = any_balancing ? BALANCING_STATUS_ACTIVE : BALANCING_STATUS_READY;
 }
 
+// Fills a DTC list from the repeated 4-byte entries (3-byte code + 1-byte status) of a ReadDTCInformation reply;
+// `reported` = number of entries the reply held (may exceed the slots of the list).
+static void fill_dtc_list(DATALAYER_BATTERY_DTC_TYPE& list, const uint8_t* data, uint16_t len, uint16_t reported) {
+  int count = len / 4;
+  if (count > list.MAX_DTC_COUNT) {
+    count = list.MAX_DTC_COUNT;
+  }
+  if (count < 0) {
+    count = 0;
+  }
+  for (int i = 0; i < count; i++) {
+    uint16_t offset = (uint16_t)(i * 4);
+    if ((uint16_t)(offset + 3) >= len) {
+      break;
+    }
+    list.dtc_codes[i] = ((uint32_t)data[offset] << 16) | ((uint32_t)data[offset + 1] << 8) | (uint32_t)data[offset + 2];
+    list.dtc_status[i] = data[offset + 3];
+  }
+  list.dtc_count = (uint8_t)count;
+  list.dtc_reported_count = reported;
+  list.dtc_read_failed = false;
+  list.dtc_last_read_millis = millis();
+}
+
 // Dispatches an incoming 0x18DAF1DB frame: single-frame, ISO-TP First Frame
 // (sends the Flow Control reply and starts reassembly), or ISO-TP
 // Consecutive Frame (continues reassembly, dispatches once complete).
 void RenaultTwingoGen1Battery::handle_extended_reply(CAN_frame rx_frame) {
   datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;
 
-  if (dtc_ext_state == DTC_EXT_USER_CMD_SENT || dtc_ext_state == DTC_EXT_DETAILS_CMD_SENT) {
-    // Free read request / fault counters / DTC details: own collector with a 256-byte buffer (03.10.). Only the
+  if (dtc_ext_state == DTC_EXT_USER_CMD_SENT) {
+    // Free read request: own collector with a 256-byte buffer (03.10.). Only the
     // reply to our request is taken; any other frame continues below like a normal frame.
     if (handle_user_query_reply(rx_frame)) {
       return;
@@ -3302,9 +3326,6 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "<h4>Answer: <span id='twingoQueryResult'>";
     content += user_query_result();
     content += "</span></h4>";
-    content += "<h4><button onclick='twingoFdc()'>Read DTC fault counters (19 14)</button> <span id='twingoFdcResult'>";
-    content += fdc_query_result();
-    content += "</span></h4>";
 
     content += "<script>";
     content += "function twingoSetWriteValue(v){";
@@ -3334,12 +3355,6 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoCellwatchEnable?value='+(v?1:0),true);x.send();}";
     content += "function twingoSetDtcAllStatus(v){";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoDtcAllStatus?value='+(v?1:0),true);x.send();}";
-    content += "function twingoScpuDtc(){var r=document.getElementById('twingoScpuDtc');";
-    content += "fetch('/triggerTwingoDtcScpu').then(function(a){return a.text();}).then(function(t){";
-    content += "if(t!=='OK'){r.textContent=t;}else{r.textContent='requested';}});}";
-    content += "setInterval(function(){var r=document.getElementById('twingoScpuDtc');if(!r){return;}";
-    content += "fetch('/twingoQueryResult?which=scpu').then(function(a){return a.text();}).then(function(x){";
-    content += "r.textContent=x;});},1000);";
     content += "setInterval(function(){var r=document.getElementById('twingoTxStat');if(!r){return;}";
     content +=
         "fetch('/twingoTxStat').then(function(a){return a.text();}).then(function(x){r.textContent=x;});},1000);";
@@ -3363,9 +3378,6 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "if(t!=='OK'){r.textContent=t;return;}r.textContent='requested';twingoPoll('free',r);});}";
     content += "window.addEventListener('load',function(){try{var s=localStorage.getItem('twingoQueryHex');";
     content += "if(s){document.getElementById('twingoQueryHex').value=s;}}catch(e){}});";
-    content += "function twingoFdc(){var r=document.getElementById('twingoFdcResult');";
-    content += "fetch('/triggerTwingoDtcFdc').then(function(a){return a.text();}).then(function(t){";
-    content += "if(t!=='OK'){r.textContent=t;return;}r.textContent='requested';twingoPoll('fdc',r);});}";
     content += "function twingoSetCellwatchCell(){";
     content += "var c=document.getElementById('twingoCellwatchCell').value;";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoCellwatchCell?value='+c,true);x.send();}";
@@ -3386,14 +3398,9 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
              " Read ALL DTC statuses (mask 0xFF) instead of only Active/Confirmed (0x09) on next Read DTC<br>"
              "DTC Read (ext. protocol, Read DTC button): " << dtc_ext_log_read << "<br>"
              "DTC Erase (ext. protocol, Erase DTC button): " << dtc_ext_log_erase << "<br>"
-             "<button onclick='twingoScpuDtc()'>Read DTC SCPU</button> DTC Read SCPU (last result, stays until the next "
-             "read): <span id='twingoScpuDtc'>" << dtc_scpu_result << "</span><br>"
              "<button onclick='twingoTxReset()'>Reset</button> Own send intervals 0x426 / 0x435 / 0x436 (time of the call "
              "to the send function in microseconds, not of the wire; target 100 ms):<pre id='twingoTxStat'>-</pre>"
-             "<button onclick=\"fetch('/triggerTwingoDtcDetails')\">Read DTC details (EXPERIMENTAL, UNTESTED, "
-             "subfunction 0x06)</button> <span id='twingoRx155'>" << rx_155_text() << "</span><br>"
-             "DTC details - " << String(DTC_DETAILS_CODES[0], HEX) << ": " << dtc_ext_log_details[0] << "<br>"
-             "DTC details - " << String(DTC_DETAILS_CODES[1], HEX) << ": " << dtc_ext_log_details[1] << "<br>";
+             "<span id='twingoRx155'>" << rx_155_text() << "</span><br>";
   // clang-format on
   {
     // Bau 10: the block of the sleep run is a collapsible section: open while a run is going, closed afterwards, so
@@ -3475,39 +3482,21 @@ void RenaultTwingoGen1Battery::read_DTC() {
   dtc_ext_step_start_ms = millis();
 }
 
-const uint32_t RenaultTwingoGen1Battery::DTC_DETAILS_CODES[DTC_DETAILS_COUNT] = {0xE14381, 0x1B0715};
-
 void RenaultTwingoGen1Battery::read_DTC_scpu() {
   char hex[16];
   snprintf(hex, sizeof(hex), "19 02 %02X", (unsigned)datalayer_extended.twingoGen1.dtc_ext_read_mask);
-  // The answer is the field "Answer" of this page and, kept until the next SCPU read, the row "DTC Read SCPU"
+  // The answer is the field "Answer" of this page and fills the list "SCPU" of the DTC section
   uq_scpu_row_pending = true;
   const char* msg = start_user_query(hex, 1);
-  if (strcmp(msg, "OK") == 0) {
-    snprintf(dtc_scpu_result, sizeof(dtc_scpu_result), "requested");
-  } else {
+  if (strcmp(msg, "OK") != 0) {
     uq_scpu_row_pending = false;
-    snprintf(dtc_scpu_result, sizeof(dtc_scpu_result), "not started: %s", msg);
+    dtc_scpu_data.dtc_read_failed = true;  // not started (e.g. a request is running)
+    dtc_scpu_data.dtc_last_read_millis = millis();
   }
 }
 
 void RenaultTwingoGen1Battery::reset_DTC_scpu() {
   start_user_query("14 FF FF FF", 1);
-}
-
-void RenaultTwingoGen1Battery::read_DTC_details() {
-  if (dtc_ext_state != DTC_EXT_IDLE || UserRequestNVROLReset) {
-    return;
-  }
-  dtc_ext_details_index = 0;
-  ZOE_POLL_18DADBF1.data = {0x02, 0x10, 0x03, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};  // open extended session
-  transmit_can_frame(&ZOE_POLL_18DADBF1);
-  for (uint8_t i = 0; i < DTC_DETAILS_COUNT; i++) {
-    strncpy(dtc_ext_log_details[i], "requested", sizeof(dtc_ext_log_details[i]) - 1);
-    dtc_ext_log_details[i][sizeof(dtc_ext_log_details[i]) - 1] = '\0';
-  }
-  dtc_ext_state = DTC_EXT_DETAILS_SESSION_SENT;
-  dtc_ext_step_start_ms = millis();
 }
 
 void RenaultTwingoGen1Battery::reset_DTC() {
@@ -3622,7 +3611,7 @@ bool RenaultTwingoGen1Battery::uq_begin(uint8_t mode, const uint8_t* req, uint8_
   ZOE_POLL_FLOW_CONTROL.ID = ZOE_POLL_18DADBF1.ID;
   uq_pre_read = false;
   uq_before_len = 0;
-  snprintf(mode == UQ_FDC ? fdc_result : uq_result, sizeof(uq_result), "requested");
+  snprintf(uq_result, sizeof(uq_result), "requested");
   if (needs_session) {
     ZOE_POLL_18DADBF1.data = {0x02, 0x10, 0x03, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};  // open extended session first
     transmit_can_frame(&ZOE_POLL_18DADBF1);
@@ -3729,11 +3718,6 @@ const char* RenaultTwingoGen1Battery::write_time_now() {
   return start_user_query(hex);
 }
 
-void RenaultTwingoGen1Battery::read_DTC_fdc() {
-  const uint8_t req[2] = {0x19, 0x14};  // reportDTCFaultDetectionCounter
-  uq_begin(UQ_FDC, req, 2, true);
-}
-
 // printf into out at pos without ever running past the buffer (pos stays below outsz).
 static void uq_printf(char* out, size_t outsz, size_t& pos, const char* fmt, ...) {
   if (outsz == 0 || pos + 1 >= outsz) {
@@ -3763,18 +3747,8 @@ static void uq_append_hex(char* out, size_t outsz, size_t& pos, const uint8_t* d
 
 // A complete reply is in uq_buf (first byte = SID of the answer, 0x7F for a negative one).
 void RenaultTwingoGen1Battery::uq_reply_complete() {
-  char* out;
-  size_t outsz;
-  if (uq_mode == UQ_DETAILS) {
-    out = dtc_ext_log_details[dtc_ext_details_index];
-    outsz = sizeof(dtc_ext_log_details[dtc_ext_details_index]);
-  } else if (uq_mode == UQ_FDC) {
-    out = fdc_result;
-    outsz = sizeof(fdc_result);
-  } else {
-    out = uq_result;
-    outsz = sizeof(uq_result);
-  }
+  char* out = uq_result;
+  const size_t outsz = sizeof(uq_result);
   out[0] = '\0';
   size_t pos = 0;
   if (uq_mode == UQ_FREE) {
@@ -3795,23 +3769,6 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
               uq_buf[1], uq_buf[2]);
     if (uq_mode == UQ_FREE && uq_req[0] == 0x2E && uq_nrc_text(uq_buf[2])[0] != '\0') {
       uq_printf(out, outsz, pos, " - %s", uq_nrc_text(uq_buf[2]));
-    }
-  } else if (uq_mode == UQ_FDC && uq_buf_len >= 2 && uq_buf[0] == 0x59 && uq_buf[1] == 0x14 &&
-             ((uq_buf_len - 2) % 4) == 0 && uq_buf_len == uq_expected_len) {
-    // Positive answer: 59 14, then per DTC 3 bytes code + 1 byte fault detection counter (signed).
-    uint16_t entries = (uint16_t)((uq_buf_len - 2) / 4);
-    if (entries == 0) {
-      uq_printf(out, outsz, pos, "OK, no DTC with a fault detection counter");
-    } else {
-      uq_printf(out, outsz, pos, "OK, %u entries:", (unsigned)entries);
-      for (uint16_t e = 0; e < entries; e++) {
-        const uint8_t* d = &uq_buf[2 + e * 4];
-        if (pos + 16 >= outsz) {
-          uq_printf(out, outsz, pos, " ...");
-          break;
-        }
-        uq_printf(out, outsz, pos, " %02X%02X%02X=%+d", d[0], d[1], d[2], (int)(int8_t)d[3]);
-      }
     }
   } else {
     uq_printf(out, outsz, pos, "OK ");
@@ -3862,8 +3819,13 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
   }
   uq_in_progress = false;
   if (uq_to_scpu_row) {
-    // the row "DTC Read SCPU": result with the time of the answer, stays until the next SCPU read
-    snprintf(dtc_scpu_result, sizeof(dtc_scpu_result), "T+%lu s: %s", (unsigned long)(millis() / 1000UL), uq_result);
+    // the field "SCPU": positive answer 59 02 <mask> then the 4-byte entries; anything else counts as failed
+    if (uq_buf_len >= 3 && uq_buf[0] == 0x59 && uq_buf[1] == 0x02 && uq_buf_len == uq_expected_len) {
+      fill_dtc_list(dtc_scpu_data, &uq_buf[3], (uint16_t)(uq_buf_len - 3), (uint16_t)((uq_buf_len - 3) / 4));
+    } else {
+      dtc_scpu_data.dtc_read_failed = true;
+      dtc_scpu_data.dtc_last_read_millis = millis();
+    }
     uq_to_scpu_row = false;
   }
   if (uq_mode == UQ_FREE && uq_req[0] == 0x2E && uq_buf_len >= 1 && uq_buf[0] == 0x6E && !uq_post_read) {
@@ -3875,14 +3837,6 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
     snprintf(uq_result, sizeof(uq_result), "requested");  // the page keeps waiting for the read back
     dtc_ext_step_start_ms = millis();
     return;
-  }
-  if (uq_mode == UQ_DETAILS) {
-    dtc_ext_details_index++;
-    if (dtc_ext_details_index < DTC_DETAILS_COUNT) {
-      dtc_ext_step_start_ms = millis();
-      dtc_ext_state = DTC_EXT_DETAILS_SESSION_SENT;  // next DTC
-      return;
-    }
   }
   uq_restore_poll_template();
   dtc_ext_state = DTC_EXT_IDLE;
@@ -4116,25 +4070,6 @@ void RenaultTwingoGen1Battery::handle_dtc_ext(unsigned long currentMillis) {
       }
       break;
 
-    case DTC_EXT_DETAILS_SESSION_SENT:
-      if (currentMillis - dtc_ext_step_start_ms >= DTC_EXT_SESSION_GAP_MS) {
-        // ReadDTCInformation, subfunction 0x06 (reportDTCExtDataRecordByDTCNumber), record 0xFF (all
-        // records) for DTC_DETAILS_CODES[dtc_ext_details_index]. The reply (single- or multi-frame) is
-        // collected by handle_user_query_reply() and logged completely, including SID and sub-function.
-        uint32_t code = DTC_DETAILS_CODES[dtc_ext_details_index];
-        uq_mode = UQ_DETAILS;
-        uq_req[0] = 0x19;
-        uq_req[1] = 0x06;
-        uq_req[2] = (uint8_t)(code >> 16);
-        uq_req[3] = (uint8_t)(code >> 8);
-        uq_req[4] = (uint8_t)code;
-        uq_req[5] = 0xFF;
-        uq_req_len = 6;
-        uq_send_request();
-        dtc_ext_step_start_ms = currentMillis;
-        dtc_ext_state = DTC_EXT_DETAILS_CMD_SENT;
-      }
-      break;
     case DTC_EXT_USER_SESSION_SENT:
       if (currentMillis - dtc_ext_step_start_ms >= DTC_EXT_SESSION_GAP_MS) {
         if (uq_mode == UQ_FREE && uq_req[0] == 0x2E) {
@@ -4162,11 +4097,10 @@ void RenaultTwingoGen1Battery::handle_dtc_ext(unsigned long currentMillis) {
                    uq_pre_read ? "no response to the read before the write - nothing was written"
                                : "no response to the write - not known whether it was written, read the value again");
         } else {
-          snprintf(uq_mode == UQ_FDC ? fdc_result : uq_result, sizeof(uq_result), "%sno response",
-                   (uq_mode == UQ_FREE && uq_active_dc) ? "[DC] " : "");
+          snprintf(uq_result, sizeof(uq_result), "%sno response", (uq_mode == UQ_FREE && uq_active_dc) ? "[DC] " : "");
           if (uq_to_scpu_row) {
-            snprintf(dtc_scpu_result, sizeof(dtc_scpu_result), "T+%lu s: %s", (unsigned long)(millis() / 1000UL),
-                     uq_result);
+            dtc_scpu_data.dtc_read_failed = true;
+            dtc_scpu_data.dtc_last_read_millis = millis();
             uq_to_scpu_row = false;
           }
         }
@@ -4174,22 +4108,6 @@ void RenaultTwingoGen1Battery::handle_dtc_ext(unsigned long currentMillis) {
         uq_in_progress = false;
         uq_restore_poll_template();
         dtc_ext_state = DTC_EXT_IDLE;
-      }
-      break;
-    case DTC_EXT_DETAILS_CMD_SENT:
-      if (currentMillis - dtc_ext_step_start_ms >= DTC_EXT_REPLY_TIMEOUT_MS) {
-        uq_in_progress = false;
-        strncpy(dtc_ext_log_details[dtc_ext_details_index], "no response",
-                sizeof(dtc_ext_log_details[dtc_ext_details_index]) - 1);
-        dtc_ext_log_details[dtc_ext_details_index][sizeof(dtc_ext_log_details[dtc_ext_details_index]) - 1] = '\0';
-        dtc_ext_details_index++;
-        if (dtc_ext_details_index < DTC_DETAILS_COUNT) {
-          dtc_ext_step_start_ms = currentMillis;
-          dtc_ext_state = DTC_EXT_DETAILS_SESSION_SENT;  // next DTC
-        } else {
-          ZOE_POLL_18DADBF1.data = {0x03, 0x22, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // restore poll template
-          dtc_ext_state = DTC_EXT_IDLE;
-        }
       }
       break;
   }
@@ -4204,26 +4122,7 @@ void RenaultTwingoGen1Battery::handle_dtc_ext(unsigned long currentMillis) {
 // research) - this is the first time that table gets real data instead of "Not read yet".
 void RenaultTwingoGen1Battery::handle_dtc_read_response(const uint8_t* data, uint16_t len) {
   if (dtc != nullptr) {
-    int count = len / 4;
-    if (count > dtc->MAX_DTC_COUNT) {
-      count = dtc->MAX_DTC_COUNT;
-    }
-    if (count < 0) {
-      count = 0;
-    }
-    for (int i = 0; i < count; i++) {
-      uint16_t offset = (uint16_t)(i * 4);
-      if ((uint16_t)(offset + 3) >= len) {
-        break;
-      }
-      dtc->dtc_codes[i] =
-          ((uint32_t)data[offset] << 16) | ((uint32_t)data[offset + 1] << 8) | (uint32_t)data[offset + 2];
-      dtc->dtc_status[i] = data[offset + 3];
-    }
-    dtc->dtc_count = (uint8_t)count;
-    dtc->dtc_reported_count = (uint16_t)(len / 4);  // may exceed dtc_count if truncated at MAX_DTC_COUNT
-    dtc->dtc_read_failed = false;
-    dtc->dtc_last_read_millis = millis();
+    fill_dtc_list(*dtc, data, len, (uint16_t)(len / 4));  // may exceed dtc_count if truncated at MAX_DTC_COUNT
   }
   snprintf(dtc_ext_log_read, sizeof(dtc_ext_log_read), "OK, %u DTC(s), %u bytes raw", (unsigned)(len / 4),
            (unsigned)len);

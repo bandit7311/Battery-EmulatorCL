@@ -513,7 +513,8 @@ void UdsCanBattery::set_pid_scan_list(const uint16_t* pid_list, uint16_t length)
 String UdsBatteryHtmlRenderer::get_status_html() {
   String ret = battery.get_uds_info_html();
   if (battery.dtc != nullptr) {
-    ret += BatteryHtmlRenderer::render_dtc_section_html(*battery.dtc, battery.get_dtc_json_filename(),
+    ret += BatteryHtmlRenderer::render_dtc_columns_html(*battery.dtc, battery.get_dtc_second(),
+                                                        battery.get_dtc_json_filename(),
                                                         battery.get_dtc_standard_code_string());
   }
   return ret;

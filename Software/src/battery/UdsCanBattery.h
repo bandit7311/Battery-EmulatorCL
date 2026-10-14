@@ -137,6 +137,9 @@ class UdsCanBattery : public CanBattery, public IsoTp {
   virtual String get_uds_info_html() { return String(); }
   virtual const char* get_dtc_json_filename() { return ""; }
   virtual bool get_dtc_standard_code_string() { return true; }
+  //  - get_dtc_second(): optional second DTC list (e.g. of a second control unit), shown as a second column next
+  //    to the main list (columns "MCPU" / "SCPU"); nullptr = only the main list.
+  virtual DATALAYER_BATTERY_DTC_TYPE* get_dtc_second() { return nullptr; }
 
   // The built-in generic renderer. Override to provide a fully custom page.
   virtual BatteryHtmlRenderer& get_status_renderer() override { return uds_renderer; }

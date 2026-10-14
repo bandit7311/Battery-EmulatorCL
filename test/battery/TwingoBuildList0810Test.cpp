@@ -525,57 +525,106 @@ void answer_dtc_scpu_with_one_entry(TestTwingo& b, uint64_t& t) {
 }
 }  // namespace
 
-TEST(TwingoBuild1013, ScpuRowShowsTheListAndKeepsItUntilTheNextScpuRead) {
+TEST(TwingoBuild1013, ScpuListIsFilledFromTheAnswerAndKeptUntilTheNextScpuRead) {
   struct Guard {
     ~Guard() { RenaultTwingoGen1Battery::uq_target = 0; }
   } guard;
   TestTwingo b;
   b.setup();
-  EXPECT_STREQ(b.dtc_scpu_query_result(), "not run yet");
+  DATALAYER_BATTERY_DTC_TYPE* scpu = b.get_dtc_second();
+  ASSERT_NE(scpu, nullptr);
+  EXPECT_EQ(scpu->dtc_last_read_millis, 0u);  // "Not read yet"
   uint64_t t = 1000;
   answer_dtc_scpu_with_one_entry(b, t);
-  // the field "Answer" and the row both carry the result; the row has the time of the answer in front
+  // the field "Answer" carries the text, the list of the SCPU the decoded entry (code 1BB587, status 2F)
   EXPECT_STREQ(b.user_query_result(), "[DC] 19 02 09: OK 59 02 FF 1B B5 87 2F | DTC: 1BB587=2F");
-  const std::string row = b.dtc_scpu_query_result();
-  EXPECT_NE(row.find("T+"), std::string::npos) << row;
-  EXPECT_NE(row.find("[DC] 19 02 09: OK 59 02 FF 1B B5 87 2F | DTC: 1BB587=2F"), std::string::npos) << row;
-  // another free request overwrites "Answer", not the row
+  EXPECT_NE(scpu->dtc_last_read_millis, 0u);
+  EXPECT_FALSE(scpu->dtc_read_failed);
+  ASSERT_EQ(scpu->dtc_count, 1);
+  EXPECT_EQ(scpu->dtc_codes[0], 0x1BB587u);
+  EXPECT_EQ(scpu->dtc_status[0], 0x2F);
+  // the list of the MCPU is not touched
+  EXPECT_EQ(b.dtc->dtc_count, 0);
+  // another free request overwrites "Answer", not the list
   settle(b, t, 700);
   ASSERT_STREQ(b.start_user_query("22 92 5E", 0), "OK");
   settle(b, t, 100);
   b.handle_incoming_can_frame(reply_on(0x18DAF1DB, {0x06, 0x62, 0x92, 0x5E, 0x13, 0x88, 0x6F, 0xAA}));
   EXPECT_STREQ(b.user_query_result(), "22 92 5E: OK 62 92 5E 13 88 6F");
-  EXPECT_EQ(row, std::string(b.dtc_scpu_query_result()));
+  EXPECT_EQ(scpu->dtc_count, 1);
+  EXPECT_EQ(scpu->dtc_codes[0], 0x1BB587u);
 }
 
-TEST(TwingoBuild1013, ScpuRowShowsNoResponseAndRefusals) {
+TEST(TwingoBuild1013, ScpuListShowsNoResponseAndRefusalsAsFailed) {
   struct Guard {
     ~Guard() { RenaultTwingoGen1Battery::uq_target = 0; }
   } guard;
   TestTwingo b;
   b.setup();
+  DATALAYER_BATTERY_DTC_TYPE* scpu = b.get_dtc_second();
   uint64_t t = 1000;
   settle(b, t, 700);
   b.read_DTC_scpu();
-  EXPECT_STREQ(b.dtc_scpu_query_result(), "requested");
+  EXPECT_FALSE(scpu->dtc_read_failed);
   settle(b, t, 4000);  // nobody answers
-  EXPECT_NE(std::string(b.dtc_scpu_query_result()).find("no response"), std::string::npos);
-  EXPECT_NE(std::string(b.dtc_scpu_query_result()).find("T+"), std::string::npos);
-  // a second read while another exchange runs is refused and says so
+  EXPECT_TRUE(scpu->dtc_read_failed);
+  EXPECT_NE(scpu->dtc_last_read_millis, 0u);
+  // a second read while another exchange runs is refused and counts as failed, too
+  scpu->dtc_read_failed = false;
   ASSERT_STREQ(b.start_user_query("22 92 5E", 0), "OK");
   b.read_DTC_scpu();
-  EXPECT_NE(std::string(b.dtc_scpu_query_result()).find("not started"), std::string::npos) << b.dtc_scpu_query_result();
+  EXPECT_TRUE(scpu->dtc_read_failed);
 }
 
-TEST(TwingoBuild1013, PageHasTheRowWithButtonAndPoll) {
+TEST(TwingoBuild1013, NegativeAnswerOfTheScpuCountsAsFailed) {
+  TestTwingo b;
+  b.setup();
+  DATALAYER_BATTERY_DTC_TYPE* scpu = b.get_dtc_second();
+  uint64_t t = 1000;
+  settle(b, t, 700);
+  b.read_DTC_scpu();
+  settle(b, t, 300);
+  b.handle_incoming_can_frame(reply_on(0x18DAF1DC, {0x03, 0x7F, 0x19, 0x31, 0xAA, 0xAA, 0xAA, 0xAA}));
+  EXPECT_TRUE(scpu->dtc_read_failed);
+}
+
+TEST(TwingoBuild1013, PageHasNoInfoRowOfTheScpuAndNoDetailsAndNoFaultCounters) {
   TestTwingo b;
   b.setup();
   std::string page(b.get_uds_info_html().c_str());
-  EXPECT_NE(page.find("id='twingoScpuDtc'"), std::string::npos);
-  EXPECT_NE(page.find("twingoScpuDtc()"), std::string::npos);
-  EXPECT_NE(page.find("/triggerTwingoDtcScpu"), std::string::npos);
-  EXPECT_NE(page.find("/twingoQueryResult?which=scpu"), std::string::npos);
-  EXPECT_NE(page.find("DTC Read SCPU"), std::string::npos);
+  EXPECT_EQ(page.find("twingoScpuDtc"), std::string::npos);
+  EXPECT_EQ(page.find("/triggerTwingoDtcScpu"), std::string::npos);
+  EXPECT_EQ(page.find("DTC Read SCPU"), std::string::npos);
+  EXPECT_EQ(page.find("Read DTC details"), std::string::npos);
+  EXPECT_EQ(page.find("DTC details -"), std::string::npos);
+  EXPECT_EQ(page.find("fault counters"), std::string::npos);
+  EXPECT_EQ(page.find("twingoFdc"), std::string::npos);
+  EXPECT_NE(page.find("DTC Read (ext. protocol"), std::string::npos);                // stays
+  EXPECT_NE(page.find("DTC Erase (ext. protocol"), std::string::npos);               // stays
+  EXPECT_NE(page.find("Answer: <span id='twingoQueryResult'>"), std::string::npos);  // free request stays
+}
+
+TEST(TwingoBuild1013, StatusHtmlShowsTwoColumnsMcpuAndScpu) {
+  TestTwingo b;
+  b.setup();
+  std::string html(BatteryHtmlRenderer::render_dtc_columns_html(*b.dtc, b.get_dtc_second(), "x.json", false).c_str());
+  EXPECT_NE(html.find("<b>MCPU</b>"), std::string::npos);
+  EXPECT_NE(html.find("<b>SCPU</b>"), std::string::npos);
+  EXPECT_NE(html.find("use the Read DTC MCPU button"), std::string::npos);
+  EXPECT_NE(html.find("use the Read DTC SCPU button"), std::string::npos);
+  EXPECT_EQ(html.find("id='dtcJsonStatus'"), std::string::npos);  // no table, no loader
+  // one heading only
+  EXPECT_EQ(html.find("Diagnostic Trouble Codes"), html.rfind("Diagnostic Trouble Codes"));
+  // an SCPU code appears in the SCPU column with the loader once
+  DATALAYER_BATTERY_DTC_TYPE* scpu = b.get_dtc_second();
+  scpu->dtc_codes[0] = 0x1BB587;
+  scpu->dtc_status[0] = 0x2F;
+  scpu->dtc_count = 1;
+  scpu->dtc_last_read_millis = 5000;
+  html = BatteryHtmlRenderer::render_dtc_columns_html(*b.dtc, b.get_dtc_second(), "x.json", false).c_str();
+  EXPECT_NE(html.find("1BB587"), std::string::npos);
+  EXPECT_EQ(html.find("id='dtcJsonStatus'"), html.rfind("id='dtcJsonStatus'"));  // one loader only
+  EXPECT_NE(html.find("id='dtcJsonStatus'"), std::string::npos);
 }
 
 TEST(TwingoBuild0810, ClearAllDtcsOnTheScpu) {
