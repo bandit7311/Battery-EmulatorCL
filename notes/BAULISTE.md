@@ -365,7 +365,7 @@ Bisher nur "Nice-to-have" (Prioritaet 3: "Abschalt-Taster, Sleep inkl. 0x9281 oh
   2. Das "Result" ("BMS kept sending until the end - it did not go to sleep") ist falsch, wenn der Akku in der Stille still war: `record_silence_frame` wird auch im Wake-Buendel (Zustand 8, `BATTERY.cpp:2252`) aufgerufen; dadurch liegt der "letzte Frame" nach dem Ende der Stille und das Urteil faellt auf "hat bis zum Ende gesendet". Korrektur: fuer das Urteil nur Frames bis zum Ende der Stille beruecksichtigen (die Zaehler und die Zeile pro 10 s zaehlen die Wake-Frames weiter). Der Fehler war schon vor Bau 6 bis 11 vorhanden.
 - **Lueckenschluss, in Bau 12 aufgenommen (Nutzer, 13.10.: "ja"):** Die Gesamtzeit in Zeile 5 des Displays (`BATTERY.cpp:3935` und `:3941`) und der Text "safety limit" auf der Stille-Seite (`:1983`) nehmen heute immer das Fenster "Sleep failsafe manual" (`sleep_manual_failsafe_ms()`). Sie sollen die tatsaechliche Dauer des laufenden Laufs zeigen (`silence_limit_ms()`): Fenster beim Knopf, Dauer beim Daily sleep (Bau 9, dort heute falsch), 15 Minuten beim Taster. Dazu braucht `silence_limit_ms()` einen Merker fuer den Taster-Lauf (15 min).
 
-## Zum Bauen vorgemerkt (Bau 13): Block 2 "simulator alt" samt Logik entfernen (Wunsch Nutzer, 14.10.; entschieden; wartet auf "bauen")
+## GEBAUT (Bau 13, 14.10., Commits eff6a85 + 2c6f550, 436 Tests gruen, Golden-Lauf byte-identisch): Block 2 "simulator alt" samt Logik entfernt
 Wortlaut des Nutzers: "alles was an Frameadressen unterhalb 'Simulator alt' steht, entfernen wir samt Logik aus dem Source Code und der Simulator-Seite; die weitere Ausgabe fuer empfangene IDs (nicht in der Liste) belassen wir; unterhalb dessen 'EXPERIMENTAL - unverified' entfernen wir auch; alles Punkt 13".
 Aufbau der Seite `/simulator` (`simulator_html.cpp`, Stand 14.10.):
 - Block 1 (Zeile 370): "ALLE SIMULATIONSWERTE wie im FAHRZEUG - BMS<>EVC-Bus (50 Adressen)" = Zeilen mit Tag R und die Indizes 3 bis 7 (0x19F, 0x426, 0x436, 0x423, 0x69F) - **bleibt**.
@@ -445,3 +445,9 @@ Wunsch:
 ## Offen beim Nutzer
 - **Bench-Test** in Schritten (Plan: `TEST_BENCH_10-10_Aufwecken_und_Zustaende.md`): erst nur `0x423`, dann die uebrigen BMS<>EVC-Frames nach und nach; `0x350` und die anderen Fahrzeug-CAN-Zeilen erst als Zusatz. Logger ohne Filter (RX und TX).
 - Pin-Belegung (CAN H/L) am LBC-Stecker, damit die Aderfarben aus dem Schaltplan zugeordnet werden koennen.
+
+
+### Bau 13 - Stand nach dem Bauen (14.10.)
+- Tabelle 30 Zeilen (SIM_ROW_*), Standardmaske 0x10 (nur 0x69F). NVM-Schluessel TWINGOSIMB1 migriert die alten 71-Zeilen-Schalter (twingo::migrate_old_row_mask).
+- Rest-Aufraeumen (AUFRAEUMLISTE): end_stage/SIM_END, 128-Bit-Maskenmaschinerie (sim_row_*_hi), 0x350-Wake-Byte-Spalten.
+- Als naechstes (nur auf "bauen"): Bau 14, dann Bau 12.
