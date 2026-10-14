@@ -256,12 +256,14 @@ void RenaultTwingoGen1Battery::handle_extended_single_frame(uint16_t pid, const 
       ext_cells_seen++;
     }
     datalayer_battery->status.cell_voltages_mV[cell_index] = cell_mV;
+#ifdef TWINGO_CELLWATCH
     if (datalayer_extended.twingoGen1.cellwatch_enabled &&
         (cell_index + 1) == datalayer_extended.twingoGen1.cellwatch_cell) {
       datalayer_extended.twingoGen1.cellwatch_last_mV = cell_mV;
       datalayer_extended.twingoGen1.cellwatch_sample_count++;
       datalayer_extended.twingoGen1.cellwatch_last_sample_ms = (uint32_t)now;
     }
+#endif
     return;
   }
 
@@ -3183,7 +3185,9 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
     // "pausieren, nicht verzahnen" principle as Cellwatch, just gated on dtc_ext_state too now.
     if (dtc_ext_state != DTC_EXT_IDLE) {
       // Nothing to do here - handle_dtc_ext() above drives the whole exchange by itself.
-    } else if (datalayer_extended.twingoGen1.cellwatch_enabled) {
+    }
+#ifdef TWINGO_CELLWATCH
+    else if (datalayer_extended.twingoGen1.cellwatch_enabled) {
       // Cellwatch active: the normal round-robin is fully paused - previousMillisExtPoll/ext_poll_index
       // are simply never touched here, so it resumes from exactly where it left off once Cellwatch is
       // turned off again (Variante 1: pausieren, nicht verzahnen). Only the selected cell is requested,
@@ -3211,7 +3215,9 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
         logging.printf("EXT UDS TX (cellwatch): PID=0x%04X\n", pid);
 #endif
       }
-    } else if (currentMillis - previousMillisExtPoll >= EXT_POLL_INTERVAL_MS) {
+    }
+#endif
+    else if (currentMillis - previousMillisExtPoll >= EXT_POLL_INTERVAL_MS) {
       previousMillisExtPoll = currentMillis;
       uint16_t pid;
       if (ext_priority_pending_mask != 0 && (currentMillis - ext_priority_start_ms) < EXT_PRIORITY_TIMEOUT_MS) {
@@ -3386,6 +3392,7 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     // Bau 15: the control block of the bus (moved here from the /simulator page)
     content += simulator_controls_html();
 
+#ifdef TWINGO_CELLWATCH
     content +=
         "<h4>Cellwatch (fast single-cell poll): "
         "<input type='checkbox' id='twingoCellwatchEnable' onclick='twingoSetCellwatchEnable(this.checked)' ";
@@ -3396,6 +3403,7 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
         "'> <button onclick='twingoSetCellwatchCell()'>Set</button> "
         "<button onclick=\"window.open('/cellwatch','_blank')\">Open Cellwatch page</button>"
         " - pauses the normal cell round-robin while enabled</h4>";
+#endif
 
 #ifdef TWINGO_SIM_PAGE
     content +=
@@ -3481,8 +3489,10 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
         "});}";
     content += "function twingoSetSleepButton(v){";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoSleepButton?value='+(v?1:0),true);x.send();}";
+#ifdef TWINGO_CELLWATCH
     content += "function twingoSetCellwatchEnable(v){";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoCellwatchEnable?value='+(v?1:0),true);x.send();}";
+#endif
     content += "function twingoSetDtcAllStatus(v){";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoDtcAllStatus?value='+(v?1:0),true);x.send();}";
     content += "setInterval(function(){var r=document.getElementById('twingoTxStat');if(!r){return;}";
@@ -3508,9 +3518,11 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "if(t!=='OK'){r.textContent=t;return;}r.textContent='requested';twingoPoll('free',r);});}";
     content += "window.addEventListener('load',function(){try{var s=localStorage.getItem('twingoQueryHex');";
     content += "if(s){document.getElementById('twingoQueryHex').value=s;}}catch(e){}});";
+#ifdef TWINGO_CELLWATCH
     content += "function twingoSetCellwatchCell(){";
     content += "var c=document.getElementById('twingoCellwatchCell').value;";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoCellwatchCell?value='+c,true);x.send();}";
+#endif
     content += "</script>";
   }
 

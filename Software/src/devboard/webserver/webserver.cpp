@@ -48,7 +48,7 @@ static MyTimer ota_progress_timer = MyTimer(1000);
 #include "can_logging_html.h"
 #include "can_replay_html.h"
 #include "cellmonitor_html.h"
-#include "cellwatch_html.h"
+#include "cellwatch_html.h"  // only declares cellwatch_processor with TWINGO_CELLWATCH (Bau 20)
 #include "debug_logging_html.h"
 #include "events_html.h"
 #include "index_html.h"
@@ -914,6 +914,7 @@ void init_webserver() {
     request->send(400, "text/plain", "bad value");
   });
 
+#ifdef TWINGO_CELLWATCH
   // Cellwatch: runtime-only diagnostic (fast single-cell poll), NOT persisted to NVM on purpose - always
   // starts disabled after a reboot, see datalayer_extended.h.
   def_route_with_auth("/editTwingoCellwatchEnable", server, HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -961,6 +962,7 @@ void init_webserver() {
   def_route_with_auth("/cellwatch", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/html", index_html, cellwatch_processor);
   });
+#endif  // TWINGO_CELLWATCH
 
 #ifdef TWINGO_SIM_PAGE
   // Route for going to the CAN Signal Simulator page (30 rows and the other received IDs, see simulator_html.cpp)

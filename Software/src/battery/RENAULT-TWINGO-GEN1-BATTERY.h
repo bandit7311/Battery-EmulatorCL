@@ -19,6 +19,11 @@
 //    in the flash wins at every start.
 // #define TWINGO_SIM_PAGE
 
+// 1b. Cellwatch (Bau 20): the fast poll of ONE cell with its own page /cellwatch and the row on the Advanced page. Take the two
+//    slashes away to build it (or add -DTWINGO_CELLWATCH). WITHOUT it (default) the row, the page, its routes and the extra
+//    branch of the cell poll are not built; the normal round-robin of the cells is not touched.
+// #define TWINGO_CELLWATCH
+
 // 2. Which frames of the LBC<>EVC bus the emulator sends (one flag per row of the table sim_signals, same order).
 //    true = send. Default (author's bench, 14.10.): 0x157 0x0EC 0x0ED 0x19F 0x426 0x436 0x423 0x419 0x428 0x42F 0x435 0x69F.
 constexpr bool SIM_ON_19F = true;
@@ -655,8 +660,10 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // previousMillisExtPoll, so the round-robin's position/phase is left untouched while paused.
   // 50ms is an unverified starting guess, not a measured minimum round-trip for this BMS - shorten
   // or lengthen once real behavior is observed.
+#ifdef TWINGO_CELLWATCH
   unsigned long previousMillisCellwatch = 0;
   static const unsigned long CELLWATCH_MIN_GAP_MS = 50;
+#endif
 
   // Generic ISO-TP multi-frame reassembly buffer for the extended channel.
   // Only ever needed for EXT_POLL_BALANCE_SWITCHES (96 bit doesn't fit a

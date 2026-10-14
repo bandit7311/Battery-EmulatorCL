@@ -583,11 +583,15 @@ TEST(TwingoBusPage, ControlBlockHasAllItsElementsAndRoutes) {
   EXPECT_EQ(c.find('%'), std::string::npos);  // template engine
   // the two row buttons stay on the simulator page
   EXPECT_EQ(c.find("/twingoSimAllOff"), std::string::npos);
-  // and it sits on the Advanced page between "Age minute factor" and "Cellwatch"
+  // and it sits on the Advanced page between "Age minute factor" and "Cellwatch" (or what follows it without Cellwatch)
   std::string adv(b.get_uds_info_html().c_str());
   const size_t age = adv.find("Age minute factor");
   const size_t fmt = adv.find("id='busfmt0'");
+#ifdef TWINGO_CELLWATCH
   const size_t cw = adv.find("Cellwatch (fast single-cell poll)");
+#else
+  const size_t cw = adv.find("id='twingoQueryHex'");  // without Cellwatch (Bau 20) the free request comes next
+#endif
   ASSERT_NE(age, std::string::npos);
   ASSERT_NE(fmt, std::string::npos);
   ASSERT_NE(cw, std::string::npos);

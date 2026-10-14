@@ -1,5 +1,8 @@
 #include "cellwatch_html.h"
 #include <Arduino.h>
+#include "../../battery/RENAULT-TWINGO-GEN1-BATTERY.h"  // the switch TWINGO_CELLWATCH (Bau 20)
+
+#ifdef TWINGO_CELLWATCH
 
 // Cellwatch diagnostic page. Deliberately NOT using a fixed reload timer (unlike /cellmonitor,
 // /events, the main page): this is meant to show individual samples arriving as fast as the BMS
@@ -69,3 +72,4 @@ String cellwatch_processor(const String& var) {
   }
   return String();
 }
+#endif  // TWINGO_CELLWATCH
