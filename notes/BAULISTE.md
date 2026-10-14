@@ -536,3 +536,8 @@ Wunsch:
 **Vorsicht beim Bau:** der Cellwatch-Zweig steht in einer `if / else if / else`-Kette der Abfrage (`:3177-3241`); bei AUS muss die Kette ohne den Zweig dasselbe tun wie heute bei `cellwatch_enabled == false` (Golden-Lauf!).
 **Tests:** beide Zustaende uebersetzen (CMake-Option wie bei der Seite, z.B. `TWINGO_CELLWATCH` ON/OFF); AUS: Advanced-Seite enthaelt weder "Cellwatch" noch `/cellwatch`; EIN: Zeile und Knopf wie vorher; Abfrage der Zellen unveraendert (Golden-Lauf in beiden Zustaenden byte-identisch bei `cellwatch_enabled = false`); vorhandener Test in `TwingoBusModeTest.cpp` (Erwaehnung von Cellwatch) anpassen. `cellwatch_html.cpp` wird im Testbuild nicht uebersetzt (steht nicht in der Quellenliste der Tests).
 **Zu beachten (fuer den Nutzer):** Wer Cellwatch am Geraet benutzt, muss danach `#define TWINGO_CELLWATCH` einschalten.
+
+## GEBAUT am 14.10. (Bau 19 und 20; Branch twingo-bau7-schlaf-anforderung; Tests 464 / 327 / 464 gruen; Golden-Lauf in allen drei Konfigurationen byte-identisch; ESP-Build und Bench-Test offen)
+- **Bau 19:** Antwort auf "Erase DTC": `01 54` -> "OK (positive response 54)"; anderes Einzelbyte -> "short reply (1 byte: XX)"; zwei Bytes -> beide; negativ wie bisher.
+- **Bau 20:** `// #define TWINGO_CELLWATCH` (aus) im Parameterblock: Zeile auf der Advanced-Seite, Seite `/cellwatch`, drei Routen, Treiber-Zweig und Messwert-Mitschrift nur mit dem Schalter. Zum Weiterarbeiten mit Cellwatch einschalten (oder `-DTWINGO_CELLWATCH`).
+- **Tests lokal:** `cmake -DTWINGO_SIM_PAGE=ON|OFF -DTWINGO_CELLWATCH=ON|OFF` (Optionen in `test/CMakeLists.txt`).
