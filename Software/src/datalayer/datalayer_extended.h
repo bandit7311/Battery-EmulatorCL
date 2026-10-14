@@ -279,25 +279,6 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
    *  NVM key TWCELLSRC. */
   bool cell_source_broadcast;
 
-  /** EXPERIMENTAL (02.10.): when 0x55D is enabled on /simulator, send an unsourced static
-   *  "drive/discharge active" byte pattern instead of the real-log steady-state content. Off by
-   *  default. See the long code comment at SIM_55D_DRIVE_MODE_DATA in
-   *  RENAULT-TWINGO-GEN1-BATTERY.cpp for why this is kept separate and unverified. */
-  bool sim_55d_drive_mode_enabled = false;
-
-  /** EXPERIMENTAL (02.10.), NOT persisted (runtime only, like Cellwatch): off = send the REST/idle
-   *  content for 0x55D continuously; the rising edge (off->on) of this checkbox itself starts the
-   *  staged precharge/main-relay sequence (see sim_55d_stage_start_ms below), which then settles on
-   *  the normal/drive content while this stays on. Falling edge (on->off) reverts to REST immediately,
-   *  no staged animation back. */
-  bool sim_55d_rest_active_enabled = false;
-  bool sim_55d_rest_active_prev = false;  // internal: detects the rising edge above, not a UI setting
-
-  /** EXPERIMENTAL (02.10.), NOT persisted: start timestamp (millis()) of the staged precharge/main-relay
-   *  sequence, set automatically on the rising edge of sim_55d_rest_active_enabled. 0 = not running. See
-   *  RenaultTwingoGen1Battery::SIM_55D_STAGE_DURATION_MS for the (guessed) per-stage timing. */
-  unsigned long sim_55d_stage_start_ms = 0;
-
   /** Status mask for the next read_DTC() call - 0x09 (Active/Confirmed, default) or 0xFF (all statuses,
    *  same mask an external ELM tool used successfully: 01.10., confirmed 183 entries, 7 non-zero incl.
    *  all 6 already-known DTCs). Settable on "More Battery Info" via a checkbox, NOT persisted to NVM. */
@@ -1166,8 +1147,8 @@ class DataLayerExtended {
     twingoGen1.cellwatch_cell = 1;
     twingoGen1.bus_state = 1;  // awake (door open)
     twingoGen1.simulator_enabled_mask =
-        0x00000387;  // working set (09.10.): 0x090, 0x242, 0x350, 0x69F, 0x53B, 0x214 on; the Zoe frames 0x19F, 0x426,
-                     // 0x436, 0x423 off (rows 3, 4, 5, 6). A mask saved in the NVM still wins.
+        0x00000010;  // working set (Bau 13, 14.10.): only 0x69F on (row 4); the Zoe frames 0x19F, 0x426, 0x436, 0x423 and
+                     // the frames of the bus off. A mask saved in the NVM still wins.
     twingoGen1.dtc_ext_read_mask = 0x09;  // Active/Confirmed - memset(0) above would otherwise leave 0x00
     twingoGen1.age_pack_value = 1025301;  // seed of the vehicle age, see twingo::AGE_SEED_*
     twingoGen1.age_pack_unix = 1791590400;

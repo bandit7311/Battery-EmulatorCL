@@ -99,7 +99,14 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   };
   // 28 rows of 02.10./03.10. + 7 rows of 04.10. (0x0C6, 0x12E, 0x29A, 0x29C, 0x2B7, 0x45C, 0x657) + 4 rows of 08.10.
   // (0x57F, 0x599, 0x62D, 0x523) + 0x5D7 + Zoe Gen2 frames 0x373/0x375/0x376 + 0x0EE/0x5F8/0x6BF (09.10.), all off by default
-  static const uint8_t SIM_SIGNAL_COUNT = 71;  // 46 + 25 rows 'R' (10.10., frames of the LBC<>EVC bus)
+  static const uint8_t SIM_SIGNAL_COUNT = 30;  // 5 rows of the Zoe form (I) + 25 rows 'R' (frames of the LBC<>EVC bus)
+  // Position of the five Zoe-form rows (bit n of the row mask = sim_signals[n]); the rows 0x090, 0x242, 0x350, 0x53B, 0x214 and
+  // the other frames of the vehicle CAN were removed with Bau 13 (14.10.).
+  static const uint8_t SIM_ROW_19F = 0;
+  static const uint8_t SIM_ROW_426 = 1;
+  static const uint8_t SIM_ROW_436 = 2;
+  static const uint8_t SIM_ROW_423 = 3;
+  static const uint8_t SIM_ROW_69F = 4;
   static const SimSignal sim_signals[SIM_SIGNAL_COUNT];
 
   // Row switches (bit i = sim_signals[i]). 64 bit wide since 04.10.: rows 32-34 do not fit into 32 bits.
@@ -110,16 +117,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // its backing state are private, see read_DTC() nearby in the .cpp for the matching pattern.
   void read_DTC_details();
 
-  // Steady 0x350 frame in normal operation: false = C7 like the vehicle while it is ready to drive (default),
-  // true = C3 with `14 14 96 45` as the emulator sent it before 03.10. Runtime switch on the /simulator page
-  // (diagnostic tests: some ECUs refuse to clear DTCs while the vehicle is "driving"), not stored, applies only to
-  // the steady frame, the sleep sequence and the wake burst send their own 0x350.
-  static bool steady_350_use_c3;
-
-  // Switch A (04.10., /simulator page, runtime only like steady_350_use_c3): false = shutdown sequence, wake-up,
-  // 0x214 and the end of the fast frames exactly as before; true = "like the car" (measured in the real vehicle
-  // logs of 02.10. and 04.10.): stage times and 0x350 bytes of the shutdown, the wake-up sequence, 0x214 also
-  // while awake, and every row ends at the point given by its SimEnd value.
+  // Switch A (04.10., /simulator page, runtime): false = shutdown sequence and wake-up with the old stage times;
+  // true = "like the car" (measured in the real vehicle logs of 02.10. and 04.10.): stage times of the shutdown and
+  // the wake-up sequence.
   static bool shutdown_like_car;
   // Vehicle age (0x350 bytes 1-3, 0x523, 0x376; point 17, 08.10.): never the clock. Automatic mode: pack reference
   // (value + Unix time, seed 1,311,344 min at 06.10.2026 20:40:21 UTC) carried forward at +1 per minute plus one
@@ -138,13 +138,10 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static void age_manual_set(uint32_t minutes, int64_t unix_s = 0);  // unix_s 0 = unknown, millis() counts instead
   static void age_manual_clear();
   static void age_set_factor(uint16_t factor);  // Bau 9: the age keeps its value, then counts +1 per `factor` minutes
-  // Odometer (runtime only): 0x5D7 (row 39, kilometres * 100 << 4 in bytes 2-5, up to 2,684,354 km) and the Zoe frame
-  // 0x426 (I row 4, bytes 4-6 = km * 256, so 0 .. 65,535 km; byte 7 free). Defaults: 19,400 km (the value the pack
-  // showed as $925F), byte 7 = 0x40.
-  static const uint32_t ODO_5D7_MAX_KM = 2684354UL;
+  // Odometer: the Zoe frame 0x426 (I row, bytes 4-6 = km * 256, so 0 .. 65,535 km; byte 7 free) and the frame 0x426 of the
+  // bus. Byte 7 default 0x40.
   static const uint32_t ODO_426_MAX_KM = 65535UL;         // old Zoe form: km * 256 in 24 bit
   static const uint32_t ODO_426_BUS_MAX_KM = 16777215UL;  // vehicle form: km in 24 bit (bytes 3-5)
-  static uint32_t odo_5d7_km;
   static uint32_t odo_426_km;
   static uint8_t odo_426_b7;
   // Time in the Zoe frame 0x436 (I row 5), bytes 1-3 (24 bit minutes, high byte first). Default: 14 00 xx with the
@@ -357,20 +354,6 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
                                    .ID = 0x69F,
                                    .data = {0x46, 0x13, 0x88, 0x6F}};
 
-  // Dynamic content of 0x1F8 / 0x18A / 0x42E is handled as special cases inside send_simulator_signals(),
-  // same mechanism as the 0x55D drive-mode override - see RENAULT-TWINGO-GEN1-BATTERY.cpp.
-  //  - 0x18A: byte 7 rolling counter (high nibble), byte 6 = CRC-8 J1850 over the other seven bytes.
-  //  - 0x42E: bytes 3/4 carry the measured pack voltage (0.5 V per bit); nothing is sent while it is unknown.
-  //  - 0x1F8: bits 40-50 (byte 5 + top 3 bits of byte 6) are the motor speed (10 rpm per bit). The vehicle
-  //    sends FA (invalid) first when the EVC starts, then 00 and a short fade 20,0E,06,03,01,00 (11 frames
-  //    in the log), then 0 (the car stands). Same here after every start of the transmission.
-  uint8_t sim_18a_counter = 0x07;  // nibble index into the observed 0x70,0x80,...,0xF0,0x00... sequence
-  bool sim_1f8_running = false;    // false = the next 0x1F8 frame starts the FA / fade sequence again
-  unsigned long sim_1f8_start_ms = 0;
-  uint8_t sim_1f8_step = 0;
-  static const unsigned long SIM_1F8_INVALID_MS = 500;  // length of the FA phase (the log only shows >= 440 ms)
-  static const uint8_t SIM_1F8_FADE_STEPS = 10;
-
   unsigned long sim_last_send_ms[SIM_SIGNAL_COUNT] = {0};
   // Bus mode "like the vehicle" (10.10.): frame counters (index = position in twingo_bus::FRAMES) and cycle timers of
   // the five Zoe-form frames when they are sent in the format of the real bus.
@@ -411,109 +394,24 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
  private:
   void send_simulator_signals(unsigned long currentMillis);
 
-  // EXPERIMENTAL (02.10.): staged precharge/main-relay sequence for 0x55D, auto-triggered by the rising
-  // edge of datalayer_extended.twingoGen1.sim_55d_rest_active_enabled (edge detection + timer state also
-  // live there, not as battery-instance members, so the webserver route can set the checkbox value
-  // without needing the Twingo-specific battery type). Intermediate byte0 values (0x02/0x04) are GUESSED
-  // (Gemini's original, unconfirmed suggestion), not from any log.
-  static const unsigned long SIM_55D_STAGE_DURATION_MS = 200;  // per stage, GUESSED, no real timing data
-
-  // Experiment (only sent during the shutdown sequence's C3/C2 stages, see transmit_can()): 0x214 was
-  // found in Log_Twingo_Ladung.log changing in lockstep with 0x350's own C3/C2 ("08 00") vs. C0/00/awake
-  // ("F8 3E") states, only 0.03-0.19s after each transition - possibly the EVC's own wake/sleep request
-  // that JB2 exposes as diagnostic DID $5015 ("Vsx_evc_wkp_req", GoToSleep/WakeUp), though that is not
-  // confirmed from any spec, only this timing correlation. Not sent outside the shutdown sequence.
-  CAN_frame TWINGO_214_EVC_SLEEP_REQ = {.FD = false, .ext_ID = false, .DLC = 2, .ID = 0x214, .data = {0xF8, 0x3E}};
-
-  // Mode "like the car" (shutdown_like_car), real vehicle log of 04.10., every 20 ms (checkbox of row 0x214):
-  //  wake-up / start of the transmission: once `FB FE`, then ten times `F8 3E`, then awake: `08 02`;
-  //  shutdown: `08 02` in C3 and C2, `F8 3E` in C0, nothing in 00 (and none in the silence).
-  static const unsigned long INTERVAL_214_CAR_MS = 20;
-  static const uint8_t CAR214_START_F83E_COUNT = 10;
-  unsigned long previousMillis_214 = 0;
-  uint8_t car214_phase = 0;  // 0 = `FB FE` pending, 1 = `F8 3E` x10, 2 = awake (`08 02`)
-  uint8_t car214_count = 0;
-  void send_214_like_car(unsigned long currentMillis);
-
-  // 0x29A / 0x0C6 (rows 28 and 30): rolling counter and checksum byte, see send_simulator_signals().
-  uint8_t sim_0c6_counter = 0;  // index 0-15 into A0, A2 ... BE
-  uint8_t sim_29a_counter = 0;  // 0-15
-  uint8_t sim_0ee_counter = 0;  // 0-15, byte 6 of 0x0EE
-  uint8_t sim_373_counter = 0;  // 0-9, bytes 2-3 swap every 5 frames
-  uint8_t sim_5d7_counter = 0;  // 0-31, byte 6 = C0 + 2 * counter
-
-  // HV state model (point 15): times of the 0x350 stages, see twingo::hv_compute(). hv_observe_350() is called by
-  // every 0x350 that is sent; the rows 0x57F / 0x599 / 0x62D and the HV bits of 0x1FD read hv_now().
-  twingo::HvTimes hv_times;
-  bool hv_woke =
-      false;  // a wake-up (C0 in state 8) was seen: the next C7 is a real connect, not "HV closed since the start"
-  uint8_t hv_frames_sent[4] = {0, 0, 0,
-                               0};  // since the wake-up: 0x1FD, 0x599, 0x62D, 0x5D7 (first frames are "invalid")
-  void hv_observe_350(uint8_t byte0, unsigned long now);
-  twingo::HvOut hv_now(unsigned long now) const;
-
   // Whether a row of the simulator table may still be sent in the current state of the shutdown sequence or of
   // the wake-up (the end rules of 04.10.). In the mode "as before" the old rules stay in place.
-  bool sim_row_allowed_now(const SimSignal& s) const;
+  bool sim_row_allowed_now() const;
 
   // 0x350 bytes 1-3: 24-bit "vehicle age" in minutes (the vehicle counts real minutes, zero point 15.02.2021 11:13:08
   // UTC, spread +-15 s; the LBC stores the value as $9261 "Absolute Time of Vehicle"). Used by the normal 0x350 frame
   // AND by the shutdown sequence / wake burst. vehicle_age_available() is false as long as no age can be given (no
   // valid clock in the automatic mode); then no frame that carries the age is sent.
   bool vehicle_age_available(unsigned long nowMillis, uint32_t& minutes);
-  bool fill_vehicle_age_350(uint8_t* b123, unsigned long nowMillis);  // 3 bytes, high byte first; false = no age yet
-  void age_note_pack_read(unsigned long nowMillis);                   // after 0x9261 / 0x91C1 were read
-  bool unix_now_valid(int64_t& now_unix);                             // clock set and plausible
+  void age_note_pack_read(unsigned long nowMillis);  // after 0x9261 / 0x91C1 were read
+  bool unix_now_valid(int64_t& now_unix);            // clock set and plausible
 
 #ifdef TWINGO_TIME_FRAMES
-  // Fixed date in 0x53B: 15.03.2025 was a Saturday (weekday 5 with Monday = 0), year bits = year - 2024.
-  static const uint8_t TIME_53B_BYTE2 = 0x06;
-  static const uint8_t TIME_53B_YEAR_BITS = 1;
-  static const uint8_t TIME_53B_MONTH = 3;
-  static const uint8_t TIME_53B_DAY = 15;
-  static const uint8_t TIME_53B_WEEKDAY = 5;
-  static const uint32_t TIME_FALLBACK_START_S = 12UL * 3600UL;  // 12:00:00 until a real time is available
-  static constexpr time_t TIME_VALID_AFTER = 1700000000;        // 2023-11-14, anything earlier = clock not set
+  static constexpr time_t TIME_VALID_AFTER = 1700000000;  // 2023-11-14, anything earlier = clock not set
 
-  CAN_frame TWINGO_53B_CLOCK = {.FD = false,
-                                .ext_ID = false,
-                                .DLC = 6,
-                                .ID = 0x53B,
-                                .data = {0x00, 0x00, 0x06, 0x40, 0x30, 0x7D}};
-  // Run frame: state C7 like the vehicle while it is ready to drive; byte 4-7 = `14 98 94 45`, the most common
-  // value in both vehicle logs (877 of 1293 resp. 344 of 395 C7 frames). Bytes 1-3 (age) are set when sending.
-  CAN_frame TWINGO_350_RUN = {.FD = false,
-                              .ext_ID = false,
-                              .DLC = 8,
-                              .ID = 0x350,
-                              .data = {0xC7, 0x00, 0x00, 0x00, 0x14, 0x98, 0x94, 0x45}};
   bool ntp_started = false;
-  bool time_fallback_started = false;
-  unsigned long time_fallback_start_ms = 0;
   unsigned long previousMillis_time_service = 0;
   void time_service(unsigned long currentMillis);
-  void send_time_frames(unsigned long currentMillis);  // 0x53B, 1 Hz
-  void send_run_350();                                 // 0x350 run frame, called every 100 ms
-#endif
-
-#ifdef TWINGO_FAST_VEHICLE_FRAMES
-  // 0x090 (7 bytes, 10 ms): b0 = 00, b1 = FF, b2 = E0 | 4-bit counter, b3 = CRC, b4..b6 = F0 7F F0.
-  // 0x242 (8 bytes, 20 ms): b0 = 00, b1 = 4-bit counter << 3, b2..b6 = FF EF FE 00 0D, b7 = CRC.
-  CAN_frame TWINGO_090_FAST = {.FD = false,
-                               .ext_ID = false,
-                               .DLC = 7,
-                               .ID = 0x090,
-                               .data = {0x00, 0xFF, 0xE0, 0x00, 0xF0, 0x7F, 0xF0}};
-  CAN_frame TWINGO_242_FAST = {.FD = false,
-                               .ext_ID = false,
-                               .DLC = 8,
-                               .ID = 0x242,
-                               .data = {0x00, 0x00, 0xFF, 0xEF, 0xFE, 0x00, 0x0D, 0x00}};
-  uint8_t fast_090_counter = 0;
-  uint8_t fast_242_counter = 0;
-  unsigned long previousMillis_090 = 0;
-  unsigned long previousMillis_242 = 0;
-  void send_fast_frames(unsigned long currentMillis);
 #endif
 
   // Boot plausibility filter for the temperatures of the 0x424 broadcast (BATTERY_OVERHEAT used to trigger
@@ -811,19 +709,6 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   }
   void transmit_reset_nvrol_frames(void);
 
-  // Vehicle-state broadcast (0x350), captured from a real AC-charge session (Log_Twingo_Ladung.log):
-  // byte 0 is the BCM vehicle state (0xC3 BAT_TEMPO_LEVEL while active, 0xC2 CUT_OFF_PENDING, 0xC0
-  // SLEEPING, then 0x00), bytes 1-3 the 24-bit vehicle age (computed from the real time, see vehicle_age_minutes()),
-  // byte 4/6 constant, bytes 5/7 depend on the state. In normal operation it is sent every 100 ms
-  // (TWINGO_TIME_FRAMES, awake state C7); the shutdown sequence and the wake burst below replace that
-  // frame while they run.
-  void send_vehicle_state_350(uint8_t byte0);
-  void send_wake_burst_frame(uint8_t index);  // 0 = the initial C0 frame, 1..10 = the ten C3 frames
-  // One 0x350 frame with explicit bytes 5-7 (byte 4 is always 0x14), age from vehicle_age_minutes().
-  void send_350_frame(uint8_t byte0, uint8_t b5, uint8_t b6, uint8_t b7);
-  // 0x350 of the shutdown sequence in the mode "like the car" (stage times and bytes of the real vehicle log).
-  void send_powerdown_350_car(unsigned long now);
-
   // Shutdown sequence (NVROLstateMachine == 7): 0x350 walks C3 -> C2 -> C0 -> 00 like the real vehicle
   // (stage durations from the captured log); our own broadcast frames (423/19F/426/436/69F) keep running
   // through C3/C2/C0 and stop once the 00 stage begins, then true silence (state 5) follows.
@@ -837,18 +722,12 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   //  C0: three frames within about 30 ms (`14 10 96 45`, then twice `14 70 96 45`), after that every 100 ms
   //  `14 70 96 85` (together 10.0 s); 00: 0.9 s `14 70 96 85`, then silence.
   static const unsigned long POWERDOWN_C3_MS_CAR = 63200;
-  static const unsigned long POWERDOWN_C3_PART1_MS_CAR = 3100;
   static const unsigned long POWERDOWN_C2_MS_CAR = 60000;
   static const unsigned long POWERDOWN_C0_MS_CAR = 10000;
   static const unsigned long POWERDOWN_00_MS_CAR = 900;
-  static const unsigned long POWERDOWN_C0_BURST_GAP_MS = 10;  // spacing of the three C0 entry frames
-  uint8_t powerdown_c0_burst = 0;                             // C0 entry frames sent so far (0-3)
-  unsigned long powerdown_c0_burst_ms = 0;
   uint8_t powerdown_stage = 0;  // 0=C3, 1=C2, 2=C0, 3=00
   unsigned long powerdown_stage_start_ms = 0;
   unsigned long powerdown_start_ms = 0;
-  unsigned long previousMillis_350 = 0;
-  static const unsigned long INTERVAL_350_MS = 100;
   void start_powerdown(void);
 
   // Wake-up burst (NVROLstateMachine == 8), same idea as the user's own OVMS RT32 module's
@@ -863,7 +742,6 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // The other rows start as before with the first wake frame (in the log of 04.10. the other ECUs begin within
   // 0.1 s after the first C0 frame, not only with the first C3 frame).
   struct WakeStepCar {
-    uint8_t byte0, b5, b6, b7;
     uint8_t count;  // frames of this step (0 = the hold step, count from WAKE_HOLD_C3_MS)
   };
   static const uint8_t WAKE_STEP_COUNT_CAR = 12;
@@ -873,7 +751,6 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static const unsigned long WAKE_FIRST_FRAMES_INTERVAL_CAR_MS = 50;
   static const uint8_t WAKE_FIRST_FRAMES_CAR = 4;
   static uint16_t wake_total_frames_car();
-  static bool wake_frame_car(uint16_t index, uint8_t& byte0, uint8_t& b5, uint8_t& b6, uint8_t& b7);
   uint8_t wake_burst_index = 0;
   unsigned long wake_burst_last_ms = 0;
   void start_wake_burst(void);

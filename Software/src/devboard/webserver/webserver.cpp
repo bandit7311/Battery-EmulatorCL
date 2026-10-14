@@ -226,17 +226,20 @@ void init_webserver() {
         datalayer_extended.twingoGen1.daily_sleep_duration_min = 5;
       }
       {
-        // 64 bit mask since 04.10.: TWINGOSIMMASK = bits 0-31 (unchanged key), TWINGOSIMHI = bits 32 and up.
-        uint64_t current = datalayer_extended.twingoGen1.simulator_enabled_mask;
-        uint64_t lo = prefs.getUInt("TWINGOSIMMASK", (uint32_t)(current & 0xFFFFFFFFULL));
-        uint64_t hi = prefs.getUInt("TWINGOSIMHI", (uint32_t)(current >> 32));
-        datalayer_extended.twingoGen1.simulator_enabled_mask = (hi << 32) | lo;
-        // 128 rows since 10.10.: bits 64-95 / 96-127, default 0 (off) - no migration of stored switches needed.
-        uint64_t lo2 = prefs.getUInt(
-            "TWINGOSIMHI2", (uint32_t)(datalayer_extended.twingoGen1.simulator_enabled_mask_hi & 0xFFFFFFFFULL));
-        uint64_t hi2 =
-            prefs.getUInt("TWINGOSIMHI3", (uint32_t)(datalayer_extended.twingoGen1.simulator_enabled_mask_hi >> 32));
-        datalayer_extended.twingoGen1.simulator_enabled_mask_hi = (hi2 << 32) | lo2;
+        // Row switches (Bau 13, 14.10.): 30 rows in one 32-bit word, key TWINGOSIMB1. Without that key the switches of the old
+        // firmware (71 rows: TWINGOSIMMASK = bits 0-31, TWINGOSIMHI = 32-63, TWINGOSIMHI2 = 64-95, TWINGOSIMHI3 = 96-127) are
+        // carried over to the new numbering; without both the default of the datalayer stays.
+        if (prefs.isKey("TWINGOSIMB1")) {
+          datalayer_extended.twingoGen1.simulator_enabled_mask =
+              prefs.getUInt("TWINGOSIMB1", (uint32_t)datalayer_extended.twingoGen1.simulator_enabled_mask);
+        } else if (prefs.isKey("TWINGOSIMMASK") || prefs.isKey("TWINGOSIMHI")) {
+          const uint64_t lo =
+              (uint64_t)prefs.getUInt("TWINGOSIMMASK", 0) | ((uint64_t)prefs.getUInt("TWINGOSIMHI", 0) << 32);
+          const uint64_t hi =
+              (uint64_t)prefs.getUInt("TWINGOSIMHI2", 0) | ((uint64_t)prefs.getUInt("TWINGOSIMHI3", 0) << 32);
+          datalayer_extended.twingoGen1.simulator_enabled_mask = twingo::migrate_old_row_mask(lo, hi);
+        }
+        datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
       }
       datalayer_extended.twingoGen1.bus_state =
           (uint8_t)prefs.getUInt("TWBUSSTATE", datalayer_extended.twingoGen1.bus_state);
@@ -259,8 +262,6 @@ void init_webserver() {
           prefs.getBool("TWCELLSRC", datalayer_extended.twingoGen1.cell_source_broadcast);
       RenaultTwingoGen1Battery::shutdown_like_car =
           prefs.getBool("TWLIKECAR", RenaultTwingoGen1Battery::shutdown_like_car);  // switch "like the car" (Bau 7)
-      datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled =
-          prefs.getBool("TWINGOSIM55DDRV", datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled);
       prefs.end();
     }
   }
@@ -906,26 +907,18 @@ void init_webserver() {
     request->send(200, "text/html", index_html, cellwatch_processor);
   });
 
-  // Route for going to the CAN Signal Simulator page (35 signals, see simulator_html.cpp)
+  // Route for going to the CAN Signal Simulator page (30 rows and the other received IDs, see simulator_html.cpp)
   def_route_with_auth("/simulator", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    // The page is big (about 60 kB): it is delivered in four parts (A-D) so that no 60 kB String has to exist at once.
+    // The page is big (about 40 kB): it is delivered in three parts (A, B, D) so that no 40 kB String has to exist at once.
     static String sim_template;
     if (sim_template.length() == 0) {
       sim_template = index_html;
-      sim_template.replace("%X%", "%A%%B%%C%%D%");
+      sim_template.replace("%X%", "%A%%B%%D%");
     }
     request->send(200, "text/html", sim_template.c_str(), simulator_processor);
   });
 
-  // Steady 0x350 frame: C7 (value=0, default) or C3 (value=1), runtime only (03.10.).
-  def_route_with_auth("/editTwingoSteady350", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    if (request->hasParam("value")) {
-      RenaultTwingoGen1Battery::steady_350_use_c3 = request->getParam("value")->value().toInt() != 0;
-    }
-    request->send(200, "text/plain", "OK");
-  });
-
-  // Switch A (04.10.): shutdown sequence, wake-up, 0x214 and end of the rows - 0 = as before (default), 1 = like the
+  // Switch A (04.10.): stage times of the shutdown sequence and of the wake-up - 0 = as before (default), 1 = like the
   // car. Kept over a restart since 12.10. (key TWLIKECAR, Bau 7).
   def_route_with_auth("/editTwingoCarMode", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (request->hasParam("value")) {
@@ -1017,8 +1010,7 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
-  // Odometer (kept over a restart since 11.10.): which=5d7 (kilometres up to 2684354) or which=426 (kilometres 0..65535, plus b7 = byte 7,
-  // decimal 0..255).
+  // Odometer (kept over a restart since 11.10.): which=426 (kilometres, plus b7 = byte 7, decimal 0..255).
   def_route_with_auth("/editTwingoOdo", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (!request->hasParam("which") || !request->hasParam("km")) {
       request->send(200, "text/plain", "missing which/km");
@@ -1038,13 +1030,7 @@ void init_webserver() {
       }
     }
     uint32_t v = (uint32_t)km.toInt();
-    if (which == "5d7") {
-      if (v > RenaultTwingoGen1Battery::ODO_5D7_MAX_KM) {
-        request->send(200, "text/plain", "too large (at most 2684354)");
-        return;
-      }
-      RenaultTwingoGen1Battery::odo_5d7_km = v;
-    } else if (which == "426") {
+    if (which == "426") {
       if (v > RenaultTwingoGen1Battery::ODO_426_BUS_MAX_KM) {
         request->send(200, "text/plain", "too large (at most 16777215)");
         return;
@@ -1059,15 +1045,15 @@ void init_webserver() {
         RenaultTwingoGen1Battery::odo_426_b7 = (uint8_t)b7;
       }
     } else {
-      request->send(200, "text/plain", "which: 5d7 or 426");
+      request->send(200, "text/plain", "which: 426");
       return;
     }
     RenaultTwingoGen1Battery::sim_settings_save();
     request->send(200, "text/plain", "OK");
   });
 
-  // One checkbox toggles one bit of simulator_enabled_mask (64 bit since 04.10.), persisted to NVM as two uint32
-  // (TWINGOSIMMASK = bits 0-31 as before, TWINGOSIMHI = bits 32 and up).
+  // One checkbox toggles one bit of simulator_enabled_mask (30 rows since 14.10.), persisted to NVM as one uint32
+  // (TWINGOSIMB1; the keys of the old numbering are only read once, see init_webserver()).
   def_route_with_auth("/editTwingoSimSignal", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (request->hasParam("index") && request->hasParam("value")) {
       int index = request->getParam("index")->value().toInt();
@@ -1085,14 +1071,9 @@ void init_webserver() {
           request->send(200, "text/plain", "OK");
           return;
         }
-        uint64_t mask = datalayer_extended.twingoGen1.simulator_enabled_mask;
         Preferences prefs;
         prefs.begin("batterySettings", false);
-        prefs.putUInt("TWINGOSIMMASK", (uint32_t)(mask & 0xFFFFFFFFULL));
-        prefs.putUInt("TWINGOSIMHI", (uint32_t)(mask >> 32));
-        const uint64_t mask_hi = datalayer_extended.twingoGen1.simulator_enabled_mask_hi;
-        prefs.putUInt("TWINGOSIMHI2", (uint32_t)(mask_hi & 0xFFFFFFFFULL));
-        prefs.putUInt("TWINGOSIMHI3", (uint32_t)(mask_hi >> 32));
+        prefs.putUInt("TWINGOSIMB1", (uint32_t)(datalayer_extended.twingoGen1.simulator_enabled_mask & 0xFFFFFFFFULL));
         prefs.end();
       }
     }
@@ -1300,30 +1281,6 @@ void init_webserver() {
   // "Read DTC fault counters" button: UDS 0x19 0x14.
   def_route_with_auth("/triggerTwingoDtcFdc", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     static_cast<RenaultTwingoGen1Battery*>(battery)->read_DTC_fdc();
-    request->send(200, "text/plain", "OK");
-  });
-
-  // EXPERIMENTAL rest/active toggle for 0x55D - not persisted, runtime only. The rising/falling edge is
-  // detected in send_simulator_signals() itself (compares against sim_55d_rest_active_prev), this route
-  // only writes the raw checkbox value.
-  def_route_with_auth("/editTwingoSim55dRestActive", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    if (request->hasParam("value")) {
-      datalayer_extended.twingoGen1.sim_55d_rest_active_enabled = request->getParam("value")->value().toInt() != 0;
-    }
-    request->send(200, "text/plain", "OK");
-  });
-
-  // EXPERIMENTAL, unverified - see the long comment at SIM_55D_DRIVE_MODE_DATA in
-  // RENAULT-TWINGO-GEN1-BATTERY.cpp. Off by default.
-  def_route_with_auth("/editTwingoSim55dDriveMode", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    if (request->hasParam("value")) {
-      bool enable = request->getParam("value")->value().toInt() != 0;
-      datalayer_extended.twingoGen1.sim_55d_drive_mode_enabled = enable;
-      Preferences prefs;
-      prefs.begin("batterySettings", false);
-      prefs.putBool("TWINGOSIM55DDRV", enable);
-      prefs.end();
-    }
     request->send(200, "text/plain", "OK");
   });
 
