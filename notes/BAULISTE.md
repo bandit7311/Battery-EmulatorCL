@@ -545,4 +545,4 @@ Wunsch:
 ## GEBAUT am 14.10. (Bau 21, nur Kommentare): TX / RX am Parameterblock
 - Hinter den zwoelf auf true gesetzten `SIM_ON_*` (19F, 426, 436, 423, 69F, 157, 0EC, 0ED, 419, 428, 42F, 435): `// TX Emulator`.
 - Hinter 0x424, 0x425, 0x43A, 0x445, 0x464, 0x588, 0x6BE, 0x4AE, 0x4AF, 0x659, 0x155, 0x0C5, 0x1C9: `// RX from Battery`.
-- Ohne Kommentar blieben 0x1A1, 0x1C7, 0x4F7, 0x500, 0x511 (nicht genannt; Richtung nicht festgelegt).
+- Nachtrag (Nutzer, 14.10.): 0x1A1, 0x1C7, 0x4F7, 0x500, 0x511 haben `// not needed for emulator but traffic on EVC<>LBC!`.
