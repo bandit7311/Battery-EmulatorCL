@@ -3862,6 +3862,16 @@ void RenaultTwingoGen1Battery::uq_reply_complete() {
       } else if (did == 0x925F && n == 4) {
         const uint32_t raw = ((uint32_t)d[0] << 24) | ((uint32_t)d[1] << 16) | ((uint32_t)d[2] << 8) | d[3];
         uq_printf(out, outsz, pos, " | %lu.%02lu km", (unsigned long)(raw / 100UL), (unsigned long)(raw % 100UL));
+      } else if ((did == 0x91CD || did == 0x921C) && n == 2) {
+        // Bau 16: thermistors T1 ("Cooling temperature") and T2 ("Skin temperature") in degrees. Scale like the cell
+        // sensors (raw / 16 - 40); NOT confirmed for these two identifiers (bench 14.10.: 3.3 kOhm -> raw 940 = 18.75 C).
+        const uint16_t raw = (uint16_t)((d[0] << 8) | d[1]);
+        const int32_t c100 = (int32_t)raw * 625 / 100 - 4000;  // hundredths of a degree
+        if (raw != 0 && raw != 0xFFFF && c100 <= 10000) {
+          const int32_t a = c100 < 0 ? -c100 : c100;
+          uq_printf(out, outsz, pos, " | %s%ld.%02ld C (scale like the cell sensors, unconfirmed)", c100 < 0 ? "-" : "",
+                    (long)(a / 100), (long)(a % 100));
+        }
       } else if (did == 0x9262 && n == 4 && uq_active_dc) {
         // SCPU vehicle distance totalizer: raw minus 0x80000000, 0.01 km
         const uint32_t raw = ((uint32_t)d[0] << 24) | ((uint32_t)d[1] << 16) | ((uint32_t)d[2] << 8) | d[3];

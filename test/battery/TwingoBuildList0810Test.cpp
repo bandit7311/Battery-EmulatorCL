@@ -754,6 +754,28 @@ TEST(TwingoBuild0810, KilometreAnswersAreShownInKm) {
                "22 92 62: OK 62 92 62 80 00 00 00");
 }
 
+// Bau 16 (14.10.): thermistors T1 / T2 in plain words (scale like the cell sensors, marked as unconfirmed)
+TEST(TwingoBuild0810, ThermistorAnswersAreShownInDegrees) {
+  TestTwingo b;
+  b.setup();
+  uint64_t t = 1000;
+  const char* tail = " C (scale like the cell sensors, unconfirmed)";
+  // bench 14.10.: 3.3 kOhm -> raw 940 = 18.75 C
+  EXPECT_STREQ(query_and_answer(b, t, "22 91 CD", 0, 0x91CD, {0x03, 0xAC}),
+               (std::string("22 91 CD: OK 62 91 CD 03 AC | 18.75") + tail).c_str());
+  // 4.29 kOhm should give 848 = 13.00 C
+  EXPECT_STREQ(query_and_answer(b, t, "22 91 CD", 0, 0x91CD, {0x03, 0x50}),
+               (std::string("22 91 CD: OK 62 91 CD 03 50 | 13.00") + tail).c_str());
+  // T2 below zero: raw 320 = -20.00 C
+  EXPECT_STREQ(query_and_answer(b, t, "22 92 1C", 0, 0x921C, {0x01, 0x40}),
+               (std::string("22 92 1C: OK 62 92 1C 01 40 | -20.00") + tail).c_str());
+  // no valid value (0 and 0xFFFF like the cell sensors): no degrees
+  EXPECT_STREQ(query_and_answer(b, t, "22 91 CD", 0, 0x91CD, {0x00, 0x00}), "22 91 CD: OK 62 91 CD 00 00");
+  EXPECT_STREQ(query_and_answer(b, t, "22 91 CD", 0, 0x91CD, {0xFF, 0xFF}), "22 91 CD: OK 62 91 CD FF FF");
+  // other lengths are not decoded
+  EXPECT_STREQ(query_and_answer(b, t, "22 91 CD", 0, 0x91CD, {0x03, 0xAC, 0x00}), "22 91 CD: OK 62 91 CD 03 AC 00");
+}
+
 namespace {
 struct FollowGuard {
   ~FollowGuard() {
