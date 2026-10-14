@@ -103,6 +103,9 @@ class LilyGo2CANHal : public Esp32Hal {
   // CHAdeMO support pin dependencies
   virtual gpio_num_t CHADEMO_PIN_2() { return GPIO_NUM_16; }
   virtual gpio_num_t CHADEMO_PIN_10() { return GPIO_NUM_15; }
+
+  // Push button "Sleep" of the Twingo emulator (Bau 12): GPIO15, left column of the pin header, button to GND
+  virtual gpio_num_t SLEEP_BUTTON_PIN() { return GPIO_NUM_15; }
   virtual gpio_num_t CHADEMO_PIN_7() { return GPIO_NUM_47; }
   virtual gpio_num_t CHADEMO_PIN_4() { return GPIO_NUM_4; }
   virtual gpio_num_t CHADEMO_LOCK() { return GPIO_NUM_40; }

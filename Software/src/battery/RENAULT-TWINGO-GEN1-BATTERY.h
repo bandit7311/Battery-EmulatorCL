@@ -5,6 +5,7 @@
 #include "../datalayer/datalayer.h"
 #include "RENAULT-TWINGO-GEN1-BUS.h"
 #include "RENAULT-TWINGO-GEN1-LOGIC.h"
+#include "RENAULT-TWINGO-GEN1-SLEEPBTN.h"
 #include "RENAULT-TWINGO-GEN1-TXSTAT.h"
 #include "UdsCanBattery.h"
 
@@ -283,6 +284,10 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
 
 #ifdef TWINGO_TIME_FRAMES
   // Hooks so that the time source can be replaced in the unit tests (the defaults use the real WiFi/NTP/clock).
+  // Push button "Sleep" (Bau 12): pin setup and raw level are virtual so the tests can replace them.
+  virtual bool sleep_button_init();         // allocates GPIO15 (button to GND, internal pull-up); false = not usable
+  virtual bool sleep_button_raw_pressed();  // true while the button connects the pin to GND
+  void sleep_button_service(unsigned long currentMillis);
   virtual bool network_ready();                                // WiFi station connected
   virtual void start_ntp();                                    // configTzTime(), non-blocking
   virtual bool get_wall_clock_seconds_of_day(uint32_t& secs);  // false as long as the clock has not been set
@@ -689,6 +694,11 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   unsigned long sleep_manual_failsafe_ms(void);  // reads the configured minutes, clamped, *60000
   // Daily sleep (Bau 9): at the configured time of day (local time) the kilometres of 0x426 are raised and a
   // "Sleep 0x9281=1" run on the long way starts; its silence lasts the configured duration instead of the failsafe.
+  twingo_sleepbutton::LongPress sleep_button;
+  bool sleep_button_pin_ready = false;
+  bool sleep_button_init_failed = false;
+  bool button_sleep_run = false;         // the running sleep run was started by the push button
+  void restore_sleep_path_after_run();   // the daily sleep and the push button run on the long way, then it is restored
   bool daily_sleep_run = false;          // the running sleep run was started by the daily sleep
   bool daily_sleep_fired = false;        // already fired in the current minute of the day
   uint8_t daily_sleep_prev_path = 0;     // the sleep path before the run (restored when the run is over)
@@ -846,8 +856,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   static const uint8_t NVROL_SILENCE_S = 45;
   unsigned long nvrol_silence_start_ms = 0;
   unsigned long nvrol_silence_last_rx_ms = 0;
-  static const uint8_t SILENCE_SEC_BUCKETS = 61;   // frames per second for the first 60 s
-  static const uint8_t SILENCE_10S_BUCKETS = 180;  // frames per 10 s for up to 30 min
+  unsigned long nvrol_silence_last_rx_pre_wake_ms = 0;  // last frame before the wake-up burst (for the "Result")
+  static const uint8_t SILENCE_SEC_BUCKETS = 61;        // frames per second for the first 60 s
+  static const uint8_t SILENCE_10S_BUCKETS = 180;       // frames per 10 s for up to 30 min
   uint16_t nvrol_silence_rx_per_s[SILENCE_SEC_BUCKETS] = {0};
   uint16_t nvrol_silence_rx_per_10s[SILENCE_10S_BUCKETS] = {0};
   unsigned long nvrol_silence_end_ms = 0;

@@ -322,7 +322,7 @@ TEST(TwingoBau9, AdvancedPageHasTheFieldsUnderTheSleepMinutes) {
   t.daily_sleep_enabled = true;
   t.age_minute_factor = 3;
   const std::string page = b.get_uds_info_html().c_str();
-  const size_t failsafe = page.find("Sleep failsafe manual (auto wake after)");
+  const size_t failsafe = page.find("Sleep failsafe manual / push button hardware (IO15) --> auto wake after");
   ASSERT_NE(failsafe, std::string::npos);
   const size_t head = page.find("<h4>Daily sleep</h4>", failsafe);
   ASSERT_NE(head, std::string::npos) << "the heading comes after the sleep minutes";

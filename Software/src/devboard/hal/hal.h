@@ -162,6 +162,9 @@ class Esp32Hal {
   // CHAdeMO support pin dependencies
   virtual gpio_num_t CHADEMO_PIN_2() { return GPIO_NUM_NC; }
   virtual gpio_num_t CHADEMO_PIN_10() { return GPIO_NUM_NC; }
+
+  // Push button "Sleep" of the Twingo emulator (button to GND, internal pull-up); not connected on most boards
+  virtual gpio_num_t SLEEP_BUTTON_PIN() { return GPIO_NUM_NC; }
   virtual gpio_num_t CHADEMO_PIN_7() { return GPIO_NUM_NC; }
   virtual gpio_num_t CHADEMO_PIN_4() { return GPIO_NUM_NC; }
   virtual gpio_num_t CHADEMO_LOCK() { return GPIO_NUM_NC; }

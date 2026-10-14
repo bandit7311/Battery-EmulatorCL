@@ -237,6 +237,9 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
   uint16_t daily_sleep_duration_min;
   uint16_t daily_sleep_km;
   bool daily_sleep_enabled;  // the checkbox "enable" of the daily sleep (Bau 10), persisted, default off
+  /** Hardware push button "Sleep" (Bau 12, GPIO15): a long press starts "Sleep 0x9281=1" on the long way; the
+   *  silence lasts the "Sleep failsafe manual" time. Checkbox on the Advanced page, persisted (TWSLPBTN), default off. */
+  bool sleep_button_enabled;
 
   /** Cellwatch: fast single-cell poll diagnostic (see RENAULT-TWINGO-GEN1-BATTERY.cpp /cellwatch page).
    *  Runtime only, NOT persisted to NVM - always starts disabled after a reboot, so it can never be

@@ -222,6 +222,8 @@ void init_webserver() {
           (uint16_t)prefs.getUInt("TWDSKM", datalayer_extended.twingoGen1.daily_sleep_km);
       datalayer_extended.twingoGen1.daily_sleep_enabled =
           prefs.getBool("TWDSEN", datalayer_extended.twingoGen1.daily_sleep_enabled);
+      datalayer_extended.twingoGen1.sleep_button_enabled =
+          prefs.getBool("TWSLPBTN", datalayer_extended.twingoGen1.sleep_button_enabled);  // Bau 12
       if (datalayer_extended.twingoGen1.daily_sleep_duration_min < 1) {
         datalayer_extended.twingoGen1.daily_sleep_duration_min = 5;
       }
@@ -810,6 +812,19 @@ void init_webserver() {
         prefs.putUInt("TWINGOSLPMIN", (uint16_t)value);
         prefs.end();
       }
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+  // Bau 12: checkbox "push button" (GPIO15) of the Sleep failsafe line
+  def_route_with_auth("/editTwingoSleepButton", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("value")) {
+      const bool en = request->getParam("value")->value().toInt() != 0;
+      datalayer_extended.twingoGen1.sleep_button_enabled = en;
+      Preferences prefs;
+      prefs.begin("batterySettings", false);
+      prefs.putBool("TWSLPBTN", en);
+      prefs.end();
     }
     request->send(200, "text/plain", "OK");
   });

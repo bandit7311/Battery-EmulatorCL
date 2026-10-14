@@ -3,6 +3,7 @@
 #include <string.h>
 #include "../datalayer/datalayer.h"
 #include "../datalayer/datalayer_extended.h"
+#include "../devboard/hal/hal.h"
 #include "../devboard/utils/common_functions.h"  // crc8_table_SAE_J1850_ZER0
 #include "../devboard/utils/events.h"
 #include "../devboard/utils/logging.h"
@@ -754,6 +755,65 @@ void RenaultTwingoGen1Battery::daily_sleep_service(void) {
   note_action("daily sleep");
 }
 
+void RenaultTwingoGen1Battery::restore_sleep_path_after_run() {
+  if (daily_sleep_run || button_sleep_run) {
+    datalayer_extended.twingoGen1.bus_sleep_path = daily_sleep_prev_path;  // the run used the long way
+    daily_sleep_run = false;
+    button_sleep_run = false;
+  }
+}
+
+bool RenaultTwingoGen1Battery::sleep_button_init() {
+  if (esp32hal == nullptr) {
+    return false;
+  }
+  const gpio_num_t pin = esp32hal->SLEEP_BUTTON_PIN();
+  if (!esp32hal->alloc_pins("Sleep button", pin)) {
+    return false;
+  }
+  pinMode(pin, INPUT_PULLUP);  // the button connects the pin to GND
+  return true;
+}
+
+bool RenaultTwingoGen1Battery::sleep_button_raw_pressed() {
+  return digitalRead(esp32hal->SLEEP_BUTTON_PIN()) == LOW;
+}
+
+// Push button "Sleep" (Bau 12): a long press starts "Sleep 0x9281=1" on the long way, like the button of the page; the
+// silence lasts the "Sleep failsafe manual" time. Ignored while any run is going (also in the silence): no waking and no
+// second start by the button. Needs the checkbox on the Advanced page.
+void RenaultTwingoGen1Battery::sleep_button_service(unsigned long currentMillis) {
+  if (!datalayer_extended.twingoGen1.sleep_button_enabled) {
+    sleep_button.reset();  // a press that began while the checkbox was off does not count later
+    return;
+  }
+  if (!sleep_button_pin_ready) {
+    if (sleep_button_init_failed) {
+      return;
+    }
+    sleep_button_pin_ready = sleep_button_init();
+    sleep_button_init_failed = !sleep_button_pin_ready;
+    if (!sleep_button_pin_ready) {
+      return;
+    }
+  }
+  if (!sleep_button.update(sleep_button_raw_pressed(), (uint32_t)currentMillis)) {
+    return;
+  }
+  if (UserRequestNVROLReset || NVROLstateMachine != 0) {
+    return;  // a run is going (shutdown, silence, wake-up): the press is ignored
+  }
+  auto& t = datalayer_extended.twingoGen1;
+  daily_sleep_prev_path = t.bus_sleep_path;
+  t.bus_sleep_path = twingo_bus::SLEEP_LANG;
+  start_nvrol_run(2);
+  button_sleep_run = UserRequestNVROLReset;  // false if the start was refused
+  if (!button_sleep_run) {
+    t.bus_sleep_path = daily_sleep_prev_path;
+  }
+  note_action("sleep button");
+}
+
 void RenaultTwingoGen1Battery::start_powerdown(void) {
   powerdown_stage = 0;
   powerdown_start_ms = millis();
@@ -806,6 +866,7 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
       temporisation_readback = 0x100;
       nvrol_silence_rx_total = 0;
       nvrol_silence_last_rx_ms = 0;
+      nvrol_silence_last_rx_pre_wake_ms = 0;
       nvrol_silence_reply_count = 0;
       nvrol_silence_reply_total = 0;
       nvrol_silence_done = false;
@@ -997,10 +1058,7 @@ void RenaultTwingoGen1Battery::transmit_reset_nvrol_frames(void) {
       NVROLstateMachine = 0;
       nvrol_mode = 0;
       UserRequestNVROLReset = false;
-      if (daily_sleep_run) {
-        datalayer_extended.twingoGen1.bus_sleep_path = daily_sleep_prev_path;
-        daily_sleep_run = false;
-      }
+      restore_sleep_path_after_run();
       break;
   }
 }
@@ -1023,10 +1081,7 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
   // Point 7 (09.10.): the events raised by the silence and the wake-up (missing battery, CAN errors, ...) are
   // acknowledged like the "clear all events" button of the events page does, as soon as the polling resumes.
   reset_all_events();
-  if (daily_sleep_run) {
-    datalayer_extended.twingoGen1.bus_sleep_path = daily_sleep_prev_path;  // the daily sleep used the long way
-    daily_sleep_run = false;
-  }
+  restore_sleep_path_after_run();
   nvrol_silence_done = true;
   nvrol_last_mode = nvrol_mode;
   nvrol_mode = 0;
@@ -1678,6 +1733,9 @@ void RenaultTwingoGen1Battery::record_silence_frame(const CAN_frame& f) {
   }
   nvrol_silence_rx_total++;
   nvrol_silence_last_rx_ms = now;
+  if (NVROLstateMachine != 8) {
+    nvrol_silence_last_rx_pre_wake_ms = now;  // the verdict "Result" ignores the frames of the wake-up burst
+  }
 
   const uint8_t n = (f.DLC > 8) ? 8 : f.DLC;  // only the bytes the frame really carries
   SilenceId* rec = nullptr;
@@ -1797,7 +1855,7 @@ void RenaultTwingoGen1Battery::append_quiet_html(String& s) {
     s += "<b>SILENT for ";
     append_mmss(s, elapsed);
     s += "</b> (safety limit ";
-    append_mmss(s, sleep_manual_failsafe_ms());
+    append_mmss(s, silence_limit_ms());
     s += ") - nothing is sent, do not cut the 12V supply<br>";
   } else if (NVROLstateMachine == 7) {
     static const char* stage_names[4] = {"C3 (BAT TEMPO LEVEL)", "C2 (CUT OFF PENDING)", "C0 (SLEEPING)", "00"};
@@ -1888,6 +1946,9 @@ void RenaultTwingoGen1Battery::append_quiet_html(String& s) {
       s += b;
       if (i < last_bucket) {
         s += ',';
+        if ((i - 5) % 10 == 0) {
+          s += "<br>";  // ten values per line (the line of a long run went over the edge of the page)
+        }
       }
     }
     s += "<br>";
@@ -1896,20 +1957,21 @@ void RenaultTwingoGen1Battery::append_quiet_html(String& s) {
   // The "Result" verdict is only meaningful once the run has actually finished (or is genuinely silent):
   // during state 7 the BMS is expected to keep sending normally the whole time (our own frames still run),
   // so there is nothing to conclude yet.
+  // Bau 12: the verdict looks only at the frames up to the end of the silence (not at the burst of the wake-up).
   if (!quiet && nvrol_silence_done) {
-    if (nvrol_silence_rx_total == 0) {
+    if (nvrol_silence_last_rx_pre_wake_ms == 0) {
       s += "Result: no BMS frame at all - it was already silent when the shutdown sequence began.<br>";
-    } else if (nvrol_silence_last_rx_ms <= nvrol_silence_start_ms) {
+    } else if (nvrol_silence_last_rx_pre_wake_ms <= nvrol_silence_start_ms) {
       // The BMS's last frame arrived before true silence even began - it stopped during the shutdown
       // announcement itself (C3/C2/C0/00), most likely right when our own frames stopped at 00.
-      unsigned long before_ms = nvrol_silence_start_ms - nvrol_silence_last_rx_ms;
+      unsigned long before_ms = nvrol_silence_start_ms - nvrol_silence_last_rx_pre_wake_ms;
       snprintf(b, sizeof(b),
                "Result: BMS's last frame was %lu.%lu s BEFORE the quiet phase began - it was already silent "
                "during the shutdown announcement (that alone does not prove the pack slept).<br>",
                before_ms / 1000, (before_ms % 1000) / 100);
       s += b;
     } else {
-      unsigned long last_ms = nvrol_silence_last_rx_ms - nvrol_silence_start_ms;
+      unsigned long last_ms = nvrol_silence_last_rx_pre_wake_ms - nvrol_silence_start_ms;
       unsigned long silence_duration_ms = nvrol_silence_end_ms - nvrol_silence_start_ms;
       if (last_ms + 3000 < silence_duration_ms) {
         snprintf(b, sizeof(b),
@@ -2904,7 +2966,8 @@ String RenaultTwingoGen1Battery::rx_155_text() const {
 }
 
 // What the OLED display shows during a Sleep run (13.10.): "Sleep requested" with 00:00:00 while the shutdown sequence runs,
-// "Sleep pls wait" with the time of the silence from its start (the end time is the "Sleep failsafe minutes") in the true
+// "Sleep pls wait" with the time of the silence from its start (the end time is the duration of this run: the "Sleep failsafe
+// minutes" for the page button and the push button, the duration of the daily sleep for the daily sleep) in the true
 // silence; nothing otherwise (the display then writes the events again, which clears the text and the time).
 void RenaultTwingoGen1Battery::update_sleep_display(unsigned long now) {
   auto& st = datalayer.system.status;
@@ -2912,13 +2975,13 @@ void RenaultTwingoGen1Battery::update_sleep_display(unsigned long now) {
   if (NVROLstateMachine == 7) {
     st.sleep_display_phase = 1;
     st.sleep_display_elapsed_s = 0;
-    st.sleep_display_total_s = (uint32_t)(sleep_manual_failsafe_ms() / 1000UL);
+    st.sleep_display_total_s = (uint32_t)(silence_limit_ms() / 1000UL);
     return;
   }
   if (NVROLstateMachine == 5) {
     st.sleep_display_phase = 2;
     st.sleep_display_elapsed_s = (uint32_t)((now - nvrol_silence_start_ms) / 1000UL);
-    st.sleep_display_total_s = (uint32_t)(sleep_manual_failsafe_ms() / 1000UL);
+    st.sleep_display_total_s = (uint32_t)(silence_limit_ms() / 1000UL);
     return;
   }
 #else
@@ -2931,6 +2994,7 @@ void RenaultTwingoGen1Battery::update_sleep_display(unsigned long now) {
 
 void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
   update_sleep_display(currentMillis);
+  sleep_button_service(currentMillis);
   {
     int32_t o426_tick;
     bus_state_now(currentMillis, o426_tick);  // keeps the state sequence and the page display running
@@ -3242,10 +3306,13 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += " Programming (0x02)</h4>";
 
     content +=
-        "<h4>Sleep failsafe manual (auto wake after): "
+        "<h4>Sleep failsafe manual / push button hardware (IO15) --> auto wake after: "
         "<input type='number' id='twingoSleepMinutes' min='1' max='1440' value='";
     content += String(datalayer_extended.twingoGen1.sleep_failsafe_minutes);
     content += "'> min <button onclick='twingoSetSleepMinutes()'>Set</button></h4>";
+    content += "<h4><input type='checkbox' id='twingoSleepButton' onclick='twingoSetSleepButton(this.checked)' ";
+    content += datalayer_extended.twingoGen1.sleep_button_enabled ? "checked>" : ">";
+    content += " push button Sleep (IO15, button to GND): long press 2 s = Sleep 0x9281=1, long way</h4>";
 
     {
       // Bau 9: daily sleep (time of day, duration, kilometres) in one line, and the minute factor of the age
@@ -3355,6 +3422,8 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "function twingoSetAgeFactor(){";
     content += "var f=document.getElementById('twingoAgeFactor').value;";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoAgeFactor?value='+f,true);x.send();}";
+    content += "function twingoSetSleepButton(v){";
+    content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoSleepButton?value='+(v?1:0),true);x.send();}";
     content += "function twingoSetCellwatchEnable(v){";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoCellwatchEnable?value='+(v?1:0),true);x.send();}";
     content += "function twingoSetDtcAllStatus(v){";

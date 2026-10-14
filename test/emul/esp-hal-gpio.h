@@ -5,6 +5,7 @@
 #define HIGH 0x1
 
 #define INPUT 0x01
+#define INPUT_PULLUP 0x05  // as in the Arduino ESP32 core
 // Changed OUTPUT from 0x02 to behave the same as Arduino pinMode(pin,OUTPUT)
 // where you can read the state of pin even when it is set as OUTPUT
 #define OUTPUT 0x03
