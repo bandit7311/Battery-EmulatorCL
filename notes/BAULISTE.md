@@ -373,7 +373,14 @@ Aufbau der Seite `/simulator` (`simulator_html.cpp`, Stand 14.10.):
 - "Weitere empfangene IDs (nicht in der Liste)" (Zeile 427) - **bleibt** (Text "weder in Block 1 noch in Block 2" muss angepasst werden).
 - "EXPERIMENTAL - unverified" (Zeile 466, Schalter `sim_55d_drive_mode_enabled`, Route `/editTwingoSim55dDriveMode`) - **soll weg** (Nutzer). Betrifft nur die Zeile 0x55D aus Block 2.
 - "EXPERIMENTAL - rest state & staged relay closing" (Zeile 485, Schalter `sim_55d_rest_active_enabled`, Route `/editTwingoSim55dRestActive`) steht direkt darunter, betrifft ebenfalls nur 0x55D. Nicht ausdruecklich genannt; faellt mit der Zeile 0x55D weg - **Nutzer bestaetigen lassen**.
-**Rueckfrage vor dem Bauen (aus dem Code, 14.10.):** Block 2 enthaelt auch die Zeilen der heutigen Arbeitsmenge: **0x090, 0x242 (schnelle Frames), 0x350 (Fahrzeugalter und Sleep/Wake-Folge der Fahrzeugseite), 0x53B (Uhrzeit), 0x214**; die Standardmaske `0x387` schaltet Zeile 0, 1, 2, 8, 9 (alle Block 2) und 7 (0x69F, Block 1) ein. Die SCPU-Zeit und die Schliessphase haengen an diesen Frames. Soll Block 2 **wirklich vollstaendig** entfallen, auch diese fuenf Zeilen samt Abschaltfolge auf der Fahrzeugseite, oder sollen sie als feste Sender (ohne Seite und Haken) bleiben?
+**Entscheidung des Nutzers zur Rueckfrage (14.10.):**
+- 0x090 und 0x242: werden vom Nutzer ohnehin nicht gesendet; **entfernen**, sofern sie nicht mit Frames aus Block 1 zusammenwirken (nach den IDs gibt es keine Ueberschneidung; ob Code gemeinsam genutzt wird, beim Bauen pruefen und mit den Tests absichern).
+- 0x53B (Uhrzeit): **bleibt**, wird aber **nicht aktiv gesendet**.
+- 0x350: **bleibt**, wird aber **nicht aktiv gesendet** auf dem CAN.
+- Das entspricht NICHT meiner Variante 2 ("bleiben als feste Sender"), sondern einer dritten: Block 2 entfaellt vollstaendig aus Seite und Senden; **intern bleiben** die Uhr (fuer die Uhrzeit), das Fahrzeugalter und die 0x350-Stufenuhr, aber ohne Frame auf dem Bus.
+- Zu beachten (Code, 14.10.): Die Stufenbyte-Beobachtung `hv_observe_350` (`BATTERY.cpp:3463`) wird aus den 0x350-Sendefunktionen aufgerufen (`:1596`, `:2516`) und speist das HV-Modell, nach dem Frames aus Block 1 (z. B. 0x57F, 0x599, 0x62D) ihren Inhalt bekommen. Auch ohne Senden muss der Stufenbyte-Wert intern weiter erzeugt und beobachtet werden.
+- Noch offen: **0x214** (Zeile 9, in der Standardmaske an, Sleep-Anforderungs-Experiment) wurde nicht genannt - auch entfernen? (Nutzer fragen.)
+- Bestaetigung der Auslegung "dritte Variante" durch den Nutzer steht noch aus.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
