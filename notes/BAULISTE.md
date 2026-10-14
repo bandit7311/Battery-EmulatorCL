@@ -541,3 +541,8 @@ Wunsch:
 - **Bau 19:** Antwort auf "Erase DTC": `01 54` -> "OK (positive response 54)"; anderes Einzelbyte -> "short reply (1 byte: XX)"; zwei Bytes -> beide; negativ wie bisher.
 - **Bau 20:** `// #define TWINGO_CELLWATCH` (aus) im Parameterblock: Zeile auf der Advanced-Seite, Seite `/cellwatch`, drei Routen, Treiber-Zweig und Messwert-Mitschrift nur mit dem Schalter. Zum Weiterarbeiten mit Cellwatch einschalten (oder `-DTWINGO_CELLWATCH`).
 - **Tests lokal:** `cmake -DTWINGO_SIM_PAGE=ON|OFF -DTWINGO_CELLWATCH=ON|OFF` (Optionen in `test/CMakeLists.txt`).
+
+## GEBAUT am 14.10. (Bau 21, nur Kommentare): TX / RX am Parameterblock
+- Hinter den zwoelf auf true gesetzten `SIM_ON_*` (19F, 426, 436, 423, 69F, 157, 0EC, 0ED, 419, 428, 42F, 435): `// TX Emulator`.
+- Hinter 0x424, 0x425, 0x43A, 0x445, 0x464, 0x588, 0x6BE, 0x4AE, 0x4AF, 0x659, 0x155, 0x0C5, 0x1C9: `// RX from Battery`.
+- Ohne Kommentar blieben 0x1A1, 0x1C7, 0x4F7, 0x500, 0x511 (nicht genannt; Richtung nicht festgelegt).
