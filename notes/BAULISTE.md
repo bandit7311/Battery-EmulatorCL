@@ -394,8 +394,33 @@ Wunsch:
 - **Entfernen, in Bau 14 aufgenommen (Nutzer, 14.10.: "kann beides entfernt werden, inklusive dem Source dahinter"; zwei Screenshots):**
   1. **Info-Zeile "Read DTC SCPU" mit "DTC Read SCPU (last result, stays until the next read): ..."**: Knopf `twingoScpuDtc()` (JavaScript `BATTERY.cpp:4408-4411`), Route `/triggerTwingoDtcScpu` (`webserver.cpp:1279`), Textzeile mit `dtc_scpu_result` (`BATTERY.cpp:4460-4461`). Das Ergebnis des unteren Knopfes geht dann in das neue SCPU-Feld; die Hilfsvariablen `dtc_scpu_result`, `uq_to_scpu_row`, `uq_scpu_row_pending`, `dtc_scpu_query_result()` (`BATTERY.cpp:4555-4561`, `4684-4685`, `4935-4938`, `5238-5241`, `BATTERY.h:232, 968-970`) werden fuer das neue Feld umgebaut oder entfernt. Reihenfolge: **erst** das neue Feld, dann diese Zeile (sonst hat der untere Knopf keine sichtbare Ausgabe).
   2. **"Read DTC details (EXPERIMENTAL, UNTESTED, subfunction 0x06)" mit den Zeilen "DTC details - e14381 / 1b0715: ..."**: Knopf und Zeilen (`BATTERY.cpp:4464-4467`), Route `/triggerTwingoDtcDetails` (`webserver.cpp:1223-1228`), `read_DTC_details()` (`BATTERY.cpp:4569`, `BATTERY.h:111`), Zustaende `DTC_EXT_DETAILS_*` und der Teil in `handle_dtc_ext` (`BATTERY.cpp:5193-5260`), `DTC_DETAILS_CODES`, `dtc_ext_log_details`, `dtc_ext_details_index` (`BATTERY.h:910-933`, `BATTERY.cpp:4549`, `4840-4841`, `4951-4952`), die zugehoerigen Tests.
-  3. **Das Feld "0x155 (B7..B0): ..." (Anzeige der letzten 0x155-Bytes, Byte 7 bis 0 dezimal)** steht im Screenshot in derselben Zeile wie der DTC-details-Knopf (`rx_155_text()`, `BATTERY.cpp:3914`, Route `/twingoRx155`, JavaScript `:4418-4419`, Span `twingoRx155` `:4465`, `rx_155_last`, `rx_155_seen`). **Entscheidung des Nutzers (14.10.): "wenn wir aus den Daten keine weiteren Erkenntnisse gewinnen konnten oder koennen, kann es weg; ich weiss nicht, ob da wirklich ein Status ueber 0x9281 kommt".** Stand: **bedingt, das Feld bleibt vorerst**, bis ein gezielter Test (siehe MERKLISTE_Test, "0x155 und 0x9281") entschieden hat; kommt nichts heraus, wird es in Bau 14 mit entfernt. Die Zeile "0x155 frames dropped as invalid" ist ein anderes Feld und bleibt.
+  3. **Das Feld "0x155 (B7..B0): ..." (Anzeige der letzten 0x155-Bytes, Byte 7 bis 0 dezimal)** steht im Screenshot in derselben Zeile wie der DTC-details-Knopf (`rx_155_text()`, `BATTERY.cpp:3914`, Route `/twingoRx155`, JavaScript `:4418-4419`, Span `twingoRx155` `:4465`, `rx_155_last`, `rx_155_seen`). **Entscheidung des Nutzers (14.10.): "wenn wir aus den Daten keine weiteren Erkenntnisse gewinnen konnten oder koennen, kann es weg; ich weiss nicht, ob da wirklich ein Status ueber 0x9281 kommt".** Stand (Nutzer, 14.10.: "wir belassen das 0x155 mal, koennen es spaeter entfernen"): **das Feld bleibt**; Entfernen spaeter, nach dem Test (MERKLISTE_Test, "0x155 und 0x9281"). In Bau 14 verschwindet nur der Knopf "Read DTC details" daneben; die Zeile "0x155 (B7..B0): ..." bleibt allein stehen. Die Zeile "0x155 frames dropped as invalid" ist ein anderes Feld und bleibt.
   - Tests, die diese Teile pruefen (`TwingoBuildList0810Test.cpp`, `TwingoSimulatorTest.cpp`, `TwingoTxStatTest.cpp`), werden angepasst oder entfernt.
+- **Skizze des unteren Seitenteils nach Bau 14 (Entwurf, 14.10.):**
+```
+ ... (Freie Anfrage, Antwort-Feld, Read DTC fault counters 19 14 - wie heute) ...
+ NVROL Log ... (wie heute)
+ [ ] Read ALL DTC statuses (mask 0xFF) ...
+ DTC Read (ext. protocol, Read DTC button): ...        <- Kandidat (siehe Rueckfrage)
+ DTC Erase (ext. protocol, Erase DTC button): ...      <- Kandidat (siehe Rueckfrage)
+ [Reset] Own send intervals 0x426 / 0x435 / 0x436 ...
+   (Messwerte)
+ 0x155 (B7..B0): 3 131 194 126 84 208 135 42           <- bleibt, ohne den DTC-details-Knopf
+ > Sleep run details                                    (eingeklappt nach dem Lauf)
+ ---------------------------------------------------------------
+ Diagnostic Trouble Codes
+ +--------------------------+  +--------------------------+
+ | MCPU                     |  | SCPU                     |
+ | Not read yet - use       |  | Not read yet - use       |
+ | Read DTC MCPU below      |  | Read DTC SCPU below      |
+ | (Tabelle: DTC / Status / |  | (Tabelle: DTC / Status / |
+ |  Description)            |  |  Description)            |
+ +--------------------------+  +--------------------------+
+ [Perform NVROL reset] [Sleep] [Sleep 0x9281=1] [Wake up]
+ [Read DTC MCPU] [Erase DTC MCPU]    [Read DTC SCPU] [Erase DTC SCPU]
+```
+- **Wegfall gegenueber heute:** Info-Zeile "Read DTC SCPU / DTC Read SCPU (last result)"; "Read DTC details" samt "DTC details - e14381 / 1b0715"; die Knoepfe "Erase DTC MCPU" in der oberen und "Erase DTC SCPU / Read DTC MCPU / Read DTC SCPU" in der unteren Knopfreihe wandern in die neue Reihe.
+- **Rueckfrage (Nutzer, 14.10.: "den Read DTC hast du mir auch mehrfach gebaut ohne Grund"):** Heute gibt es mehrere Wege, die Fehler zu lesen: (a) Knopf "Read DTC MCPU" unten (fuellt das MCPU-Feld, Log-Zeile "DTC Read (ext. protocol, ...)"), (b) Knopf "Read DTC SCPU" unten (ohne Feld), (c) Info-Zeile "Read DTC SCPU" (entfaellt), (d) Schnellknoepfe "DTC 19 02 09 MCPU" und "DTC 19 02 09 SCPU" in der Freien Anfrage (Rohantwort im Feld "Answer"), (e) "Read DTC fault counters (19 14)", (f) "Read DTC details" (entfaellt). Nach Bau 14 bleiben (a) und (b) als die Knoepfe mit Feld; zu klaeren ist, ob (d), (e) und die zwei Log-Zeilen "DTC Read / DTC Erase" ebenfalls entfallen sollen.
 - Offen beim Bauen: Beschreibungstexte der SCPU-Codes (Dala-JSON hat sie evtl. nicht, dann "Unknown"); ob die Textzeile "DTC Read SCPU (last result)" bleibt oder durch das neue Feld ersetzt wird.
 
 ## Offen, nicht entschieden oder abhaengig vom Bench
