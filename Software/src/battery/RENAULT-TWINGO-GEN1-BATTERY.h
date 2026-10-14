@@ -10,7 +10,63 @@
 #include "UdsCanBattery.h"
 
 // ---------------------------------------------------------------------------
-// Parameters of this vehicle (Bau 18): the default vehicle ID that 0x69F carries when the switch "use own vehicle ID" on
+// PARAMETER BLOCK (Bau 17, 14.10.)
+// ---------------------------------------------------------------------------
+// 1. The page of the row switches /simulator. Take the two slashes away to build it (or add -DTWINGO_SIM_PAGE to the build
+//    flags). WITHOUT the page (default) the page, its routes and the Open-page button are not built and the frames that
+//    the emulator sends are given by SIM_ON_* below, always (a mask stored in the flash by an earlier version with the
+//    page is ignored and stays in the flash). WITH the page SIM_ON_* are only the start values: a mask the page has stored
+//    in the flash wins at every start.
+// #define TWINGO_SIM_PAGE
+
+// 2. Which frames of the LBC<>EVC bus the emulator sends (one flag per row of the table sim_signals, same order).
+//    true = send. Default (author's bench, 14.10.): 0x157 0x0EC 0x0ED 0x19F 0x426 0x436 0x423 0x419 0x428 0x42F 0x435 0x69F.
+constexpr bool SIM_ON_19F = true;
+constexpr bool SIM_ON_426 = true;
+constexpr bool SIM_ON_436 = true;
+constexpr bool SIM_ON_423 = true;
+constexpr bool SIM_ON_69F = true;
+constexpr bool SIM_ON_155 = false;
+constexpr bool SIM_ON_0C5 = false;
+constexpr bool SIM_ON_1C9 = false;
+constexpr bool SIM_ON_157 = true;
+constexpr bool SIM_ON_1A1 = false;
+constexpr bool SIM_ON_1C7 = false;
+constexpr bool SIM_ON_0EC = true;
+constexpr bool SIM_ON_0ED = true;
+constexpr bool SIM_ON_419 = true;
+constexpr bool SIM_ON_424 = false;
+constexpr bool SIM_ON_425 = false;
+constexpr bool SIM_ON_428 = true;
+constexpr bool SIM_ON_42F = true;
+constexpr bool SIM_ON_435 = true;
+constexpr bool SIM_ON_43A = false;
+constexpr bool SIM_ON_445 = false;
+constexpr bool SIM_ON_464 = false;
+constexpr bool SIM_ON_4F7 = false;
+constexpr bool SIM_ON_500 = false;
+constexpr bool SIM_ON_511 = false;
+constexpr bool SIM_ON_588 = false;
+constexpr bool SIM_ON_6BE = false;
+constexpr bool SIM_ON_4AE = false;
+constexpr bool SIM_ON_4AF = false;
+constexpr bool SIM_ON_659 = false;
+
+constexpr uint32_t sim_bit(bool on, int row) {
+  return on ? (1u << row) : 0u;
+}
+constexpr uint32_t SIM_DEFAULT_MASK =
+    sim_bit(SIM_ON_19F, 0) | sim_bit(SIM_ON_426, 1) | sim_bit(SIM_ON_436, 2) | sim_bit(SIM_ON_423, 3) |
+    sim_bit(SIM_ON_69F, 4) | sim_bit(SIM_ON_155, 5) | sim_bit(SIM_ON_0C5, 6) | sim_bit(SIM_ON_1C9, 7) |
+    sim_bit(SIM_ON_157, 8) | sim_bit(SIM_ON_1A1, 9) | sim_bit(SIM_ON_1C7, 10) | sim_bit(SIM_ON_0EC, 11) |
+    sim_bit(SIM_ON_0ED, 12) | sim_bit(SIM_ON_419, 13) | sim_bit(SIM_ON_424, 14) | sim_bit(SIM_ON_425, 15) |
+    sim_bit(SIM_ON_428, 16) | sim_bit(SIM_ON_42F, 17) | sim_bit(SIM_ON_435, 18) | sim_bit(SIM_ON_43A, 19) |
+    sim_bit(SIM_ON_445, 20) | sim_bit(SIM_ON_464, 21) | sim_bit(SIM_ON_4F7, 22) | sim_bit(SIM_ON_500, 23) |
+    sim_bit(SIM_ON_511, 24) | sim_bit(SIM_ON_588, 25) | sim_bit(SIM_ON_6BE, 26) | sim_bit(SIM_ON_4AE, 27) |
+    sim_bit(SIM_ON_4AF, 28) | sim_bit(SIM_ON_659, 29);
+
+// ---------------------------------------------------------------------------
+// 3. Parameters of this vehicle (Bau 18): the default vehicle ID that 0x69F carries when the switch "use own vehicle ID" on
 // the Advanced page is off. This is the ID of the Twingo of the author (both vehicle logs, DID $925E = 13 88 6F); for
 // another car change it here or type the own ID on the Advanced page.
 // ---------------------------------------------------------------------------
@@ -52,16 +108,6 @@ constexpr uint8_t TWINGO_VEHICLE_ID_DEFAULT[4] = {0x46, 0x13, 0x88, 0x6F};
 // Comment out the line below to disable both frames (and the NTP start) again.
 // ---------------------------------------------------------------------------
 #define TWINGO_TIME_FRAMES
-
-// ---------------------------------------------------------------------------
-// Two fast frames of the real vehicle that only run while it is awake (0x350 state C2..C7): 0x090 every
-// 10 ms and 0x242 every 20 ms, each with a rolling counter and a CRC-8 SAE J1850 (poly 0x1D, start 0xFF,
-// final XOR 0xFF, over all other bytes) - layout and CRC verified against the real vehicle logs. What they mean is unknown;
-// the payload is the most common one of the last vehicle log, sent constant. Like in the vehicle they stop
-// with the C0 stage of the sleep sequence and start again with the first C3 frame of the wake burst.
-// Comment out the line below to disable them again.
-// ---------------------------------------------------------------------------
-#define TWINGO_FAST_VEHICLE_FRAMES
 
 // Uncomment for verbose logging of every extended-channel (0x18DADBF1/
 // 0x18DAF1DB) request, response and reassembly event - including negative

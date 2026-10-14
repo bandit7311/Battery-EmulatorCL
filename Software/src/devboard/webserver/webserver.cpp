@@ -231,16 +231,24 @@ void init_webserver() {
         // Row switches (Bau 13, 14.10.): 30 rows in one 32-bit word, key TWINGOSIMB1. Without that key the switches of the old
         // firmware (71 rows: TWINGOSIMMASK = bits 0-31, TWINGOSIMHI = 32-63, TWINGOSIMHI2 = 64-95, TWINGOSIMHI3 = 96-127) are
         // carried over to the new numbering; without both the default of the datalayer stays.
-        if (prefs.isKey("TWINGOSIMB1")) {
-          datalayer_extended.twingoGen1.simulator_enabled_mask =
-              prefs.getUInt("TWINGOSIMB1", (uint32_t)datalayer_extended.twingoGen1.simulator_enabled_mask);
-        } else if (prefs.isKey("TWINGOSIMMASK") || prefs.isKey("TWINGOSIMHI")) {
+        // Bau 17: without TWINGO_SIM_PAGE the mask is always SIM_DEFAULT_MASK of the parameter block (the flash is not touched).
+        uint32_t migrated = 0;
+        const bool has_old = prefs.isKey("TWINGOSIMMASK") || prefs.isKey("TWINGOSIMHI");
+        if (has_old) {
           const uint64_t lo =
               (uint64_t)prefs.getUInt("TWINGOSIMMASK", 0) | ((uint64_t)prefs.getUInt("TWINGOSIMHI", 0) << 32);
           const uint64_t hi =
               (uint64_t)prefs.getUInt("TWINGOSIMHI2", 0) | ((uint64_t)prefs.getUInt("TWINGOSIMHI3", 0) << 32);
-          datalayer_extended.twingoGen1.simulator_enabled_mask = twingo::migrate_old_row_mask(lo, hi);
+          migrated = twingo::migrate_old_row_mask(lo, hi);
         }
+#ifdef TWINGO_SIM_PAGE
+        const bool page_built = true;
+#else
+        const bool page_built = false;
+#endif
+        datalayer_extended.twingoGen1.simulator_enabled_mask =
+            twingo::initial_row_mask(page_built, prefs.isKey("TWINGOSIMB1"), prefs.getUInt("TWINGOSIMB1", 0), has_old,
+                                     migrated, SIM_DEFAULT_MASK);
         datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
       }
       datalayer_extended.twingoGen1.bus_state =
@@ -954,6 +962,7 @@ void init_webserver() {
     request->send(200, "text/html", index_html, cellwatch_processor);
   });
 
+#ifdef TWINGO_SIM_PAGE
   // Route for going to the CAN Signal Simulator page (30 rows and the other received IDs, see simulator_html.cpp)
   def_route_with_auth("/simulator", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     // The page is big (about 40 kB): it is delivered in three parts (A, B, D) so that no 40 kB String has to exist at once.
@@ -964,6 +973,7 @@ void init_webserver() {
     }
     request->send(200, "text/html", sim_template.c_str(), simulator_processor);
   });
+#endif  // TWINGO_SIM_PAGE
 
   // Switch A (04.10.): stage times of the shutdown sequence and of the wake-up - 0 = as before (default), 1 = like the
   // car. Kept over a restart since 12.10. (key TWLIKECAR, Bau 7).
@@ -1018,6 +1028,7 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
+#ifdef TWINGO_SIM_PAGE
   // All rows off at once / back (runtime only).
   def_route_with_auth("/twingoSimAllOff", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     RenaultTwingoGen1Battery::sim_all_off();
@@ -1028,6 +1039,7 @@ void init_webserver() {
     RenaultTwingoGen1Battery::note_action("rows restored");
     request->send(200, "text/plain", "OK");
   });
+#endif  // TWINGO_SIM_PAGE
 
   // Time in 0x436 bytes 1-3: value=<minutes, 0..16777215> or value=off (kept over a restart since 11.10.).
   def_route_with_auth("/editTwingoTime436", server, HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -1099,6 +1111,7 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
+#ifdef TWINGO_SIM_PAGE
   // One checkbox toggles one bit of simulator_enabled_mask (30 rows since 14.10.), persisted to NVM as one uint32
   // (TWINGOSIMB1; the keys of the old numbering are only read once, see init_webserver()).
   def_route_with_auth("/editTwingoSimSignal", server, HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -1126,6 +1139,7 @@ void init_webserver() {
     }
     request->send(200, "text/plain", "OK");
   });
+#endif  // TWINGO_SIM_PAGE
 
   // Bus mode "like the vehicle" (10.10.): state of the car for the frames of /simulator block 1, format of the five
   // Zoe-form frames (0 = like the car, 1 = old Zoe form) and source of the cell voltages (0 = UDS poll, 1 = broadcast).

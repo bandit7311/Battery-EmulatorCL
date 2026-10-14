@@ -11,7 +11,9 @@
  * @param[in] var
  * @return String
  */
+#ifdef TWINGO_SIM_PAGE
 String simulator_processor(const String& var);
+#endif
 
 /**
  * @brief The control block of the bus (format, mode, way of the sleep, state, cell source, stage times, vehicle age,

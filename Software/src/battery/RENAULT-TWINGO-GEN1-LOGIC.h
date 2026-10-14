@@ -65,6 +65,25 @@ inline uint32_t migrate_old_row_mask(uint64_t lo, uint64_t hi) {
   return out;
 }
 
+// Row switches at the start (Bau 17): which mask the driver starts with.
+//  - `page_built` false (TWINGO_SIM_PAGE off): always the default of the parameter block, a mask stored in the flash by an
+//    earlier version with the page is ignored (and not deleted);
+//  - page built: the mask stored in the flash by the page (key TWINGOSIMB1) wins; else the one carried over from the old
+//    71-row numbering; else the default of the parameter block.
+inline uint32_t initial_row_mask(bool page_built, bool has_new_key, uint32_t new_key_mask, bool has_old_keys,
+                                 uint32_t migrated_old_mask, uint32_t default_mask) {
+  if (!page_built) {
+    return default_mask;
+  }
+  if (has_new_key) {
+    return new_key_mask;
+  }
+  if (has_old_keys) {
+    return migrated_old_mask;
+  }
+  return default_mask;
+}
+
 // Vehicle ID of 0x69F (Bau 18): the 4 data bytes as typed on the Advanced page, "46 13 88 6F" or "4613886F" (spaces and
 // upper/lower case do not matter). Exactly 8 hex digits; 00000000 and FFFFFFFF are refused (not a vehicle ID).
 inline bool parse_vehicle_id(const char* text, uint8_t out[4]) {

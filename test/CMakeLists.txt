@@ -78,6 +78,15 @@ file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/utils/*.cpp"
 )
 
+# Twingo (Bau 17): the page /simulator is built only with TWINGO_SIM_PAGE (BATTERY.h). ON (default): the whole test set,
+# OFF (cmake -DTWINGO_SIM_PAGE=OFF): the build without the page; the three files that test the page itself are left out.
+option(TWINGO_SIM_PAGE "Build the Twingo simulator page" ON)
+if(TWINGO_SIM_PAGE)
+    add_compile_definitions(TWINGO_SIM_PAGE)
+else()
+    list(FILTER TEST_SOURCES EXCLUDE REGEX "TwingoSimulatorTest|TwingoBusModeTest|TwingoSleepPathsTest")
+endif()
+
 # add the executable
 add_executable(tests 
     tests.cpp

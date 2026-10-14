@@ -10,6 +10,7 @@
 // sign (template engine), see the tests.
 using Bat = RenaultTwingoGen1Battery;
 
+#ifdef TWINGO_SIM_PAGE
 static String interval_name(uint16_t ms) {
   if (ms >= 1000) {
     return String(ms / 1000) + " s";
@@ -88,6 +89,7 @@ static void append_cell_frame_rows(String& content, uint8_t cols) {
                "</td><td>Akku</td></tr>";
   }
 }
+#endif  // TWINGO_SIM_PAGE
 
 // The vehicle ID that 0x69F carries now, "46 13 88 6F" (Bau 18: own ID or the default of the car).
 static String vehicle_id_text() {
@@ -277,6 +279,7 @@ String simulator_controls_html() {
   return content;
 }
 
+#ifdef TWINGO_SIM_PAGE
 String simulator_processor(const String& var) {
   const bool all = (var == "X");  // the whole page in one piece (tests); the web server asks for the parts A, B and D
   const bool part_a = all || var == "A", part_b = all || var == "B", part_d = all || var == "D";
@@ -413,3 +416,4 @@ String simulator_processor(const String& var) {
   }
   return String();
 }
+#endif  // TWINGO_SIM_PAGE

@@ -3157,9 +3157,8 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
       }
     }
 
-#ifdef TWINGO_FAST_VEHICLE_FRAMES
-    send_simulator_signals(currentMillis);  // /simulator page, the checkboxes of the frames of the LBC<>EVC bus
-#endif
+    send_simulator_signals(
+        currentMillis);  // the frames of the LBC<>EVC bus whose row is switched on (SIM_ON_* / the page)
   }  // !suppress_own_broadcast
 
 #ifdef TWINGO_EXTENDED_CELL_POLLING
@@ -3398,10 +3397,12 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
         "<button onclick=\"window.open('/cellwatch','_blank')\">Open Cellwatch page</button>"
         " - pauses the normal cell round-robin while enabled</h4>";
 
+#ifdef TWINGO_SIM_PAGE
     content +=
         "<h4><button onclick=\"window.open('/simulator','_blank')\">Open CAN Signal Simulator page</button>"
         " - " +
         String((int)SIM_SIGNAL_COUNT) + " individually toggleable cyclic signals</h4>";
+#endif
 
     // Free request (03.10., write added 05.10.): input field, Query button and answer field. The read services
     // 0x22 and 0x19 and the write service 0x2E for a fixed list of identifiers are accepted (see

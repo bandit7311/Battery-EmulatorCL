@@ -163,6 +163,8 @@ TEST(TwingoBuild0810, Frame426KilometresAndByte7AreEditable) {
   OdoGuard guard;
   RenaultTwingoGen1Battery::odo_426_km = 19400;
   RenaultTwingoGen1Battery::odo_426_b7 = 0x40;
+  datalayer_extended.twingoGen1.simulator_enabled_mask =
+      1ULL << RenaultTwingoGen1Battery::SIM_ROW_426;  // own mask, no leftover
   TestTwingo b;
   b.setup();
   auto f = collect(b, 0x426, 1000, 1300);
