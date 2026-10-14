@@ -49,3 +49,10 @@ Nur Vorgemerktes zum Testen am Bench. Nichts davon ist gemacht, solange kein Erg
 ## T3: Reset-Register nach jedem Schritt lesen (bereits vorgeschlagen)
 - Nach Sleep-Lauf, 9281-Schreiben und Wake je `22 92 5B` (MCPU) und `[DC] 22 92 5E`: zeigt, welcher Schritt zuerst ein Reset-Bit setzt und ob dann 1B0E41 / 1BB587 zurueckkommen.
 - Stand 12.10.: nach kaltem Neustart `00 00` / `20 80`, beide Fehlerspeicher leer.
+
+## 0x155 und 0x9281: traegt Byte 6 / Byte 7 einen Status? (Stand 14.10.)
+Frage des Nutzers: Kommt ueber 0x155 ein Status zu 0x9281 (Temporisation)? Die Behauptung stammt aus einem eingefuegten Text (nicht von uns bestaetigt).
+- **Bekannt (gemessen, `BEFUND_Echter_Bus_LBC_EVC_09-10.md`):** `0x155` B0 = Max-Ladeleistung (x 300 W), B1 (unteres Nibble) und B2 = Strom, B4/B5 = USOC (Rohwert x 0,0025 %, z. B. `48 62` = 18.530 = 46,3 %). B3, B6, B7 sind nicht erklaert.
+- **Abgelesene Felder "0x155 (B7..B0)" am 13./14.10.:** `199 2 98 72 84 208 135 73`; `198 2 194 72 84 208 135 73`; `4 131 58 128 84 205 135 42`; `3 131 218 126 84 207 135 73`; `3 131 194 126 84 208 135 42`. Auffaellig: **B6 nimmt die Werte 2, 130 und 131 an (Bit 7 = 0x80 gesetzt oder nicht)**, B7 liegt bei 188/189 (Nutzerbericht beim Druck auf 9281: B7 188 -> 189, B6 130 -> 2), 198/199 und 3/4. B4 wechselt von 72 auf 126/128, passt zum hoeheren SOC (81 bis 82 %), kein Status. Die Zeitpunkte der Ablesungen zu den Ereignissen (9281, Sleep, Wake) sind nicht festgehalten; daher noch keine Zuordnung.
+- **Test (klein, am Bench):** Das Feld wird jede Sekunde aktualisiert und laeuft in der Abschaltfolge weiter (der Akku sendet bis zur Stille). (1) Wach: Feld ablesen. (2) "Sleep 0x9281=1": direkt nach dem Druck und etwa alle 30 s bis zur Stille ablesen, B6 und B7 notieren. (3) Wake, danach ablesen. (4) Wiederholung mit normalem "Sleep" (ohne 9281). Vergleich: aendert sich B6 (Bit 7) nur im Lauf mit 9281?
+- **Ergebnis:** offen. Kommt nichts heraus, wird das Feld in Bau 14 entfernt.
