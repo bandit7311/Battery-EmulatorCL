@@ -382,6 +382,17 @@ Aufbau der Seite `/simulator` (`simulator_html.cpp`, Stand 14.10.):
 - **0x214** (Zeile 9, Sleep-Anforderungs-Experiment, `send_214_like_car` und Experimentteil in `transmit_can`): **auch entfernen** (Nutzer, 14.10.: "0x214 auch weg").
 - **Bestaetigt (Nutzer, 14.10.): "komplett weg, beide Adressen nur intern"**: Block 2 entfaellt vollstaendig aus Seite und Senden; 0x350 und 0x53B bleiben nur intern (kein Frame auf dem CAN). 0x090 und 0x242 sind am Geraet nicht angehakt und koennen ebenfalls weg. Bau 13 ist damit entschieden, wartet nur noch auf "bauen".
 
+## Zum Bauen vorgemerkt (Bau 14): SCPU-Fehlerfeld neben dem MCPU-Fehlerfeld, Reihenfolge der DTC-Knoepfe (Wunsch Nutzer, 14.10.; wartet auf "bauen")
+Ausgangslage (Screenshot 14.10., Befund aus dem Code):
+- Das Feld "Diagnostic Trouble Codes" (Tabelle mit Code, Status, Beschreibung; "Not read yet - use the Read DTC button below to scan") ist der Abschnitt von Dala (`render_dtc_section_html`, `BatteryHtmlRenderer.h:26`, aufgerufen aus `UdsCanBattery.cpp:516`) und zeigt nur die Fehler der **MCPU**.
+- Der untere Knopf "Read DTC SCPU" (`advanced_battery_html.cpp:61`, ruft `read_DTC_scpu()` auf, `BATTERY.cpp:4551`, Anfrage `19 02 <Maske>` an die SCPU) zeigt sein Ergebnis nicht in einem Feld im DTC-Abschnitt; die Antwort geht in das freie Antwortfeld und in die Textzeile "DTC Read SCPU (last result, stays until the next read)" (`dtc_scpu_result`, `BATTERY.cpp:4460`) weiter oben auf der Seite (Nutzer: der Knopf hat nicht funktioniert).
+- Deshalb gibt es einen zweiten, eigenen Knopf "Read DTC SCPU" in der Info-Zeile (`twingoScpuDtc`, Route `/triggerTwingoDtcScpu`, `webserver.cpp:1279`); er funktioniert, ist laut Nutzer aber ueberfluessig.
+Wunsch:
+1. **Zweites Ausgabefeld fuer die SCPU-Fehler** neben dem Feld fuer die MCPU-Fehler (zwei Spalten, Ueberschriften "MCPU" und "SCPU"), in derselben Tabellenform (Code, Status, Beschreibung) wie beim MCPU-Feld; "Not read yet" bis zum ersten Lesen. Dazu muss die Antwort der SCPU (`59 02 FF ...`) in eine zweite Fehlerliste dekodiert und mit demselben Darstellungscode gezeigt werden.
+2. **Der untere Knopf "Read DTC SCPU" muss das neue Feld fuellen** (er ist der einzige, der bleiben soll); der zweite Knopf in der Info-Zeile entfaellt, sobald das nachgewiesen ist.
+3. **Reihenfolge der Knoepfe in der unteren Reihe:** links zuerst **Read DTC MCPU**, dann **Erase DTC MCPU**; rechts zuerst **Read DTC SCPU**, dann **Erase DTC SCPU** (heute: obere Reihe "... Wake up, Erase DTC MCPU", untere Reihe "Erase DTC SCPU, Read DTC MCPU, Read DTC SCPU"). Die Reihenfolge ergibt sich heute aus der Befehlstabelle (`battery_commands`, `advanced_battery_html.cpp:30-90`); die Knoepfe fuer DTC werden als eigene Gruppe in der unteren Reihe angeordnet.
+- Offen beim Bauen: Beschreibungstexte der SCPU-Codes (Dala-JSON hat sie evtl. nicht, dann "Unknown"); ob die Textzeile "DTC Read SCPU (last result)" bleibt oder durch das neue Feld ersetzt wird.
+
 ## Offen, nicht entschieden oder abhaengig vom Bench
 - **0x426 Byte 0 bis 7 bitweise einstellbar** (nicht gewuenscht in der Form "alle Bytes"; der Wunsch vom 11.10. ist Punkt 1).
 - **km steigt beim Fahren von selbst** (z. B. +1 km pro Minute im Zustand "driving"): nur nach Rate aus dem Auto; heute fest.
