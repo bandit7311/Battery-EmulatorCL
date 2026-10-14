@@ -401,8 +401,8 @@ Wunsch:
  ... (Freie Anfrage, Antwort-Feld, Read DTC fault counters 19 14 - wie heute) ...
  NVROL Log ... (wie heute)
  [ ] Read ALL DTC statuses (mask 0xFF) ...
- DTC Read (ext. protocol, Read DTC button): ...        <- Kandidat (siehe Rueckfrage)
- DTC Erase (ext. protocol, Erase DTC button): ...      <- Kandidat (siehe Rueckfrage)
+ DTC Read (ext. protocol, Read DTC button): ...        <- bleibt
+ DTC Erase (ext. protocol, Erase DTC button): ...      <- bleibt
  [Reset] Own send intervals 0x426 / 0x435 / 0x436 ...
    (Messwerte)
  0x155 (B7..B0): 3 131 194 126 84 208 135 42           <- bleibt, ohne den DTC-details-Knopf
