@@ -26,36 +26,36 @@
 
 // 2. Which frames of the LBC<>EVC bus the emulator sends (one flag per row of the table sim_signals, same order).
 //    true = send. Default (author's bench, 14.10.): 0x157 0x0EC 0x0ED 0x19F 0x426 0x436 0x423 0x419 0x428 0x42F 0x435 0x69F.
-constexpr bool SIM_ON_19F = true;
-constexpr bool SIM_ON_426 = true;
-constexpr bool SIM_ON_436 = true;
-constexpr bool SIM_ON_423 = true;
-constexpr bool SIM_ON_69F = true;
-constexpr bool SIM_ON_155 = false;
-constexpr bool SIM_ON_0C5 = false;
-constexpr bool SIM_ON_1C9 = false;
-constexpr bool SIM_ON_157 = true;
+constexpr bool SIM_ON_19F = true;   // TX Emulator
+constexpr bool SIM_ON_426 = true;   // TX Emulator
+constexpr bool SIM_ON_436 = true;   // TX Emulator
+constexpr bool SIM_ON_423 = true;   // TX Emulator
+constexpr bool SIM_ON_69F = true;   // TX Emulator
+constexpr bool SIM_ON_155 = false;  // RX from Battery
+constexpr bool SIM_ON_0C5 = false;  // RX from Battery
+constexpr bool SIM_ON_1C9 = false;  // RX from Battery
+constexpr bool SIM_ON_157 = true;   // TX Emulator
 constexpr bool SIM_ON_1A1 = false;
 constexpr bool SIM_ON_1C7 = false;
-constexpr bool SIM_ON_0EC = true;
-constexpr bool SIM_ON_0ED = true;
-constexpr bool SIM_ON_419 = true;
-constexpr bool SIM_ON_424 = false;
-constexpr bool SIM_ON_425 = false;
-constexpr bool SIM_ON_428 = true;
-constexpr bool SIM_ON_42F = true;
-constexpr bool SIM_ON_435 = true;
-constexpr bool SIM_ON_43A = false;
-constexpr bool SIM_ON_445 = false;
-constexpr bool SIM_ON_464 = false;
+constexpr bool SIM_ON_0EC = true;   // TX Emulator
+constexpr bool SIM_ON_0ED = true;   // TX Emulator
+constexpr bool SIM_ON_419 = true;   // TX Emulator
+constexpr bool SIM_ON_424 = false;  // RX from Battery
+constexpr bool SIM_ON_425 = false;  // RX from Battery
+constexpr bool SIM_ON_428 = true;   // TX Emulator
+constexpr bool SIM_ON_42F = true;   // TX Emulator
+constexpr bool SIM_ON_435 = true;   // TX Emulator
+constexpr bool SIM_ON_43A = false;  // RX from Battery
+constexpr bool SIM_ON_445 = false;  // RX from Battery
+constexpr bool SIM_ON_464 = false;  // RX from Battery
 constexpr bool SIM_ON_4F7 = false;
 constexpr bool SIM_ON_500 = false;
 constexpr bool SIM_ON_511 = false;
-constexpr bool SIM_ON_588 = false;
-constexpr bool SIM_ON_6BE = false;
-constexpr bool SIM_ON_4AE = false;
-constexpr bool SIM_ON_4AF = false;
-constexpr bool SIM_ON_659 = false;
+constexpr bool SIM_ON_588 = false;  // RX from Battery
+constexpr bool SIM_ON_6BE = false;  // RX from Battery
+constexpr bool SIM_ON_4AE = false;  // RX from Battery
+constexpr bool SIM_ON_4AF = false;  // RX from Battery
+constexpr bool SIM_ON_659 = false;  // RX from Battery
 
 constexpr uint32_t sim_bit(bool on, int row) {
   return on ? (1u << row) : 0u;
