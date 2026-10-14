@@ -175,28 +175,29 @@ std::vector<CAN_frame> diag_tx() {
 // Simulator table
 // ---------------------------------------------------------------------------
 
-TEST(TwingoSimulatorTable, TenIRowsInTheDocumentedOrder) {
-  const uint32_t expected_i[10] = {0x090, 0x242, 0x350, 0x19F, 0x426, 0x436, 0x423, 0x69F, 0x53B, 0x214};
-  for (int i = 0; i < 10; i++) {
+TEST(TwingoSimulatorTable, FiveIRowsInTheDocumentedOrder) {
+  const uint32_t expected_i[5] = {0x19F, 0x426, 0x436, 0x423, 0x69F};
+  for (int i = 0; i < 5; i++) {
     EXPECT_EQ(RenaultTwingoGen1Battery::sim_signals[i].id, expected_i[i]) << "row " << i;
     EXPECT_EQ(RenaultTwingoGen1Battery::sim_signals[i].tag, 'I') << "row " << i;
   }
-  for (int i = 10; i < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; i++) {
+  for (int i = 5; i < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; i++) {
     EXPECT_NE(RenaultTwingoGen1Battery::sim_signals[i].tag, 'I') << "row " << i;
   }
 }
 
 TEST(TwingoSimulatorTable, OnlyTheZoeFramesAndTheCanListFrameAreMarkedX) {
   int x_count = 0;
-  for (int i = 0; i < 46; i++) {  // the 25 rows from index 46 on are the real-bus rows
+  for (int i = 0; i < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; i++) {
     const auto& s = RenaultTwingoGen1Battery::sim_signals[i];
-    bool expect_x = (s.id == 0x19F || s.id == 0x426 || s.id == 0x436 || s.id == 0x423 || s.id == 0x523 ||
-                     s.id == 0x373 || s.id == 0x375 || s.id == 0x376 || s.id == 0x0EE || s.id == 0x5F8 ||
-                     s.id == 0x6BF);  // 0x523: only in the CAN list; the rest: Zoe Gen2 driver only
+    const bool expect_x = (s.id == 0x19F || s.id == 0x426 || s.id == 0x436 || s.id == 0x423 || s.id == 0x523);
+    if (i >= 5) {
+      continue;  // the 25 bus rows are no subject of this test
+    }
     EXPECT_EQ(s.not_in_vehicle_log, expect_x) << "0x" << std::hex << s.id;
     x_count += s.not_in_vehicle_log ? 1 : 0;
   }
-  EXPECT_EQ(x_count, 11);
+  EXPECT_EQ(x_count, 4);
 }
 
 TEST(TwingoSimulatorTable, EveryRowHasSenderAndMeaningText) {
@@ -210,10 +211,10 @@ TEST(TwingoSimulatorTable, EveryRowHasSenderAndMeaningText) {
 }
 
 TEST(TwingoSimulatorTable, SenderIsOnlyNamedWhereASourceExists) {
-  // EVC for 0x1F8 / 0x18A / 0x186 etc. comes from the CanZE table; ids without an entry there say "unknown".
-  EXPECT_STREQ(RenaultTwingoGen1Battery::sim_signals[row_of(0x186)].sender, "EVC (CanZE)");
-  EXPECT_STREQ(RenaultTwingoGen1Battery::sim_signals[row_of(0x211)].sender, "unknown");
-  EXPECT_STREQ(RenaultTwingoGen1Battery::sim_signals[row_of(0x350)].sender, "unknown");
+  // ids without an entry in the CanZE table say "unknown"; every row has a sender text
+  for (int i = 0; i < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; i++) {
+    ASSERT_NE(RenaultTwingoGen1Battery::sim_signals[i].sender, nullptr) << i;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -229,8 +230,11 @@ void reset_age_state() {
   t.age_pack_unix = 1791590400;
   t.age_last_sent = 0;
   t.age_source = 0;
-  t.bus_format_zoe_old = true;  // the legacy tests check the old Zoe form
-  t.bus_state_manual = true;    // the tests choose the state themselves
+  t.bus_format_zoe_old = true;                           // the legacy tests check the old Zoe form
+  t.bus_state_manual = true;                             // the tests choose the state themselves
+  RenaultTwingoGen1Battery::time_436_follow_age = true;  // since Bau 13 the age is read from the 0x436 frame
+  RenaultTwingoGen1Battery::time_436_active = false;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 1ULL << RenaultTwingoGen1Battery::SIM_ROW_436;
 }
 // A single-frame positive reply 62 <pid> <3 data bytes> from the MCPU.
 void feed_time_reply(RenaultTwingoGen1Battery& b, uint16_t pid, uint32_t v) {
@@ -261,7 +265,7 @@ TEST(TwingoVehicleAge, SeedGivesTheBenchValueOf0810) {
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 200, 100, log);
-  auto f = with_id(log, 0x350);
+  auto f = with_id(log, 0x436);
   ASSERT_FALSE(f.empty());
   EXPECT_EQ(age_of_frame(f.back()), 1025401u);  // seed 1,025,301 + 100 min, no safety day
 }
@@ -275,13 +279,13 @@ TEST(TwingoVehicleAge, TicksOncePerMinute) {
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 100, 100, log);
-  auto f = with_id(log, 0x350);
+  auto f = with_id(log, 0x436);
   ASSERT_FALSE(f.empty());
   EXPECT_EQ(age_of_frame(f.back()), 1025301u);
   b.unix_now += 1;  // the next minute starts
   log.clear();
   run(b, t, 100, 100, log);
-  f = with_id(log, 0x350);
+  f = with_id(log, 0x436);
   ASSERT_FALSE(f.empty());
   EXPECT_EQ(age_of_frame(f.back()), 1025302u);
 }
@@ -294,12 +298,12 @@ TEST(TwingoVehicleAge, WithoutAClockNoFrameWithAnAgeIsSent) {
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 500, 100, log);
-  EXPECT_TRUE(with_id(log, 0x350).empty());
+  EXPECT_TRUE(with_id(log, 0x436).empty());
   b.unix_set = true;
   b.unix_now = 1791590400;
   log.clear();
   run(b, t, 300, 100, log);
-  EXPECT_FALSE(with_id(log, 0x350).empty());
+  EXPECT_FALSE(with_id(log, 0x436).empty());
 }
 
 TEST(TwingoVehicleAge, ImplausibleClockIsNotUsed) {
@@ -311,7 +315,7 @@ TEST(TwingoVehicleAge, ImplausibleClockIsNotUsed) {
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 300, 100, log);
-  EXPECT_TRUE(with_id(log, 0x350).empty());
+  EXPECT_TRUE(with_id(log, 0x436).empty());
 }
 
 TEST(TwingoVehicleAge, NeverGoesBackwardsWhenTheClockStepsBack) {
@@ -323,11 +327,11 @@ TEST(TwingoVehicleAge, NeverGoesBackwardsWhenTheClockStepsBack) {
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 200, 100, log);
-  uint32_t before = age_of_frame(with_id(log, 0x350).back());
+  uint32_t before = age_of_frame(with_id(log, 0x436).back());
   b.unix_now = 1791590400 + 60;
   log.clear();
   run(b, t, 200, 100, log);
-  EXPECT_GE(age_of_frame(with_id(log, 0x350).back()), before);
+  EXPECT_GE(age_of_frame(with_id(log, 0x436).back()), before);
 }
 
 TEST(TwingoVehicleAge, PackReadingAboveWhatWeSendDoesNotRaiseTheReference) {
@@ -342,7 +346,7 @@ TEST(TwingoVehicleAge, PackReadingAboveWhatWeSendDoesNotRaiseTheReference) {
   feed_time_reply(b, 0x9261, 1400000);  // since 09.10. the reading never raises what we send
   log.clear();
   run(b, t, 200, 100, log);
-  EXPECT_EQ(age_of_frame(with_id(log, 0x350).back()), 1025311u);
+  EXPECT_EQ(age_of_frame(with_id(log, 0x436).back()), 1025311u);
 }
 
 TEST(TwingoVehicleAge, PackReadingBelowWhatWeSendChangesNothing) {
@@ -357,7 +361,7 @@ TEST(TwingoVehicleAge, PackReadingBelowWhatWeSendChangesNothing) {
   feed_time_reply(b, 0x9261, 1311344);
   log.clear();
   run(b, t, 200, 100, log);
-  EXPECT_EQ(age_of_frame(with_id(log, 0x350).back()), 1025301u);
+  EXPECT_EQ(age_of_frame(with_id(log, 0x436).back()), 1025301u);
 }
 
 // ---------------------------------------------------------------------------
@@ -370,7 +374,7 @@ size_t count_id(const std::vector<Tx>& log, uint32_t id) {
 }
 }  // namespace
 
-TEST(TwingoSimulatorSwitches, AllNineSteadyIRowsRunByDefault) {
+TEST(TwingoSimulatorSwitches, AllFiveSteadyIRowsRunByDefault) {
   set_mask(0x3FF);
   TestTwingo b;
   b.setup();
@@ -379,15 +383,17 @@ TEST(TwingoSimulatorSwitches, AllNineSteadyIRowsRunByDefault) {
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 3000, 10, log);
-  for (uint32_t id : {0x090u, 0x242u, 0x350u, 0x19Fu, 0x426u, 0x436u, 0x423u, 0x69Fu, 0x53Bu}) {
+  for (uint32_t id : {0x19Fu, 0x426u, 0x436u, 0x423u, 0x69Fu}) {
     EXPECT_GT(count_id(log, id), 0u) << "0x" << std::hex << id;
   }
-  EXPECT_EQ(count_id(log, 0x214), 0u);  // only during the shutdown sequence
+  for (uint32_t id : {0x090u, 0x242u, 0x350u, 0x53Bu, 0x214u}) {
+    EXPECT_EQ(count_id(log, id), 0u) << "removed in Bau 13: 0x" << std::hex << id;
+  }
 }
 
 TEST(TwingoSimulatorSwitches, EachRowSwitchesExactlyItsOwnFrame) {
-  const uint32_t ids[9] = {0x090, 0x242, 0x350, 0x19F, 0x426, 0x436, 0x423, 0x69F, 0x53B};
-  for (int k = 0; k < 9; k++) {
+  const uint32_t ids[5] = {0x19F, 0x426, 0x436, 0x423, 0x69F};
+  for (int k = 0; k < 5; k++) {
     int row = row_of(ids[k]);
     ASSERT_GE(row, 0);
     set_mask(0x3FF & ~(1u << row));
@@ -399,7 +405,7 @@ TEST(TwingoSimulatorSwitches, EachRowSwitchesExactlyItsOwnFrame) {
     std::vector<Tx> log;
     run(b, t, 3000, 10, log);
     EXPECT_EQ(count_id(log, ids[k]), 0u) << "0x" << std::hex << ids[k] << " must be off";
-    for (int j = 0; j < 9; j++) {
+    for (int j = 0; j < 5; j++) {
       if (j != k) {
         EXPECT_GT(count_id(log, ids[j]), 0u)
             << "0x" << std::hex << ids[j] << " must still run while 0x" << ids[k] << " is off";
@@ -422,369 +428,17 @@ TEST(TwingoSimulatorSwitches, AllIRowsOffMeansNoVehicleFramesAtAll) {
   set_mask(0x3FF);
 }
 
-// Bau 6 (12.10.): the stages of the sleep sequence keep their clock, but the 0x350 frames of it only go onto the bus
-// when the row 0x350 is switched on (before they were sent in any case).
-TEST(TwingoSimulatorSwitches, SleepSequenceSends350OnlyWhenTheRowIsOn) {
-  struct MaskGuard {
-    ~MaskGuard() { set_mask(0x3FF); }
-  } guard;
-  for (int on = 0; on < 2; on++) {
-    set_mask(on ? 0x3FF : (0x3FF & ~(1u << row_of(0x350))));
-    TestTwingo b;
-    b.setup();
-    uint64_t t = 1000;
-    std::vector<Tx> log;
-    run(b, t, 1000, 100, log);
-    EXPECT_EQ(count_id(log, 0x350), on ? count_id(log, 0x350) : 0u);
-    b.request_sleep();
-    log.clear();
-    run(b, t, 3000, 100, log);
-    auto f = with_id(log, 0x350);
-    if (on) {
-      ASSERT_FALSE(f.empty());
-      EXPECT_EQ(f[0].f.data.u8[0], 0xC3);  // C3 stage of the shutdown sequence
-    } else {
-      EXPECT_TRUE(f.empty()) << "row 0x350 off: no 0x350 in the sleep sequence";
-    }
-  }
-}
-
-TEST(TwingoSimulatorSwitches, Row214OnlyInShutdownAndItsSwitchWorks) {
-  for (int on = 0; on < 2; on++) {
-    set_mask(on ? 0x3FF : (0x3FF & ~(1u << row_of(0x214))));
-    TestTwingo b;
-    b.setup();
-    uint64_t t = 1000;
-    std::vector<Tx> log;
-    run(b, t, 500, 100, log);
-    b.request_sleep();
-    run(b, t, 3000, 100, log);
-    EXPECT_EQ(count_id(log, 0x214) > 0, on == 1) << "switch state " << on;
-  }
-  set_mask(0x3FF);
-}
-
-TEST(TwingoSimulatorSwitches, PlannedRowsStayOffByDefaultAndSwitchOnAndOff) {
-  set_mask(0x3FF);
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 1000, 10, log);
-  EXPECT_EQ(count_id(log, 0x186), 0u);
-  set_mask(0x3FF | (1u << row_of(0x186)));
-  run(b, t, 1000, 10, log);
-  EXPECT_GT(count_id(log, 0x186), 0u);
-  size_t n = count_id(log, 0x186);
-  set_mask(0x3FF);
-  run(b, t, 1000, 10, log);
-  EXPECT_EQ(count_id(log, 0x186), n);
-}
-
-// Every one of the 25 P/A rows (index 10-34) is its own on/off switch: ticked -> frames of exactly that ID with the
-// interval of the table row, unticked -> nothing.
-TEST(TwingoSimulatorSwitches, EveryPlannedAndAssumedRowSwitchesOnAndOff) {
-  datalayer.battery.status.voltage_dV = 3840;  // 0x42E only sends while the pack voltage is known
-  for (int row = 10; row < RenaultTwingoGen1Battery::SIM_SIGNAL_COUNT; row++) {
-    const auto& sig = RenaultTwingoGen1Battery::sim_signals[row];
-    for (int on = 0; on < 2; on++) {
-      set_mask(0x3FFull);
-      datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
-      if (on) {
-        RenaultTwingoGen1Battery::sim_row_set((uint8_t)row, true);
-      }
-      datalayer_extended.twingoGen1.bus_state = 2;  // ignition 1: every real-bus frame is active
-      TestTwingo b;
-      b.setup();
-      uint64_t t = 1000;
-      std::vector<Tx> log;
-      const uint64_t window = std::max<uint64_t>(2000, 2ull * sig.interval_ms);
-      run(b, t, window, 1, log);
-      size_t n = count_id(log, sig.id);
-      if (on) {
-        // about 2000 ms / interval frames (the table interval is the minimum spacing of the loop)
-        EXPECT_GE(n + 2u, (size_t)(window / sig.interval_ms))
-            << "0x" << std::hex << sig.id << " row " << std::dec << row;
-        EXPECT_LE(n, (size_t)(window / sig.interval_ms) + 2u)
-            << "0x" << std::hex << sig.id << " row " << std::dec << row;
-        for (const Tx& x : with_id(log, sig.id)) {
-          EXPECT_EQ(x.f.DLC, sig.dlc) << "0x" << std::hex << sig.id;
-        }
-      } else {
-        EXPECT_EQ(n, 0u) << "0x" << std::hex << sig.id << " row " << std::dec << row << " must be off";
-      }
-    }
-  }
-  set_mask(0x3FF);
-  datalayer.battery.status.voltage_dV = 0;
-  datalayer_extended.twingoGen1.bus_state = 1;
-  datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
-}
-
 // ---------------------------------------------------------------------------
 // 0x42E: measured pack voltage
 // ---------------------------------------------------------------------------
-
-TEST(Twingo42E, CarriesTheMeasuredPackVoltageWithHalfVoltResolution) {
-  set_mask(0x3FF | (1u << row_of(0x42E)));
-  struct Case {
-    uint16_t dV;
-    uint8_t b3, b4;
-  } cases[] = {
-      {3390, 0x54, 0xC4},  // 339.0 V = real frame ff ff d0 54 c4 ..
-      {3840, 0x60, 0x04},  // 384.0 V
-      {3845, 0x60, 0x24},  // 384.5 V
-      {3841, 0x60, 0x04},  // rounds to 384.0 V
-      {3843, 0x60, 0x24},  // rounds to 384.5 V
-  };
-  for (const Case& c : cases) {
-    TestTwingo b;
-    b.setup();
-    datalayer.battery.status.voltage_dV = c.dV;
-    uint64_t t = 1000;
-    std::vector<Tx> log;
-    run(b, t, 300, 10, log);
-    auto f = with_id(log, 0x42E);
-    ASSERT_FALSE(f.empty()) << c.dV;
-    EXPECT_EQ(f[0].f.data.u8[3], c.b3) << c.dV;
-    EXPECT_EQ(f[0].f.data.u8[4], c.b4) << c.dV;
-    // The OVMS RT32 decode of the real vehicle gives back the voltage.
-    float v = (float)((((f[0].f.data.u8[3] << 8) | f[0].f.data.u8[4]) >> 5) & 0x3FF) / 2.0f;
-    EXPECT_NEAR(v, c.dV / 10.0f, 0.3f) << c.dV;
-    // The other bytes stay as in the table row.
-    const auto& row = RenaultTwingoGen1Battery::sim_signals[row_of(0x42E)];
-    for (int i : {0, 1, 2, 5, 6, 7}) {
-      EXPECT_EQ(f[0].f.data.u8[i], row.data[i]) << "byte " << i;
-    }
-  }
-  set_mask(0x3FF);
-  datalayer.battery.status.voltage_dV = 0;
-}
-
-TEST(Twingo42E, NothingIsSentWhileThePackVoltageIsUnknown) {
-  set_mask(0x3FF | (1u << row_of(0x42E)));
-  datalayer.battery.status.voltage_dV = 0;
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 1000, 10, log);
-  EXPECT_EQ(count_id(log, 0x42E), 0u);
-  datalayer.battery.status.voltage_dV = 3840;
-  run(b, t, 500, 10, log);
-  EXPECT_GT(count_id(log, 0x42E), 0u);
-  set_mask(0x3FF);
-  datalayer.battery.status.voltage_dV = 0;
-}
-
-TEST(Twingo42E, NeverUsesTheInvalidMarker) {
-  set_mask(0x3FF | (1u << row_of(0x42E)));
-  datalayer.battery.status.voltage_dV = 6000;  // 600 V, far above anything real: clamped, not 0x3FF
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 300, 10, log);
-  auto f = with_id(log, 0x42E);
-  ASSERT_FALSE(f.empty());
-  uint16_t raw = (((f[0].f.data.u8[3] << 8) | f[0].f.data.u8[4]) >> 5) & 0x3FF;
-  EXPECT_EQ(raw, 0x3FEu);
-  set_mask(0x3FF);
-  datalayer.battery.status.voltage_dV = 0;
-}
-
-TEST(Twingo42E, StopsInTheSilenceOfTheSleepSequenceLikeTheOtherRows) {
-  set_mask(0x3FF | (1u << row_of(0x42E)));
-  datalayer.battery.status.voltage_dV = 3840;
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 500, 10, log);
-  b.request_sleep();
-  uint64_t sleep_start = t;
-  std::vector<Tx> sleep_log;
-  run(b, t, 150000, 100, sleep_log);
-  uint64_t last = 0;
-  for (const Tx& x : with_id(sleep_log, 0x42E)) {
-    last = x.t;
-  }
-  EXPECT_GT(last, sleep_start);
-  EXPECT_LT(last, sleep_start + 66000 + 60000 + 10000 + 1500);  // not after the C0 stage
-  set_mask(0x3FF);
-  datalayer.battery.status.voltage_dV = 0;
-}
 
 // ---------------------------------------------------------------------------
 // 0x18A: counter and CRC
 // ---------------------------------------------------------------------------
 
-TEST(Twingo18A, ByteSixIsTheJ1850CrcOverTheOtherSevenBytes) {
-  set_mask(0x3FF | (1u << row_of(0x18A)));
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 1000, 10, log);
-  auto f = with_id(log, 0x18A);
-  ASSERT_GE(f.size(), 90u);
-  for (const Tx& x : f) {
-    std::vector<uint8_t> in = {x.f.data.u8[0], x.f.data.u8[1], x.f.data.u8[2], x.f.data.u8[3],
-                               x.f.data.u8[4], x.f.data.u8[5], x.f.data.u8[7]};
-    EXPECT_EQ(x.f.data.u8[6], crc_j1850(in));
-  }
-  // The counter in the high nibble of byte 7 steps by one per frame, the low nibble stays 0.
-  for (size_t i = 1; i < f.size(); i++) {
-    uint8_t prev = f[i - 1].f.data.u8[7] >> 4, cur = f[i].f.data.u8[7] >> 4;
-    EXPECT_EQ((uint8_t)((prev + 1) & 0x0F), cur);
-    EXPECT_EQ(f[i].f.data.u8[7] & 0x0F, 0);
-  }
-  set_mask(0x3FF);
-}
-
-TEST(Twingo18A, CrcMatchesRealVehicleFrames) {
-  // Frames from canmitlog.log (02.10.): ff f0 00 06 40 3c d5 70, ff f0 00 06 40 3c aa 80, ff f0 00 06 40 3c 67 90
-  const uint8_t real[3][8] = {{0xFF, 0xF0, 0x00, 0x06, 0x40, 0x3C, 0xD5, 0x70},
-                              {0xFF, 0xF0, 0x00, 0x06, 0x40, 0x3C, 0xAA, 0x80},
-                              {0xFF, 0xF0, 0x00, 0x06, 0x40, 0x3C, 0x67, 0x90}};
-  for (const auto& r : real) {
-    std::vector<uint8_t> in = {r[0], r[1], r[2], r[3], r[4], r[5], r[7]};
-    EXPECT_EQ(crc_j1850(in), r[6]);
-  }
-}
-
-TEST(Twingo18A, SameCrcFunctionServes090And242) {
-  // The CRC of 0x090 / 0x242 in the vehicle is the same J1850 CRC (checked for all counters).
-  for (int cnt = 0; cnt < 16; cnt++) {
-    std::vector<uint8_t> d090 = {0x00, 0xFF, (uint8_t)(0xE0 | cnt), 0xF0, 0x7F, 0xF0};
-    std::vector<uint8_t> d242 = {0x00, (uint8_t)(cnt << 3), 0xFF, 0xEF, 0xFE, 0x00, 0x0D};
-    set_mask(0x3FF);
-    TestTwingo b;
-    b.setup();
-    uint64_t t = 1000;
-    std::vector<Tx> log;
-    run(b, t, 400, 10, log);
-    for (const Tx& x : with_id(log, 0x090)) {
-      std::vector<uint8_t> in = {x.f.data.u8[0], x.f.data.u8[1], x.f.data.u8[2],
-                                 x.f.data.u8[4], x.f.data.u8[5], x.f.data.u8[6]};
-      EXPECT_EQ(x.f.data.u8[3], crc_j1850(in));
-    }
-    for (const Tx& x : with_id(log, 0x242)) {
-      std::vector<uint8_t> in(x.f.data.u8, x.f.data.u8 + 7);
-      EXPECT_EQ(x.f.data.u8[7], crc_j1850(in));
-    }
-    (void)d090;
-    (void)d242;
-    break;  // one run is enough, the loop above only documents the 16 counter values
-  }
-}
-
 // ---------------------------------------------------------------------------
 // 0x1F8: FA first, then 00 and a fade, then 0 - and no FA in the sleep stages
 // ---------------------------------------------------------------------------
-
-TEST(Twingo1F8, StartsWithFaThenFadesToZero) {
-  set_mask(0x3FF | (1u << row_of(0x1F8)));
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 1500, 10, log);
-  auto f = with_id(log, 0x1F8);
-  ASSERT_GE(f.size(), 140u);
-  size_t i = 0;
-  // FA phase: about 500 ms = 50 frames of 10 ms
-  while (i < f.size() && f[i].f.data.u8[5] == 0xFA) {
-    EXPECT_EQ(f[i].f.data.u8[6], 0x00);
-    i++;
-  }
-  EXPECT_GE(i, 49u);
-  EXPECT_LE(i, 52u);
-  // Then the fade of the real vehicle: 00, 20, 0E(A0), 06(A0), 03, 01(60), 00(A0), 00(40), 00(20), 00
-  const uint8_t fade[10][2] = {{0x00, 0x00}, {0x20, 0x00}, {0x0E, 0xA0}, {0x06, 0xA0}, {0x03, 0x00},
-                               {0x01, 0x60}, {0x00, 0xA0}, {0x00, 0x40}, {0x00, 0x20}, {0x00, 0x00}};
-  for (int k = 0; k < 10; k++) {
-    ASSERT_LT(i + k, f.size());
-    EXPECT_EQ(f[i + k].f.data.u8[5], fade[k][0]) << "fade step " << k;
-    EXPECT_EQ(f[i + k].f.data.u8[6], fade[k][1]) << "fade step " << k;
-  }
-  // Afterwards the car stands: 0 for ever, never FA again
-  for (size_t j = i + 10; j < f.size(); j++) {
-    EXPECT_EQ(f[j].f.data.u8[5], 0x00);
-    EXPECT_EQ(f[j].f.data.u8[6], 0x00);
-  }
-  // The other bytes are the constant ones of the vehicle
-  for (const Tx& x : f) {
-    EXPECT_EQ(x.f.data.u8[0], 0x00);
-    EXPECT_EQ(x.f.data.u8[1], 0x84);
-    EXPECT_EQ(x.f.data.u8[4], 0xFE);
-    EXPECT_EQ(x.f.data.u8[7], 0x0F);
-  }
-  set_mask(0x3FF);
-}
-
-TEST(Twingo1F8, NoFaInTheShutdownStagesAnyMore) {
-  set_mask(0x3FF | (1u << row_of(0x1F8)));
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 2000, 10, log);  // FA phase and fade are over
-  b.request_sleep();
-  std::vector<Tx> sleep_log;
-  run(b, t, 130000, 10, sleep_log);  // C3 (66 s) and C2 (60 s) stages
-  auto f = with_id(sleep_log, 0x1F8);
-  ASSERT_FALSE(f.empty());
-  for (const Tx& x : f) {
-    EXPECT_EQ(x.f.data.u8[5], 0x00) << "t=" << x.t;
-    EXPECT_EQ(x.f.data.u8[6], 0x00);
-  }
-  set_mask(0x3FF);
-}
-
-TEST(Twingo1F8, FaSequenceStartsAgainAfterWakeUp) {
-  set_mask(0x3FF | (1u << row_of(0x1F8)));
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 2000, 10, log);
-  b.request_sleep();
-  std::vector<Tx> sleep_log;
-  run(b, t, 160000, 100, sleep_log);  // through the whole shutdown into the silence
-  b.request_wake_up();
-  std::vector<Tx> wake_log;
-  run(b, t, 8000, 10, wake_log);
-  auto f = with_id(wake_log, 0x1F8);
-  ASSERT_FALSE(f.empty());
-  EXPECT_EQ(f[0].f.data.u8[5], 0xFA);  // starts with the invalid marker again
-  bool seen_zero_after_fa = false;
-  for (const Tx& x : f) {
-    if (x.f.data.u8[5] == 0x00) {
-      seen_zero_after_fa = true;
-    }
-  }
-  EXPECT_TRUE(seen_zero_after_fa);
-  set_mask(0x3FF);
-}
-
-TEST(Twingo1F8, SwitchingTheRowOffAndOnStartsTheSequenceAgain) {
-  set_mask(0x3FF | (1u << row_of(0x1F8)));
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 2000, 10, log);
-  set_mask(0x3FF);
-  run(b, t, 500, 10, log);
-  set_mask(0x3FF | (1u << row_of(0x1F8)));
-  std::vector<Tx> again;
-  run(b, t, 100, 10, again);
-  auto f = with_id(again, 0x1F8);
-  ASSERT_FALSE(f.empty());
-  EXPECT_EQ(f[0].f.data.u8[5], 0xFA);
-  set_mask(0x3FF);
-}
 
 // ---------------------------------------------------------------------------
 // Free read request
@@ -1276,8 +930,17 @@ static uint32_t age_of(const Tx& x) {
   return ((uint32_t)x.f.data.u8[1] << 16) | ((uint32_t)x.f.data.u8[2] << 8) | x.f.data.u8[3];
 }
 
+// Since Bau 13 the age is visible on the bus only in 0x436 (Zoe form, row 0x436, the frame follows the age).
+static void age_on_0x436() {
+  RenaultTwingoGen1Battery::time_436_active = false;
+  RenaultTwingoGen1Battery::time_436_follow_age = true;
+  datalayer_extended.twingoGen1.bus_format_zoe_old = true;
+  datalayer_extended.twingoGen1.simulator_enabled_mask = 1ULL << RenaultTwingoGen1Battery::SIM_ROW_436;
+}
+
 TEST(TwingoManualAge, SendsTheEnteredValueAndCountsOnePerMinute) {
   AgeGuard guard;
+  age_on_0x436();
   TestTwingo b;
   b.setup();
   b.unix_set = true;
@@ -1287,20 +950,21 @@ TEST(TwingoManualAge, SendsTheEnteredValueAndCountsOnePerMinute) {
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 200, 100, log);
-  auto f = with_id(log, 0x350);
+  auto f = with_id(log, 0x436);
   ASSERT_FALSE(f.empty());
   EXPECT_EQ(f.back().f.data.u8[1], 0x00);
   EXPECT_EQ(f.back().f.data.u8[2], 0x00);
   EXPECT_EQ(f.back().f.data.u8[3], 0x03);  // not the automatic value
   log.clear();
   run(b, t, 60000, 100, log);  // one minute later
-  f = with_id(log, 0x350);
+  f = with_id(log, 0x436);
   ASSERT_FALSE(f.empty());
   EXPECT_EQ(age_of(f.back()), 4u);
 }
 
 TEST(TwingoManualAge, OffReturnsToTheAutomaticMode) {
   AgeGuard guard;
+  age_on_0x436();
   TestTwingo b;
   b.setup();
   b.unix_set = true;
@@ -1311,13 +975,14 @@ TEST(TwingoManualAge, OffReturnsToTheAutomaticMode) {
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 200, 100, log);
-  auto f = with_id(log, 0x350);
+  auto f = with_id(log, 0x436);
   ASSERT_FALSE(f.empty());
   EXPECT_EQ(age_of(f.back()), 1025301u);
 }
 
 TEST(TwingoManualAge, ValueIsLimitedTo24Bit) {
   AgeGuard guard;
+  age_on_0x436();
   TestTwingo b;
   b.setup();
   set_millis64(1000);
@@ -1325,34 +990,9 @@ TEST(TwingoManualAge, ValueIsLimitedTo24Bit) {
   uint64_t t = 1000;
   std::vector<Tx> log;
   run(b, t, 200, 100, log);
-  auto f = with_id(log, 0x350);
+  auto f = with_id(log, 0x436);
   ASSERT_FALSE(f.empty());
   EXPECT_EQ(age_of(f.back()), 0xFFFFFFu);
-}
-
-TEST(TwingoManualAge, TheShutdownAndTheWakeBurstUseItToo) {
-  AgeGuard guard;
-  TestTwingo b;
-  b.setup();
-  set_millis64(1000);
-  RenaultTwingoGen1Battery::age_manual_set(3);
-  b.request_sleep();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 3000, 50, log);  // the first stages of the shutdown sequence
-  auto f = with_id(log, 0x350);
-  ASSERT_FALSE(f.empty());
-  for (const Tx& x : f) {
-    EXPECT_EQ(age_of(x), 3u) << "frame at " << x.t << " ms";
-  }
-  b.request_wake_up();
-  log.clear();
-  run(b, t, 3000, 50, log);  // wake burst
-  f = with_id(log, 0x350);
-  ASSERT_FALSE(f.empty());
-  for (const Tx& x : f) {
-    EXPECT_EQ(age_of(x), 3u) << "frame at " << x.t << " ms";
-  }
 }
 
 TEST(TwingoFreeQuery, CellPollingIsPausedWhileTheRequestRuns) {
@@ -1688,62 +1328,3 @@ TEST(TwingoPagePercent, SimulatorPageHasNoRawPercentSignEither) {
 // ---------------------------------------------------------------------------
 // 03.10.: steady 0x350 frame C7 / C3
 // ---------------------------------------------------------------------------
-
-TEST(TwingoSteady350, DefaultIsC7AndTheSwitchChangesOnlyTheSteadyFrame) {
-  RenaultTwingoGen1Battery::steady_350_use_c3 = false;
-  TestTwingo b;
-  b.setup();
-  b.unix_set = true;
-  b.unix_now = AGE_EPOCH + 2959882LL * 60;
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 300, 100, log);
-  auto f = with_id(log, 0x350);
-  ASSERT_FALSE(f.empty());
-  EXPECT_EQ(f.back().f.data.u8[0], 0xC7);
-  EXPECT_EQ(f.back().f.data.u8[5], 0x98);
-  EXPECT_EQ(f.back().f.data.u8[6], 0x94);
-  RenaultTwingoGen1Battery::steady_350_use_c3 = true;
-  log.clear();
-  run(b, t, 300, 100, log);
-  f = with_id(log, 0x350);
-  ASSERT_FALSE(f.empty());
-  // C3 as the emulator sent it before 03.10.: 14 14 96 45, age bytes stay the real minutes
-  EXPECT_TRUE(f.back().f.data.u8[0] == 0xC3 && f.back().f.data.u8[1] == 0x0F && f.back().f.data.u8[2] == 0xA5 &&
-              f.back().f.data.u8[3] == 0x15 && f.back().f.data.u8[4] == 0x14 && f.back().f.data.u8[5] == 0x14 &&
-              f.back().f.data.u8[6] == 0x96 && f.back().f.data.u8[7] == 0x45);
-  RenaultTwingoGen1Battery::steady_350_use_c3 = false;
-  log.clear();
-  run(b, t, 300, 100, log);
-  f = with_id(log, 0x350);
-  EXPECT_EQ(f.back().f.data.u8[0], 0xC7);  // back to C7 at once
-}
-
-TEST(TwingoSteady350, SleepAndWakeSequencesStayTheSameWhateverIsSelected) {
-  RenaultTwingoGen1Battery::steady_350_use_c3 = true;
-  TestTwingo b;
-  b.setup();
-  uint64_t t = 1000;
-  std::vector<Tx> log;
-  run(b, t, 500, 100, log);
-  b.request_sleep();
-  log.clear();
-  run(b, t, 3000, 100, log);
-  auto f = with_id(log, 0x350);
-  ASSERT_FALSE(f.empty());
-  EXPECT_EQ(f[0].f.data.u8[0], 0xC3);  // C3 stage of the shutdown sequence, as before
-  RenaultTwingoGen1Battery::steady_350_use_c3 = false;
-}
-
-TEST(TwingoSteady350, SimulatorPageShowsTheSelectionAndItsCurrentState) {
-  RenaultTwingoGen1Battery::steady_350_use_c3 = false;
-  std::string page(simulator_processor(String("X")).c_str());
-  EXPECT_NE(page.find("id='steady350c7' checked "), std::string::npos);
-  EXPECT_EQ(page.find("id='steady350c3' checked "), std::string::npos);
-  EXPECT_NE(page.find("/editTwingoSteady350?value=1"), std::string::npos);
-  RenaultTwingoGen1Battery::steady_350_use_c3 = true;
-  page = std::string(simulator_processor(String("X")).c_str());
-  EXPECT_EQ(page.find("id='steady350c7' checked "), std::string::npos);
-  EXPECT_NE(page.find("id='steady350c3' checked "), std::string::npos);
-  RenaultTwingoGen1Battery::steady_350_use_c3 = false;
-}

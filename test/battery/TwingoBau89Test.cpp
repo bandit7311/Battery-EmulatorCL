@@ -39,7 +39,8 @@ class Bau89Twingo : public RenaultTwingoGen1Battery {
     t.bus_state_manual = true;
     t.bus_state = twingo_bus::BUS_WACH;
     t.bus_sleep_path = twingo_bus::SLEEP_LANG;
-    t.simulator_enabled_mask = 0x3FF;
+    t.bus_format_zoe_old = false;
+    t.simulator_enabled_mask = 1ULL << Bat::SIM_ROW_436;  // the age goes out in 0x436 (bytes 1-3)
     t.simulator_enabled_mask_hi = 0;
   }
   ~Bau89Twingo() {
@@ -88,13 +89,13 @@ size_t count_of(const std::string& s, const std::string& what, size_t from, size
   return n;
 }
 
-// The age that goes out in the 0x350 frame of one transmit_can() call at time t (0xFFFFFFFF = no frame).
+// The age that goes out in the 0x436 frame (bytes 1-3) of one transmit_can() call at time t (0xFFFFFFFF = no frame).
 uint32_t age_at(RenaultTwingoGen1Battery& b, uint64_t t) {
   set_millis64(t);
   clear_transmitted_frames();
   b.transmit_can((unsigned long)t);
   for (const CAN_frame& f : get_transmitted_frames()) {
-    if (!f.ext_ID && f.ID == 0x350) {
+    if (!f.ext_ID && f.ID == 0x436) {
       return ((uint32_t)f.data.u8[1] << 16) | (f.data.u8[2] << 8) | f.data.u8[3];
     }
   }
@@ -184,7 +185,7 @@ TEST(TwingoBau9, TheFramesCarryTheSteppedAge) {
   }
   bool seen = false;
   for (const Tx& x : log) {
-    if (x.f.ID == 0x350 && !x.f.ext_ID) {
+    if (x.f.ID == 0x436 && !x.f.ext_ID) {
       const uint32_t age = ((uint32_t)x.f.data.u8[1] << 16) | (x.f.data.u8[2] << 8) | x.f.data.u8[3];
       EXPECT_EQ(age, 1025301u + 2u);
       seen = true;
@@ -239,6 +240,8 @@ TEST(TwingoBau9, DailySleepRaisesTheKilometresStartsTheSleepAndLastsTheConfigure
   t.daily_sleep_km = 5;
   t.daily_sleep_enabled = true;
   t.bus_sleep_path = twingo_bus::SLEEP_LADELOG2;  // the user's choice, the daily sleep takes the long way for its run
+  t.bus_state_manual = false;                     // the state of the bus follows the run: the wake-up shows in 0x423
+  t.simulator_enabled_mask = (1ULL << Bat::SIM_ROW_423) | (1ULL << Bat::SIM_ROW_436);
   const uint32_t save_km = Bat::odo_426_km;
   Bat::odo_426_km = 6844;
   b.clock_set = true;
@@ -275,12 +278,12 @@ TEST(TwingoBau9, DailySleepRaisesTheKilometresStartsTheSleepAndLastsTheConfigure
     tick(b, now, &log);
   }
   for (const Tx& x : log) {
-    if (!x.f.ext_ID && x.f.ID == 0x350 && x.f.data.u8[0] == 0xC0 && x.t > t_fire + 250000) {
+    if (!x.f.ext_ID && x.f.ID == 0x423 && x.f.data.u8[0] == 0x30 && x.t > t_fire + 250000) {
       t_wake = x.t;
       break;
     }
   }
-  ASSERT_GT(t_wake, 0u) << "no wake-up burst after the daily sleep";
+  ASSERT_GT(t_wake, 0u) << "no wake-up (0x423 in the wake form) after the daily sleep";
   EXPECT_GT(t_wake, t_fire + 295000);  // 188 s + 120 s of silence, minus the start-up of the run
   EXPECT_LT(t_wake, t_fire + 330000);
   EXPECT_EQ(t.bus_sleep_path, twingo_bus::SLEEP_LADELOG2) << "the chosen way is back after the run";

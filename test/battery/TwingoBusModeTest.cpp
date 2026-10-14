@@ -334,17 +334,17 @@ TEST(TwingoBusFormat, Frame436CarriesTheVehicleAgeInTheVehicleFormat) {
 // R rows
 // ---------------------------------------------------------------------------
 
-TEST(TwingoBusRows, TableHas25RRowsAndFiveBusRowsOfTheOldTable) {
+TEST(TwingoBusRows, TableHas25RRowsAndFiveZoeFormRows) {
   int r = 0;
   for (int i = 0; i < Bat::SIM_SIGNAL_COUNT; i++) {
     if (Bat::sim_signals[i].tag == 'R') {
-      EXPECT_GE(i, 46);
+      EXPECT_GE(i, 5);
       r++;
     }
   }
   EXPECT_EQ(r, 25);
-  EXPECT_EQ((int)Bat::SIM_SIGNAL_COUNT, 71);
-  for (int i = 46; i < Bat::SIM_SIGNAL_COUNT; i++) {
+  EXPECT_EQ((int)Bat::SIM_SIGNAL_COUNT, 30);
+  for (int i = 5; i < Bat::SIM_SIGNAL_COUNT; i++) {
     EXPECT_NE(twingo_bus::find_frame((uint16_t)Bat::sim_signals[i].id), nullptr) << i;
   }
 }
@@ -434,7 +434,7 @@ TEST(TwingoRxTracking, FirstLastAndCountPerRow) {
   b.setup();
   Bat::rx_reset(1000);
   const int row = row_of(0x155);
-  ASSERT_GE(row, 46);
+  ASSERT_GE(row, 5);
   set_millis64(2000);
   b.handle_incoming_can_frame(rx11(0x155, {0}));
   b.handle_incoming_can_frame(rx11(0x155, {0}));
@@ -518,7 +518,8 @@ TEST(TwingoBusPage, HasBothBlocksTheControlsAndAllCellFrames) {
   b.setup();
   std::string page(simulator_processor(String("X")).c_str());
   EXPECT_NE(page.find("Block 1"), std::string::npos);
-  EXPECT_NE(page.find("Block 2"), std::string::npos);
+  EXPECT_EQ(page.find("Block 2"), std::string::npos);  // removed in Bau 13
+  EXPECT_EQ(page.find("EXPERIMENTAL"), std::string::npos);
   EXPECT_NE(page.find("/twingoRxStatus"), std::string::npos);
   EXPECT_NE(page.find("/twingoBusFormat"), std::string::npos);
   EXPECT_NE(page.find("/twingoBusState"), std::string::npos);
@@ -533,18 +534,13 @@ TEST(TwingoBusPage, HasBothBlocksTheControlsAndAllCellFrames) {
   }
 }
 
-TEST(TwingoBusPage, Block1ShowsThirtyRowsAndBlock2FortyOne) {
+TEST(TwingoBusPage, Block1ShowsAllThirtyRowsAndNothingBehindIt) {
   std::string page(simulator_processor(String("X")).c_str());
-  const size_t b2 = page.find("Block 2: simulator alt");
-  ASSERT_NE(b2, std::string::npos);
-  int in1 = 0, in2 = 0;
   for (int i = 0; i < Bat::SIM_SIGNAL_COUNT; i++) {
-    const size_t p = page.find("<tr id='Rr" + std::to_string(i) + "'>");
-    ASSERT_NE(p, std::string::npos) << i;
-    (p < b2 ? in1 : in2)++;
+    EXPECT_NE(page.find("<tr id='Rr" + std::to_string(i) + "'>"), std::string::npos) << i;
   }
-  EXPECT_EQ(in1, 30);
-  EXPECT_EQ(in2, 41);
+  EXPECT_EQ(page.find("<tr id='Rr" + std::to_string(Bat::SIM_SIGNAL_COUNT) + "'>"), std::string::npos);
+  EXPECT_EQ(page.find("simulator alt"), std::string::npos);
 }
 
 // ---------------------------------------------------------------------------
@@ -597,12 +593,12 @@ TEST(TwingoWakeForm, SwitchingTheRowOffAndOnStartsANewSession) {
   EXPECT_EQ(f[6].f.data.u8[0], 0x1C);
 }
 
-TEST(TwingoBusPage, FourPartsTogetherAreTheWholePageAndEachIsSmall) {
+TEST(TwingoBusPage, ThreePartsTogetherAreTheWholePageAndEachIsSmall) {
   BusTwingo b;
   b.setup();
   std::string all(simulator_processor(String("X")).c_str());
   std::string parts;
-  for (const char* name : {"A", "B", "C", "D"}) {
+  for (const char* name : {"A", "B", "D"}) {
     std::string p(simulator_processor(String(name)).c_str());
     EXPECT_GT(p.size(), 1000u) << name;
     EXPECT_LT(p.size(), 30000u) << name;  // no String of the whole 60 kB page is needed on the device
@@ -1188,33 +1184,6 @@ TEST(TwingoBau6, OnlyTheTickedRowSendsOnTheCanBusInEveryState) {
       EXPECT_FALSE(x.f.ext_ID && x.f.ID == 0x79B);
     }
     datalayer_extended.twingoGen1.bus_state_manual = true;
-  }
-}
-
-TEST(TwingoBau6, RowOff350IsSilentAndRowOn350SendsTheSleepProtocol) {
-  for (int on = 0; on < 2; on++) {
-    BusTwingo b;
-    b.setup();
-    datalayer_extended.twingoGen1.simulator_enabled_mask = 0;
-    datalayer_extended.twingoGen1.simulator_enabled_mask_hi = 0;
-    if (on) {
-      Bat::sim_row_set(2, true);
-    }
-    ASSERT_EQ(Bat::sim_signals[2].id, 0x350u);
-    uint64_t t = 1000;
-    std::vector<Tx> log;
-    run(b, t, 2000, 10, log);
-    b.request_sleep();
-    run(b, t, 150000, 10, log);
-    EXPECT_EQ(with_id(log, 0x350).empty(), on == 0);
-    if (on) {
-      bool c3 = false, z00 = false;
-      for (const Tx& x : with_id(log, 0x350)) {
-        c3 |= x.f.data.u8[0] == 0xC3;
-        z00 |= x.f.data.u8[0] == 0x00;
-      }
-      EXPECT_TRUE(c3 && z00);
-    }
   }
 }
 
