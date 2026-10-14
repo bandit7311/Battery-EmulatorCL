@@ -451,3 +451,8 @@ Wunsch:
 - Tabelle 30 Zeilen (SIM_ROW_*), Standardmaske 0x10 (nur 0x69F). NVM-Schluessel TWINGOSIMB1 migriert die alten 71-Zeilen-Schalter (twingo::migrate_old_row_mask).
 - Rest-Aufraeumen (AUFRAEUMLISTE): end_stage/SIM_END, 128-Bit-Maskenmaschinerie (sim_row_*_hi), 0x350-Wake-Byte-Spalten.
 - Als naechstes (nur auf "bauen"): Bau 14, dann Bau 12.
+
+
+### Aenderungen vor dem Bauen (Nutzer, 14.10.; noch nichts gebaut)
+- **Bau 14 zusaetzlich: "Read DTC fault counters (19 14)" mit "not run yet" entfaellt** (Zeile `BATTERY.cpp:3305`, JavaScript `twingoFdc` `:3368`, `read_DTC_fdc()` `:3732` / `.h:235`, `fdc_query_result()` `.h:227`, `fdc_result`, Modus `UQ_FDC` in Sammler, `which=fdc` in der Route `webserver.cpp:1249-1256`, Route `:1281-1283`, zugehoerige Tests). Der Eintrag (e) der Rueckfrage oben ("bleibt") ist damit ueberholt. Freie Anfrage und die zwei Log-Zeilen DTC Read / DTC Erase bleiben.
+- **Bau 12 geaendert: eine gemeinsame Zeit fuer Knopf und Taster.** Das Feld heisst kuenftig **"Sleep failsafe manual / push button hardware (IO15) --> auto wake after: [ ] min [Set]"** (heute "Sleep failsafe manual (auto wake after)", `BATTERY.cpp:3220`, NVM `sleep_failsafe_minutes`). Der Taster an IO15 nutzt diese Zeit fuer die Stille. Damit entfaellt die feste Dauer von 15 Minuten (Entscheidung 3) und der geplante Merker fuer den Taster-Lauf in `silence_limit_ms()`: ohne Daily-sleep-Merker liefert `silence_limit_ms()` schon `sleep_manual_failsafe_ms()`. Der Rest (langer Druck 2 s, Einschlafweg lang, 0x9281=1, kein Wecken per Taster) bleibt. Offene Frage entfaellt ebenfalls (Feld ist ja einstellbar).
