@@ -65,6 +65,52 @@ inline uint32_t migrate_old_row_mask(uint64_t lo, uint64_t hi) {
   return out;
 }
 
+// Vehicle ID of 0x69F (Bau 18): the 4 data bytes as typed on the Advanced page, "46 13 88 6F" or "4613886F" (spaces and
+// upper/lower case do not matter). Exactly 8 hex digits; 00000000 and FFFFFFFF are refused (not a vehicle ID).
+inline bool parse_vehicle_id(const char* text, uint8_t out[4]) {
+  if (text == nullptr) {
+    return false;
+  }
+  uint8_t digits[8];
+  uint8_t n = 0;
+  for (const char* p = text; *p != '\0'; p++) {
+    const char c = *p;
+    if (c == ' ') {
+      continue;
+    }
+    int v;
+    if (c >= '0' && c <= '9') {
+      v = c - '0';
+    } else if (c >= 'a' && c <= 'f') {
+      v = c - 'a' + 10;
+    } else if (c >= 'A' && c <= 'F') {
+      v = c - 'A' + 10;
+    } else {
+      return false;
+    }
+    if (n >= 8) {
+      return false;
+    }
+    digits[n++] = (uint8_t)v;
+  }
+  if (n != 8) {
+    return false;
+  }
+  uint8_t b[4];
+  for (uint8_t i = 0; i < 4; i++) {
+    b[i] = (uint8_t)((digits[2 * i] << 4) | digits[2 * i + 1]);
+  }
+  const bool all00 = b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0;
+  const bool allFF = b[0] == 0xFF && b[1] == 0xFF && b[2] == 0xFF && b[3] == 0xFF;
+  if (all00 || allFF) {
+    return false;
+  }
+  for (uint8_t i = 0; i < 4; i++) {
+    out[i] = b[i];
+  }
+  return true;
+}
+
 // Minute factor (Bau 9): 1 = real time, N = the age counts +1 only every N minutes (0 is treated as 1).
 inline uint32_t age_factor_sane(uint32_t factor) {
   return factor < 1 ? 1 : factor;

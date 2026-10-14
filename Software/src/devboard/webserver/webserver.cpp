@@ -816,6 +816,38 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
+  // Bau 18: vehicle ID of 0x69F: en=1/0 the switch "use own vehicle ID", id=8 hex digits (spaces allowed). The typed ID
+  // is stored (TWVEHID) even when the switch is off; the answer is "OK <text for the page>" or the reason.
+  def_route_with_auth("/editTwingoVehicleId", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!request->hasParam("en") || !request->hasParam("id")) {
+      request->send(400, "text/plain", "missing value");
+      return;
+    }
+    uint8_t id[4];
+    if (!twingo::parse_vehicle_id(request->getParam("id")->value().c_str(), id)) {
+      request->send(400, "text/plain", "bad ID: 8 hex digits, not 00000000 or FFFFFFFF");
+      return;
+    }
+    const bool en = request->getParam("en")->value().toInt() != 0;
+    auto& t = datalayer_extended.twingoGen1;
+    for (uint8_t i = 0; i < 4; i++) {
+      t.vehicle_id[i] = id[i];
+    }
+    t.vehicle_id_custom = en;
+    Preferences prefs;
+    prefs.begin("batterySettings", false);
+    prefs.putUInt("TWVEHID", ((uint32_t)id[0] << 24) | ((uint32_t)id[1] << 16) | ((uint32_t)id[2] << 8) | id[3]);
+    prefs.putBool("TWVEHIDEN", en);
+    prefs.end();
+    static_cast<RenaultTwingoGen1Battery*>(battery)->apply_vehicle_id();
+    uint8_t sent[4];
+    RenaultTwingoGen1Battery::effective_vehicle_id(sent);
+    char text[48];
+    snprintf(text, sizeof(text), "OK sending %02X %02X %02X %02X%s", sent[0], sent[1], sent[2], sent[3],
+             en ? " (own ID)" : " (default of the car)");
+    request->send(200, "text/plain", text);
+  });
+
   // Bau 12: checkbox "push button" (GPIO15) of the Sleep failsafe line
   def_route_with_auth("/editTwingoSleepButton", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     if (request->hasParam("value")) {

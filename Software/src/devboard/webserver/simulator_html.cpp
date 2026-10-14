@@ -89,6 +89,15 @@ static void append_cell_frame_rows(String& content, uint8_t cols) {
   }
 }
 
+// The vehicle ID that 0x69F carries now, "46 13 88 6F" (Bau 18: own ID or the default of the car).
+static String vehicle_id_text() {
+  uint8_t id[4];
+  Bat::effective_vehicle_id(id);
+  char b[16];
+  snprintf(b, sizeof(b), "%02X %02X %02X %02X", id[0], id[1], id[2], id[3]);
+  return String(b);
+}
+
 // The control block of the bus (Bau 15, 14.10.: moved from the /simulator page to the Twingo part of the Advanced page, same
 // elements, same routes): format, mode, way of the sleep, state, cell source, stage times, vehicle age, manual age,
 // time in 0x436, kilometres of 0x426. Contains no percent sign (template engine).
@@ -150,7 +159,7 @@ String simulator_controls_html() {
         "bei Sleep/NVROL zur&uuml;ck bis zu); an: das Feld bestimmt den Zustand. Bestimmt den Inhalt der "
         "Block-1-Zeilen.</span><br>";
     content += "<b>0x69F gesendet:</b> <span id='tx69f'>" + String((unsigned long)Bat::tx_69f_count) +
-               "</span> Frames (Fahrzeug-ID <code>46 13 88 6F</code>, 1 s)<br>";
+               "</span> Frames (Fahrzeug-ID <code>" + vehicle_id_text() + "</code>, 1 s)<br>";
     content += "<b>Zellwerte-Quelle:</b> <label><input type='radio' name='cellsrc' id='cellsrc0' ";
     content += tg.cell_source_broadcast ? "" : "checked ";
     content += "onclick=\"fetch('/twingoCellSource?value=0')\"> UDS (heute)</label> ";

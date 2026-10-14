@@ -755,6 +755,22 @@ void RenaultTwingoGen1Battery::daily_sleep_service(void) {
   note_action("daily sleep");
 }
 
+void RenaultTwingoGen1Battery::effective_vehicle_id(uint8_t out[4]) {
+  const auto& t = datalayer_extended.twingoGen1;
+  const bool typed = t.vehicle_id[0] != 0 || t.vehicle_id[1] != 0 || t.vehicle_id[2] != 0 || t.vehicle_id[3] != 0;
+  for (uint8_t i = 0; i < 4; i++) {
+    out[i] = (t.vehicle_id_custom && typed) ? t.vehicle_id[i] : TWINGO_VEHICLE_ID_DEFAULT[i];
+  }
+}
+
+void RenaultTwingoGen1Battery::apply_vehicle_id() {
+  uint8_t id[4];
+  effective_vehicle_id(id);
+  for (uint8_t i = 0; i < 4; i++) {
+    ZOE_69F_BCM_GATEWAY.data.u8[i] = id[i];
+  }
+}
+
 void RenaultTwingoGen1Battery::restore_sleep_path_after_run() {
   if (daily_sleep_run || button_sleep_run) {
     datalayer_extended.twingoGen1.bus_sleep_path = daily_sleep_prev_path;  // the run used the long way
@@ -1153,6 +1169,15 @@ void RenaultTwingoGen1Battery::age_load_from_nvm() {
   odo_426_km = prefs.getUInt("TWO426KM", odo_426_km);
   odo_426_b7 = (uint8_t)prefs.getUInt("TWO426B7", odo_426_b7);
   t.bus_state_manual = prefs.getBool("TWBUSMAN", t.bus_state_manual);
+  // Bau 18: own vehicle ID of 0x69F
+  t.vehicle_id_custom = prefs.getBool("TWVEHIDEN", t.vehicle_id_custom);
+  if (prefs.isKey("TWVEHID")) {
+    const uint32_t v = prefs.getUInt("TWVEHID", 0);
+    t.vehicle_id[0] = (uint8_t)(v >> 24);
+    t.vehicle_id[1] = (uint8_t)(v >> 16);
+    t.vehicle_id[2] = (uint8_t)(v >> 8);
+    t.vehicle_id[3] = (uint8_t)v;
+  }
   prefs.end();
 #endif
 }
@@ -3305,6 +3330,30 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += prog ? "checked>" : ">";
     content += " Programming (0x02)</h4>";
 
+    {
+      // Bau 18: vehicle ID of 0x69F; the switch "use own vehicle ID", the typed ID (always editable) and Set
+      uint8_t shown[4];
+      const auto& tv = datalayer_extended.twingoGen1;
+      const bool typed = tv.vehicle_id[0] || tv.vehicle_id[1] || tv.vehicle_id[2] || tv.vehicle_id[3];
+      for (uint8_t i = 0; i < 4; i++) {
+        shown[i] = typed ? tv.vehicle_id[i] : TWINGO_VEHICLE_ID_DEFAULT[i];
+      }
+      char idtxt[16];
+      snprintf(idtxt, sizeof(idtxt), "%02X %02X %02X %02X", shown[0], shown[1], shown[2], shown[3]);
+      uint8_t sent[4];
+      effective_vehicle_id(sent);
+      char senttxt[16];
+      snprintf(senttxt, sizeof(senttxt), "%02X %02X %02X %02X", sent[0], sent[1], sent[2], sent[3]);
+      content += "<h4><input type='checkbox' id='twingoVidEn' onclick='twingoSetVehicleId(true)' ";
+      content += tv.vehicle_id_custom ? "checked>" : ">";
+      content += " use own vehicle ID (0x69F): <input type='text' id='twingoVid' size='11' maxlength='11' value='";
+      content += idtxt;
+      content += "'> <button onclick='twingoSetVehicleId(false)'>Set</button> <span id='twingoVidState'>sending ";
+      content += senttxt;
+      content += tv.vehicle_id_custom ? " (own ID)" : " (default of the car)";
+      content += "</span></h4>";
+    }
+
     content +=
         "<h4>Sleep failsafe manual / push button hardware (IO15) --> auto wake after: "
         "<input type='number' id='twingoSleepMinutes' min='1' max='1440' value='";
@@ -3422,6 +3471,13 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "function twingoSetAgeFactor(){";
     content += "var f=document.getElementById('twingoAgeFactor').value;";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoAgeFactor?value='+f,true);x.send();}";
+    content += "function twingoSetVehicleId(fromBox){var b=document.getElementById('twingoVidEn');";
+    content += "var f=document.getElementById('twingoVid');var s=document.getElementById('twingoVidState');";
+    content += "var u='/editTwingoVehicleId?en='+(b.checked?1:0)+'&id='+encodeURIComponent(f.value);";
+    content += "fetch(u).then(function(r){return r.text();}).then(function(t){";
+    content +=
+        "if(t.indexOf('OK')===0){s.textContent=t.substring(3);}else{s.textContent=t;if(fromBox){b.checked=!b.checked;}}"
+        "});}";
     content += "function twingoSetSleepButton(v){";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoSleepButton?value='+(v?1:0),true);x.send();}";
     content += "function twingoSetCellwatchEnable(v){";
@@ -3503,6 +3559,7 @@ void RenaultTwingoGen1Battery::setup(void) {  // Performs one time setup at star
   // their own BMS-reset moments (02.10. phantom BATTERY_OVERVOLTAGE investigation).
   ignore_can_errors_for(can_interface, EXT_425_BOOT_FILTER_TIMEOUT_MS);
   age_load_from_nvm();
+  apply_vehicle_id();  // Bau 18: default ID of the car or the typed own ID
   if (time_436_active) {
     time_436_set(time_436_value);  // the typed time of 0x436 carries on from the stored value
   }

@@ -10,6 +10,13 @@
 #include "UdsCanBattery.h"
 
 // ---------------------------------------------------------------------------
+// Parameters of this vehicle (Bau 18): the default vehicle ID that 0x69F carries when the switch "use own vehicle ID" on
+// the Advanced page is off. This is the ID of the Twingo of the author (both vehicle logs, DID $925E = 13 88 6F); for
+// another car change it here or type the own ID on the Advanced page.
+// ---------------------------------------------------------------------------
+constexpr uint8_t TWINGO_VEHICLE_ID_DEFAULT[4] = {0x46, 0x13, 0x88, 0x6F};
+
+// ---------------------------------------------------------------------------
 // Extended-address polling (0x18DADBF1 request / 0x18DAF1DB response) for
 // individual cell voltages, balancing status, and a few lifetime metrics.
 //
@@ -224,6 +231,10 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Bau 14: the DTC list of the safety CPU (field "SCPU" next to the field of the MCPU), filled by the answer to
   // "Read DTC SCPU" (19 02 <mask> to the SCPU).
   DATALAYER_BATTERY_DTC_TYPE* get_dtc_second() override { return &dtc_scpu_data; }
+  // Vehicle ID of 0x69F (Bau 18): the ID that goes out now (own ID if the switch is on, else the default) and the transfer
+  // into the frame; the Advanced page / web server call apply_vehicle_id() after a change.
+  static void effective_vehicle_id(uint8_t out[4]);
+  void apply_vehicle_id();
   // Measurement of the own send intervals of 0x426/0x435/0x436 (text for the page; reset starts again).
   void tx_measure_text(char* out, size_t n) const { tx_measure.format(out, n); }
   void tx_measure_reset() { tx_measure.reset(); }
@@ -347,6 +358,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Vehicle ID (04.10.): `46 13 88 6F` exactly as the Twingo of the user sends it in both vehicle logs (all 208 and
   // 302 frames identical); bytes 1-3 are the ID the LBC stores (DID $925E = 13 88 6F in the LBC dump of this car).
   // Before 04.10. this was the Zoe value `71 30 28 2F`, which the bench pack has learned (it answered 30 28 2F).
+  // Bau 18: the 4 bytes are set by apply_vehicle_id() (default TWINGO_VEHICLE_ID_DEFAULT or the typed own ID).
   CAN_frame ZOE_69F_BCM_GATEWAY = {.FD = false,
                                    .ext_ID = false,
                                    .DLC = 4,
