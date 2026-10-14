@@ -4280,6 +4280,13 @@ void RenaultTwingoGen1Battery::handle_dtc_ext_reply(CAN_frame rx_frame) {
   uint8_t pci = rx_frame.data.u8[0];
   if (pci >= 0x10) {
     snprintf(log, 48, "unexpected multi-frame (PCI=0x%02X)", pci);
+  } else if (pci == 1 && rx_frame.data.u8[1] == 0x54) {
+    // Bau 19: the positive answer to 14 FF FF FF is the single byte 54 (0x14 + 0x40)
+    snprintf(log, 48, "OK (positive response 54)");
+  } else if (pci == 1) {
+    snprintf(log, 48, "short reply (1 byte: %02X)", rx_frame.data.u8[1]);
+  } else if (pci == 2) {
+    snprintf(log, 48, "short reply (2 bytes: %02X %02X)", rx_frame.data.u8[1], rx_frame.data.u8[2]);
   } else if (pci < 3) {
     snprintf(log, 48, "short reply (%u bytes)", pci);
   } else if (rx_frame.data.u8[1] == 0x7F) {
