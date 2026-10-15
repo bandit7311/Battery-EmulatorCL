@@ -78,3 +78,7 @@ Frage des Nutzers: Kommt ueber 0x155 ein Status zu 0x9281 (Temporisation)? Die B
 - **Laden -> Fahren:** Betriebsart "Laden" (Zustand A0/41 steht), dann auf "Fahren" klicken: 0x426 geht ueber 00/01 (B7 80, dann 40), 00/07, 00/06, 08/06 in den Zustand wach (nie 00/02), nach etwa 4,6 s beginnt das Aufwecken zum Fahren ab "wach", nach etwa 21 s steht der Fahrzustand; 0x436 Byte 0 faellt von AD ueber die Rampe auf 80; 0x423 Byte 0 = 87 fuer 5,5 s. Danach `9259` / `925C` lesen.
 - **Wecken ueber den Stecker:** 0x423 Byte 3/5 in den Stufen FD/80 -> FE/80 -> FE/20 (Mitschnitt).
 - **Sleep Weg "Ladelog 2":** 0x428, 0x42F, 0x435 und 0x423 Byte 5 wie im Log in den ersten 16 s.
+
+## Bench-Test fuer Bau 26 (nach dem Flashen, 15.10.)
+- Advanced-Seite: unter der Zeile `0x155 (B7..B0)` steht die Zeile `0x912B raw (data bytes 21-32, first bit = cell 96): ...`; nach spaetestens 20 s stehen 12 Bytes dort, das Alter ("read N s ago") springt etwa alle 20 s zurueck auf 0. Mit der Freien Anfrage `22 91 2B` die Bytes 21 bis 32 der Antwort vergleichen.
+- Der Rundlauf der anderen Werte (Zellspannungen, Zaehler, Temperaturen) laeuft unveraendert, ein Durchgang dauert etwa 7 s laenger.
