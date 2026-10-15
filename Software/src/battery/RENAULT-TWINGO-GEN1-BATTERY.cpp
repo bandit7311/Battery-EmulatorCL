@@ -1868,7 +1868,7 @@ void RenaultTwingoGen1Battery::append_quiet_html(String& s) {
   const bool active = UserRequestNVROLReset;
   const uint8_t mode = active ? nvrol_mode : nvrol_last_mode;
   const unsigned long now = millis();
-  char b[120];
+  char b[240];  // Bau 22: the two longest "Result" texts need about 200 characters (120 cut them off, the <br> was lost)
 
   if (mode == 1) {
     s += "Sleep (nothing sent at all, until Wake up): ";
@@ -2121,7 +2121,14 @@ void RenaultTwingoGen1Battery::append_refresh_script_html(String& s, bool busy) 
        ".then(function(r){return r.text();}).then(function(t){"
        "var d=new DOMParser().parseFromString(t,'text/html');"
        "var nb=d.getElementById('nvrolBox');var cur=document.getElementById('nvrolBox');"
-       "if(!nb||!cur){return;}cur.innerHTML=nb.innerHTML;"
+       "if(!nb||!cur){return;}"
+       // Bau 23: the box carries blocks that the page fills by its own 1 s poll (twingoTxStat, twingoRx155); the fresh copy
+       // has only the placeholder "-" there. Keep the text that stands now and put it back, so the block does not blink.
+       "var keep={};['twingoTxStat','twingoRx155'].forEach(function(i){var e=document.getElementById(i);"
+       "if(e){keep[i]=e.textContent;}});"
+       "cur.innerHTML=nb.innerHTML;"
+       "for(var i in keep){var e=document.getElementById(i);"
+       "if(e&&(e.textContent==='-'||e.textContent==='')){e.textContent=keep[i];}}"
        "var a=nb.getAttribute('data-active');cur.setAttribute('data-active',a);"
        "if(a==='1'){setTimeout(tick,1000);}}).catch(function(){setTimeout(tick,2000);});}"
        "setTimeout(tick,1000);})();</script>";
