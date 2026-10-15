@@ -570,7 +570,7 @@ Wunsch:
   3. Wake-Formen der uebrigen EVC-Frames beim Wecken ueber den Stecker (0x157, 0x1A1, 0x1C7, 0x419, 0x428, 0x42F, 0x435, 0x4F7, 0x500, 0x511); Werte aus dem Abschnitt "Zustand Laden" und dem Log.
   4. Im Zustand "Laden" alle EVC-Zeilen senden (heute nur die Zeilen der Maske, Standard 12 Frames, `BATTERY.h:28`); die Frames, die der echte Akku selbst sendet (`from_pack`), nicht, sie kollidieren mit dem echten Akku (`BUS.h:12-14`).
 - **Klarstellung (Nutzer, 15.10.):** Wir senden bereits in der Wach-Phase nach dem Ladeende weiter, wie im Ladelog (Auto 557,87 bis 677,77 s mit allen Frames; bei uns die Stufen C3/C2/C0 mit 133,2 bzw. 136 s, "own frames still run"). Das bleibt so.
-- **Nicht eingebaut:** Weitersenden in der echten Stille (nach der Schliessphase, Zustand 5) bei steckendem Stecker (im Log nicht belegt; das Log endet mit dem letzten Frame bei 688,91 s, vorher 44 s Stille ohne Frames von 203,26 bis 247,64 s). Nicht bauen ohne Aufnahme.
+- **Entfaellt (Nutzer, 15.10.):** "Weitersenden in der echten Stille bei steckendem Stecker" gibt es im Auto nicht: Der Nutzer hat das Auto mit dem Stecker geweckt, es hat geladen, dann aufgeschlossen, Stecker gezogen und sofort wieder abgeschlossen; erst danach schlaeft das Auto ein (Wach-Phase 124,6 s, Schliessphase, Stille). Es gibt also keinen Schlaf bei steckendem Stecker und keine Aufnahme, die dazu fehlt.
 - **Tests:** Klick auf "Laden" aus dem Zustand "Fahren": `bus_state_now` laeuft durch alle Schritte von `LADEN_WAKE_STEPS` (Zeiten, 0x426 B1/B2) und bleibt auf `BUS_LADEN`; Klick auf "Fahren" aus "Laden": Fahren-Folge; Golden-Test (gesendete Frames) bei unveraendertem Ziel unveraendert.
 
 ## GEBAUT am 15.10. (Bau 22, 23, 24; Branch twingo-bau7-schlaf-anforderung, Commits b2f2a78 und 38d8b88; 484 Tests mit Seite und Cellwatch / 484 ohne Cellwatch / 347 ohne beides gruen; ESP-Build und Bench-Test offen)
@@ -583,5 +583,5 @@ Wunsch:
 - Im Zustand "Laden" (und waehrend dessen Wake-Folge) werden auch die EVC-Frames gesendet, deren Zeile aus ist: 0x1A1, 0x1C7, 0x4F7, 0x511 (Schalter `LADEN_SENDS_ALL_EVC_FRAMES` im Parameterblock von `BATTERY.h`, Standard true). 0x500 nie (`active_in_state`: nur Zuendung 1 bis aus), die Frames des Akkus nie.
 - Weg "Ladelog 2": Wach-Zeit bis zur Schliessphase 124,6 s (Log 553,27 -> 677,87 s), C3 ist der Rest nach C2 und C0; gilt mit und ohne "like the car". Die anderen Wege unveraendert (136 s / 133,2 s).
 - **Golden-Lauf:** 24 Szenarien; 16 byte-identisch (alle Wege lang und kurz), 8 verschieden, und zwar nur der Weg "Ladelog 2" (gewollt: Wach-Zeit und 0x423-87).
-- **Nicht gebaut (siehe oben):** Weitersenden in der echten Stille bei steckendem Stecker (im Log nicht belegt).
+- **Entfaellt:** Weitersenden in der echten Stille bei steckendem Stecker (das Auto schlaeft nur nach Abziehen des Steckers und Abschliessen, siehe oben).
 - **Grenzen:** Rampe von B6 (0x157) und die Rauschbytes von 0x1A1/0x511 nicht kopiert. Nach dem Sleep-Druck aus dem Ladezustand enden die vier zugeschalteten Zeilen (0x1A1, 0x1C7, 0x4F7, 0x511), das Auto sendet sie in der Wach-Phase weiter.
