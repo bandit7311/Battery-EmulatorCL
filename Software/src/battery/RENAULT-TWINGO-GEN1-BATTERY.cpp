@@ -834,6 +834,7 @@ void RenaultTwingoGen1Battery::sleep_button_service(unsigned long currentMillis)
 
 void RenaultTwingoGen1Battery::start_powerdown(void) {
   powerdown_stage = 0;
+  bus_end_on = false;  // Bau 25: the Sleep run has its own walk
   powerdown_start_ms = millis();
   powerdown_stage_start_ms = powerdown_start_ms;
   bus_sleep_start_state = bus_state_shown;  // the shutdown walk down starts from here
@@ -2772,7 +2773,8 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
   // before the first wake frame, none runs in the 00 stage) is sim_row_allowed_now().
   // Bau 24: in the state "charging" (and while its wake-up runs) the rows of the frames that the EVC sends are on too.
   int32_t o426_now;
-  const bool laden_forced = laden_rows_forced(bus_state_now(currentMillis, o426_now));
+  const bool laden_forced = laden_rows_forced(bus_state_now(currentMillis, o426_now)) ||
+                            (bus_end_on && (currentMillis - bus_end_start_ms) < twingo_bus::LADEN_END_WALK_MS);
   for (uint8_t i = 0; i < SIM_SIGNAL_COUNT; i++) {
     if (sim_signals[i].tag != 'R') {
       continue;
@@ -2821,6 +2823,10 @@ void RenaultTwingoGen1Battery::send_simulator_signals(unsigned long currentMilli
     twingo_bus::build_frame(*def, state, seq, 0, odo_426_km, f.data.u8, bus_state_frames[def_idx]++);
     if (laden_wake_active()) {
       twingo_bus::laden_wake_form(def->id, seq, def->dlc, f.data.u8);  // Bau 24: the wake-up form of the car
+    }
+    uint32_t t_end = 0;
+    if (laden_end_time(currentMillis, t_end)) {
+      twingo_bus::laden_end_form(def->id, t_end, def->dlc, f.data.u8);  // Bau 25: the end form of the car
     }
     f.DLC = def->dlc;
     send_measured(&f);
@@ -2899,19 +2905,21 @@ void RenaultTwingoGen1Battery::send_bus_vehicle_frames(unsigned long now, bool i
       // end of the charge (way "Ladelog 2" of the Sleep run)
       uint8_t w0 = 0;
       uint8_t w1 = 0;
+      uint32_t t_end = 0;
       if (laden_wake_active()) {
         if (twingo_bus::laden_wake_423(seq_regular, w0, w1)) {
           f.data.u8[0] = w0;
           f.data.u8[1] = w1;
         }
+        uint8_t w3 = 0;
+        uint8_t w5 = 0;
+        if (twingo_bus::laden_wake_423_b3b5(seq_regular, w3, w5)) {  // Bau 25: byte 3 and byte 5 of the wake-up
+          f.data.u8[3] = w3;
+          f.data.u8[5] = w5;
+        }
+      } else if (laden_end_time(now, t_end)) {
+        twingo_bus::laden_end_423(t_end, f.data.u8);  // the end of the charge (Bau 25: also the click on "driving")
       }
-#ifdef TWINGO_EXTENDED_CELL_POLLING
-      else if (NVROLstateMachine == 7 && !datalayer_extended.twingoGen1.bus_state_manual &&
-               datalayer_extended.twingoGen1.bus_sleep_path == twingo_bus::SLEEP_LADELOG2 &&
-               twingo_bus::laden_end_423_87((uint32_t)(now - powerdown_start_ms))) {
-        f.data.u8[0] = 0x87;
-      }
-#endif
     }
     if (in_00_stage) {
       twingo_bus::apply_closing_form_at(*def, f.data.u8, (uint32_t)(now - powerdown_stage_start_ms),
@@ -2939,7 +2947,15 @@ uint8_t RenaultTwingoGen1Battery::bus_state_now(unsigned long now, int32_t& o426
     run = run && NVROLstateMachine == 0;
 #endif
     if (run) {
-      bus_restart_sessions();
+      if (tg.bus_wake_target == twingo_bus::TARGET_FAHREN && bus_state_shown == twingo_bus::BUS_LADEN &&
+          bus_session_started) {
+        // Bau 25: the click on "driving" in the state "charging" is the end of the charge: first the end walk of the car
+        // (A0/41 -> 00/01 -> ... -> awake, 4.6 s), then the driving wake-up from its step "awake"
+        bus_end_on = true;
+        bus_end_start_ms = now;
+      } else {
+        bus_restart_sessions();
+      }
     }
   }
   if (!tg.bus_state_manual) {
@@ -2954,7 +2970,21 @@ uint8_t RenaultTwingoGen1Battery::bus_state_now(unsigned long now, int32_t& o426
         bus_session_started = true;
         bus_session_start_ms = now;
       }
-      state = twingo_bus::wake_state((uint32_t)(now - bus_session_start_ms), o426, tg.bus_wake_target);
+      if (bus_end_on && (now - bus_end_start_ms) < twingo_bus::LADEN_END_WALK_MS) {
+        state = twingo_bus::sleep_state((uint32_t)(now - bus_end_start_ms), twingo_bus::BUS_LADEN, o426,
+                                        twingo_bus::SLEEP_LADELOG2);
+      } else {
+        if (bus_end_on) {
+          if ((now - bus_end_start_ms) >= twingo_bus::LADEN_END_FRAMES * 100UL) {
+            bus_end_on = false;  // the end forms are over
+          } else {
+            // after the end walk the driving wake-up goes on from its step "awake" (the first three steps are done)
+            bus_session_start_ms =
+                bus_end_start_ms + twingo_bus::LADEN_END_WALK_MS - twingo_bus::FAHREN_AFTER_CHARGE_OFFSET_MS;
+          }
+        }
+        state = twingo_bus::wake_state((uint32_t)(now - bus_session_start_ms), o426, tg.bus_wake_target);
+      }
     }
   }
   if (state >= twingo_bus::BUS_STATE_COUNT) {
@@ -2976,6 +3006,9 @@ int16_t RenaultTwingoGen1Battery::bus_b0_436(unsigned long now) {
                : (int16_t)-1;
   }
 #endif
+  if (bus_end_on && (now - bus_end_start_ms) < twingo_bus::LADEN_END_WALK_MS) {
+    return (int16_t)twingo_bus::laden_end_b0((uint32_t)(now - bus_end_start_ms));  // Bau 25: the end of the charge
+  }
   if (bus_session_started && tg.bus_wake_target == twingo_bus::TARGET_LADEN) {
     return (int16_t)twingo_bus::laden_wake_b0((uint32_t)(now - bus_session_start_ms));
   }
@@ -3001,6 +3034,27 @@ bool RenaultTwingoGen1Battery::laden_wake_active() const {
   return true;
 }
 
+bool RenaultTwingoGen1Battery::laden_end_time(unsigned long now, uint32_t& t_ms) const {
+  const auto& tg = datalayer_extended.twingoGen1;
+  if (tg.bus_state_manual) {
+    return false;
+  }
+#ifdef TWINGO_EXTENDED_CELL_POLLING
+  if (NVROLstateMachine == 7) {
+    if (tg.bus_sleep_path != twingo_bus::SLEEP_LADELOG2) {
+      return false;
+    }
+    t_ms = (uint32_t)(now - powerdown_start_ms);
+    return true;
+  }
+#endif
+  if (bus_end_on && (now - bus_end_start_ms) < twingo_bus::LADEN_END_FRAMES * 100UL) {
+    t_ms = (uint32_t)(now - bus_end_start_ms);
+    return true;
+  }
+  return false;
+}
+
 bool RenaultTwingoGen1Battery::laden_rows_forced(uint8_t state) const {
   return LADEN_SENDS_ALL_EVC_FRAMES && (state == twingo_bus::BUS_LADEN || laden_wake_active());
 }
@@ -3018,6 +3072,7 @@ bool RenaultTwingoGen1Battery::bus_closing_over(uint16_t id, bool is_0ec, unsign
 // A new session of the bus (the wake-up after Sleep / NVROL reset): every frame starts again with its wake-up form
 // (0x0EC 10 xx, 0x0ED A3 FF xx) and the driving ramp of 0x0EC starts from the beginning.
 void RenaultTwingoGen1Battery::bus_restart_sessions() {
+  bus_end_on = false;  // Bau 25: a new session ends the end of the charge
   for (uint8_t i = 0; i < twingo_bus::FRAME_COUNT; i++) {
     bus_seq[i] = 0;
     bus_state_frames[i] = 0;

@@ -155,7 +155,9 @@ TEST(TwingoBau24Restart, FromDrivingToChargingRunsTheWholeWakeUpAndStaysCharging
   EXPECT_EQ(last.back().f.data.u8[7], 0x80) << "byte 7 = 80 all the time while it charges";
 }
 
-TEST(TwingoBau24Restart, BackToDrivingRunsTheDrivingWakeUpAndStaysDriving) {
+TEST(TwingoBau24Restart, BackToDrivingEndsTheChargeFirstAndStaysDriving) {
+  // Bau 25: the click on "driving" in the state "charging" is the end of the charge: the end walk of the car (the bus is awake,
+  // never "closed"), then the driving wake-up from its step "awake"; it stays driving.
   LadenTwingo b;
   datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_LADEN;
   b.setup();
@@ -166,8 +168,8 @@ TEST(TwingoBau24Restart, BackToDrivingRunsTheDrivingWakeUpAndStaysDriving) {
   t.bus_wake_target = twingo_bus::TARGET_FAHREN;
   t.bus_target_restart = true;
   r.run(500);
-  EXPECT_EQ(shown(), twingo_bus::BUS_ZU);
-  r.run(40000);  // the wake-up of driving takes about 20 s
+  EXPECT_EQ(shown(), twingo_bus::BUS_WACH);
+  r.run(40000);  // the end walk takes 4.6 s, the rest of the driving wake-up about 16 s
   EXPECT_EQ(shown(), twingo_bus::BUS_FAHRT);
 }
 
@@ -518,4 +520,262 @@ TEST(TwingoBau24End, WakeUpAfterTheSleepRunOfTheTargetChargingRunsTheChargingWak
   const std::vector<Rec> f1c7 = r.of(0x1C7, wake);
   ASSERT_FALSE(f1c7.empty());
   EXPECT_EQ(f1c7[0].f.data.u8[4], 0x36);
+}
+
+// ---------------------------------------------------------------------------
+// Bau 25 (15.10.): the end of the charge. In the bench mode "charging" the end is the click on "driving".
+// ---------------------------------------------------------------------------
+
+namespace {
+// Charging, then the click on "driving". Returns the time of the click; the recorder keeps everything.
+uint64_t charge_then_click(Runner& r, uint64_t charge_ms = 30000) {
+  r.run(charge_ms);
+  auto& t = datalayer_extended.twingoGen1;
+  t.bus_wake_target = twingo_bus::TARGET_FAHREN;
+  t.bus_target_restart = true;
+  return r.now;
+}
+
+std::vector<std::pair<uint8_t, uint8_t>> steps426(const Runner& r, uint64_t from, uint64_t to) {
+  std::vector<std::pair<uint8_t, uint8_t>> seen;
+  for (const Rec& rec : r.of(0x426, from, to)) {
+    const std::pair<uint8_t, uint8_t> p(rec.f.data.u8[1], rec.f.data.u8[2]);
+    if (seen.empty() || seen.back() != p) {
+      seen.push_back(p);
+    }
+  }
+  return seen;
+}
+}  // namespace
+
+TEST(TwingoBau25End, ClickOnDrivingPlaysTheEndWalkOfTheCarThenTheDrivingWakeUpFromAwake) {
+  LadenTwingo b;
+  datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_LADEN;
+  b.setup();
+  Runner r(b);
+  const uint64_t click = charge_then_click(r);
+  r.run(30000);
+  const auto seen = steps426(r, click, click + 30000);
+  // A0/41 -> 00/01 (byte 7 = 80) -> 00/01 -> 00/07 -> 00/06 -> 08/06 -> awake; never 00/02 ("closed")
+  ASSERT_GE(seen.size(), 6u);
+  EXPECT_EQ(seen[0], std::make_pair((uint8_t)0x00, (uint8_t)0x01));
+  EXPECT_EQ(seen[1], std::make_pair((uint8_t)0x00, (uint8_t)0x07));
+  EXPECT_EQ(seen[2], std::make_pair((uint8_t)0x00, (uint8_t)0x06));
+  EXPECT_EQ(seen[3], std::make_pair((uint8_t)0x08, (uint8_t)0x06));
+  for (const auto& p : seen) {
+    EXPECT_NE(p, std::make_pair((uint8_t)0x00, (uint8_t)0x02)) << "the car is awake after the charge, not closed";
+    EXPECT_NE(p, std::make_pair((uint8_t)0xA0, (uint8_t)0x41)) << "the charge is over";
+  }
+  EXPECT_EQ(shown(), twingo_bus::BUS_FAHRT);
+  // the times of the log: 00/01 for 2.0 s (0.5 s with byte 7 = 80 and 1.5 s), 00/07 1.1 s, 00/06 0.4 s, 08/06 1.1 s
+  auto first_at = [&](uint8_t b1, uint8_t b2) -> uint64_t {
+    for (const Rec& rec : r.of(0x426, click)) {
+      if (rec.f.data.u8[1] == b1 && rec.f.data.u8[2] == b2) {
+        return rec.t - click;
+      }
+    }
+    return 0;
+  };
+  EXPECT_LE(first_at(0x00, 0x01), 100u);
+  EXPECT_NEAR((double)first_at(0x00, 0x07), 2000.0, 120.0);
+  EXPECT_NEAR((double)first_at(0x00, 0x06), 3100.0, 120.0);
+  EXPECT_NEAR((double)first_at(0x08, 0x06), 3500.0, 120.0);
+  // byte 7 of 0x426: 80 for the first 0.5 s, then 40
+  const std::vector<Rec> f426 = r.of(0x426, click, click + 1000);
+  ASSERT_GT(f426.size(), 8u);
+  EXPECT_EQ(f426[1].f.data.u8[7], 0x80);
+  EXPECT_EQ(f426[7].f.data.u8[7], 0x40);
+}
+
+TEST(TwingoBau25End, Frame436RampsDownLikeTheCarAndFrame423Has87AndByte5_80) {
+  LadenTwingo b;
+  datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_LADEN;
+  b.setup();
+  Runner r(b);
+  const uint64_t click = charge_then_click(r);
+  r.run(8000);
+  const std::vector<Rec> f436 = r.of(0x436, click, click + 8000);
+  ASSERT_GT(f436.size(), 60u);
+  EXPECT_EQ(f436[0].f.data.u8[0], 0xAD);
+  EXPECT_EQ(f436[1].f.data.u8[0], 0xA9);
+  EXPECT_EQ(f436[4].f.data.u8[0], 0xA0);
+  EXPECT_EQ(f436[50].f.data.u8[0], 0x80) << "the ramp is over after 4.6 s";
+  // 0x423: byte 0 = 87 from 0.33 s to 5.83 s, byte 5 = 80 for the first 0.73 s, then A0 of the state awake
+  const std::vector<Rec> f423 = r.of(0x423, click, click + 8000);
+  size_t n87 = 0;
+  for (const Rec& rec : f423) {
+    const uint64_t dt = rec.t - click;
+    EXPECT_EQ(rec.f.data.u8[0] == 0x87, dt >= 330 && dt < 5830) << dt;
+    if (dt < 730) {
+      EXPECT_EQ(rec.f.data.u8[5], 0x80) << dt;
+    } else {
+      EXPECT_EQ(rec.f.data.u8[5], 0xA0) << dt;
+    }
+    EXPECT_EQ(rec.f.data.u8[3], 0xFD) << dt;
+    n87 += rec.f.data.u8[0] == 0x87 ? 1 : 0;
+  }
+  EXPECT_NEAR((double)n87, 55.0, 2.0);
+}
+
+TEST(TwingoBau25End, EndFormsOfTheFramesOfTheLogAndTheRowsStayOnForTheEndWalk) {
+  LadenTwingo b;
+  datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_LADEN;
+  b.setup();
+  Runner r(b);
+  const uint64_t click = charge_then_click(r);
+  r.run(20000);
+  // slots of 100 ms of the log: 0x428 04 8F ... 04 80 ... 05 00 ... 07 00 ... 06 00
+  auto slot = [&](uint32_t id, uint32_t j) -> const CAN_frame& {
+    const std::vector<Rec> fr = r.of(id, click);
+    return fr.at(j).f;
+  };
+  EXPECT_TRUE(bytes_eq(slot(0x428, 0), {0, 0, 0, 0, 0, 0x04, 0x8F, 0}));
+  EXPECT_TRUE(bytes_eq(slot(0x428, 7), {0, 0, 0, 0, 0, 0x04, 0x80, 0}));
+  EXPECT_TRUE(bytes_eq(slot(0x428, 10), {0, 0, 0, 0, 0, 0x05, 0x00, 0}));
+  EXPECT_TRUE(bytes_eq(slot(0x428, 24), {0, 0, 0, 0, 0, 0x06, 0x00, 0}));
+  EXPECT_TRUE(bytes_eq(slot(0x435, 0), {0xFF, 0xFF, 0x1D, 0x68, 0x35}));
+  EXPECT_TRUE(bytes_eq(slot(0x435, 10), {0xFF, 0xFF, 0x1D, 0x08, 0x35}));
+  EXPECT_TRUE(bytes_eq(slot(0x435, 25), {0xFF, 0xFF, 0x1E, 0x0B, 0x35}));
+  EXPECT_TRUE(bytes_eq(slot(0x419, 3), {0x58, 0x00, 0x28, 0x8F, 0x60, 0x00}));
+  EXPECT_TRUE(bytes_eq(slot(0x4F7, 40), {0x00, 0x2C, 0x08, 0x00, 0xA8, 0x80, 0x06, 0xF0}));
+  // the rows 0x1A1, 0x1C7, 0x4F7, 0x511 (off in the mask) go on for the end walk with the end form of 0x1C7:
+  // B3/B4 04/34 for 0.42 s, 02/34 until 0.99 s, 02/36 until 2.03 s, 08/00 until 3.01 s, then 08/FE
+  const std::vector<Rec> f1c7 = r.of(0x1C7, click, click + 4600);
+  ASSERT_GT(f1c7.size(), 400u);
+  auto at = [&](uint64_t ms) -> const CAN_frame& {
+    for (const Rec& rec : f1c7) {
+      if (rec.t - click >= ms) {
+        return rec.f;
+      }
+    }
+    return f1c7.back().f;
+  };
+  EXPECT_TRUE(bytes_eq(at(100), {0xAA, 0x23, 0x00, 0x04, 0x34}));
+  EXPECT_TRUE(bytes_eq(at(700), {0xAA, 0x23, 0x00, 0x02, 0x34}));
+  EXPECT_TRUE(bytes_eq(at(1500), {0xAA, 0x23, 0x00, 0x02, 0x36}));
+  EXPECT_TRUE(bytes_eq(at(2500), {0xAA, 0x23, 0x00, 0x08, 0x00}));
+  EXPECT_TRUE(bytes_eq(at(4000), {0xAA, 0x23, 0x00, 0x08, 0xFE}));
+  EXPECT_FALSE(r.of(0x1A1, click, click + 4000).empty());
+  EXPECT_FALSE(r.of(0x511, click, click + 4000).empty());
+  // 0x157: B6/B7 = 01/00 from 3.02 s to 3.35 s
+  size_t blip = 0;
+  for (const Rec& rec : r.of(0x157, click, click + 5000)) {
+    const uint64_t dt = rec.t - click;
+    if (dt >= 3030 && dt < 3340) {
+      blip += (rec.f.data.u8[6] == 0x01 && rec.f.data.u8[7] == 0x00) ? 1 : 0;
+    }
+  }
+  EXPECT_GT(blip, 25u);
+}
+
+TEST(TwingoBau25End, TheFourRowsStopWhenTheEndWalkIsOverAndDrivingStaysWithTheMask) {
+  LadenTwingo b;
+  datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_LADEN;
+  b.setup();
+  Runner r(b);
+  const uint64_t click = charge_then_click(r);
+  r.run(40000);
+  EXPECT_TRUE(r.of(0x1A1, click + 5000).empty());
+  EXPECT_TRUE(r.of(0x1C7, click + 5000).empty());
+  EXPECT_TRUE(r.of(0x4F7, click + 5000).empty());
+  EXPECT_TRUE(r.of(0x511, click + 5000).empty());
+}
+
+TEST(TwingoBau25End, OnlyFromTheStateChargingAndNotInManualAndNotInASleepRun) {
+  {  // from driving to charging and back before the charge was reached: the whole driving wake-up as in Bau 24
+    LadenTwingo b;
+    b.setup();
+    Runner r(b);
+    r.run(30000);
+    auto& t = datalayer_extended.twingoGen1;
+    t.bus_wake_target = twingo_bus::TARGET_LADEN;
+    t.bus_target_restart = true;
+    r.run(1500);  // still in the first steps of the wake-up of charging
+    ASSERT_NE(shown(), twingo_bus::BUS_LADEN);
+    t.bus_wake_target = twingo_bus::TARGET_FAHREN;
+    t.bus_target_restart = true;
+    r.run(300);
+    EXPECT_EQ(shown(), twingo_bus::BUS_ZU) << "not the state charging: the session starts again from closed";
+  }
+  {  // the end forms do not run on a normal sleep run of another way
+    LadenTwingo b;
+    datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_LADEN;
+    datalayer_extended.twingoGen1.bus_sleep_path = twingo_bus::SLEEP_LANG;
+    b.setup();
+    Runner r(b);
+    r.run(30000);
+    const uint64_t press = r.now;
+    b.request_sleep();
+    r.run(8000);
+    for (const Rec& rec : r.of(0x428, press, press + 3000)) {
+      EXPECT_FALSE(bytes_eq(rec.f, {0, 0, 0, 0, 0, 0x04, 0x8F, 0})) << "no end form on the way 'lang'";
+    }
+  }
+}
+
+TEST(TwingoBau25End, SleepOnTheWayLadelog2UsesTheSameEndForms) {
+  LadenTwingo b;
+  datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_LADEN;
+  datalayer_extended.twingoGen1.bus_sleep_path = twingo_bus::SLEEP_LADELOG2;
+  b.setup();
+  Runner r(b);
+  r.run(30000);
+  const uint64_t press = r.now;
+  b.request_sleep();
+  r.run(10000);
+  const std::vector<Rec> f428 = r.of(0x428, press);
+  ASSERT_GT(f428.size(), 30u);
+  EXPECT_TRUE(bytes_eq(f428[0].f, {0, 0, 0, 0, 0, 0x04, 0x8F, 0}));
+  EXPECT_TRUE(bytes_eq(f428[10].f, {0, 0, 0, 0, 0, 0x05, 0x00, 0}));
+  EXPECT_TRUE(bytes_eq(f428[24].f, {0, 0, 0, 0, 0, 0x06, 0x00, 0}));
+}
+
+// ---------------------------------------------------------------------------
+// Bau 25: byte 3 and byte 5 of 0x423 while the bus wakes through the plug
+// ---------------------------------------------------------------------------
+
+TEST(TwingoBau25Wake, Frame423HasTheStagesOfByte3AndByte5OfTheLog) {
+  LadenTwingo b;
+  datalayer_extended.twingoGen1.bus_wake_target = twingo_bus::TARGET_LADEN;
+  b.setup();
+  Runner r(b);
+  r.run(20000);
+  const std::vector<Rec> f423 = r.of(0x423);
+  ASSERT_GT(f423.size(), 100u);
+  for (uint32_t k = 0; k < 100; k++) {
+    const CAN_frame& f = f423[2 + k].f;
+    if (k < 26) {
+      EXPECT_EQ(f.data.u8[3], 0xFD) << "k=" << k;
+      EXPECT_EQ(f.data.u8[5], 0x80) << "k=" << k;
+    } else if (k < 80) {
+      EXPECT_EQ(f.data.u8[3], 0xFE) << "k=" << k;
+      EXPECT_EQ(f.data.u8[5], 0x80) << "k=" << k;
+    } else if (k <= 84) {
+      EXPECT_EQ(f.data.u8[3], 0xFE) << "k=" << k;
+      EXPECT_EQ(f.data.u8[5], 0x20) << "k=" << k;
+    } else {
+      EXPECT_EQ(f.data.u8[3], 0xFE) << "k=" << k;  // the state "charging"
+      EXPECT_EQ(f.data.u8[5], 0x20) << "k=" << k;
+    }
+  }
+}
+
+TEST(TwingoBau25Forms, EndFormsEndAfterTheirTimeAndDoNotTouchOtherIds) {
+  uint8_t out[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+  EXPECT_FALSE(twingo_bus::laden_end_form(0x419, twingo_bus::LADEN_END_FRAMES * 100, 6, out));
+  EXPECT_FALSE(twingo_bus::laden_end_form(0x157, 5000, 8, out));
+  EXPECT_FALSE(twingo_bus::laden_end_form(0x426, 0, 8, out));
+  EXPECT_FALSE(twingo_bus::laden_end_form(0x155, 0, 8, out));
+  EXPECT_EQ(out[0], 1);
+  EXPECT_TRUE(twingo_bus::laden_end_form(0x1C7, 100000, 6, out)) << "awake form 08/FE as long as it is asked";
+  EXPECT_EQ(out[3], 0x08);
+  EXPECT_EQ(out[4], 0xFE);
+  uint8_t o423[8] = {0x07, 0x1E, 0xFF, 0xFD, 0x5D, 0xA0, 0x5D, 0xCA};
+  EXPECT_FALSE(twingo_bus::laden_end_423(6000, o423));
+  EXPECT_EQ(o423[0], 0x07);
+  EXPECT_TRUE(twingo_bus::laden_end_423(100, o423));
+  EXPECT_EQ(o423[5], 0x80);
+  EXPECT_EQ(o423[0], 0x07);
+  EXPECT_TRUE(twingo_bus::laden_end_423(500, o423));
+  EXPECT_EQ(o423[0], 0x87);
 }

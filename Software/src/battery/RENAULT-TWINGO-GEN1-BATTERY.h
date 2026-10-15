@@ -452,6 +452,13 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Bau 24: the rows of the EVC frames that are switched off are sent too (LADEN_SENDS_ALL_EVC_FRAMES) in the state
   // "charging" and while the wake-up of the target "charging" runs.
   bool laden_rows_forced(uint8_t state) const;
+  // Bau 25: the end of the charge as in the car. In the bench mode "charging" it starts at the click on "driving" (the
+  // end walk of the way "Ladelog 2", 4.6 s, then the driving wake-up from its step "awake"); the end forms of the frames
+  // (twingo_bus::laden_end_form) run for 16 s from the start. On the way "Ladelog 2" of the Sleep run the end starts with the
+  // press of Sleep. laden_end_time() gives the time since the start of the end, false when there is none.
+  bool bus_end_on = false;
+  unsigned long bus_end_start_ms = 0;
+  bool laden_end_time(unsigned long now, uint32_t& t_ms) const;
   // The wake-up through the plug starts 0x0EC only 2.05 s after the first frame (charge log 445a1527).
   bool bus_0ec_held_back(unsigned long now);
   // True from the moment in the closing stage (00) of the Sleep run at which the frame with this ID is over (order of the
