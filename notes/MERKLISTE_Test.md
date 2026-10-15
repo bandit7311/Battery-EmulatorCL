@@ -73,3 +73,8 @@ Frage des Nutzers: Kommt ueber 0x155 ein Status zu 0x9281 (Temporisation)? Die B
 - **Bau 23:** waehrend des Sleep-Laufs bleibt der Block "Own send intervals ..." und die Zeile "0x155 (B7..B0)" stehen (kein Springen).
 - **Bau 24, Klick auf die Betriebsart:** von "Fahren" auf "Laden" klicken: 0x426 geht durch 00/02, 08/02, 00/02, 00/03, 60/63, 60/61, dann A0/41 (nach etwa 8 s), Impuls A8/41, bleibt A0/41; danach 0x912B, `9259`, `925C` nach 3 und 10 Minuten lesen. Zurueck auf "Fahren": die Fahren-Folge laeuft (etwa 20 s) und bleibt. Klick auf "Schlafen": nichts aendert sich.
 - **Bau 24, auf dem Bus (Mitschnitt):** beim Klick auf "Laden" 0x423 mit Byte 0 = 87 fuer 5,6 s; 0x1A1, 0x1C7, 0x4F7, 0x511 laufen im Laden mit; Sleep mit Weg "Ladelog 2": 0x423 87 von 0,33 s bis 5,8 s, die Schliessphase 00/02 beginnt 124,6 s nach dem Druck.
+
+## Bench-Test fuer Bau 25 (nach dem Flashen, 15.10.)
+- **Laden -> Fahren:** Betriebsart "Laden" (Zustand A0/41 steht), dann auf "Fahren" klicken: 0x426 geht ueber 00/01 (B7 80, dann 40), 00/07, 00/06, 08/06 in den Zustand wach (nie 00/02), nach etwa 4,6 s beginnt das Aufwecken zum Fahren ab "wach", nach etwa 21 s steht der Fahrzustand; 0x436 Byte 0 faellt von AD ueber die Rampe auf 80; 0x423 Byte 0 = 87 fuer 5,5 s. Danach `9259` / `925C` lesen.
+- **Wecken ueber den Stecker:** 0x423 Byte 3/5 in den Stufen FD/80 -> FE/80 -> FE/20 (Mitschnitt).
+- **Sleep Weg "Ladelog 2":** 0x428, 0x42F, 0x435 und 0x423 Byte 5 wie im Log in den ersten 16 s.
