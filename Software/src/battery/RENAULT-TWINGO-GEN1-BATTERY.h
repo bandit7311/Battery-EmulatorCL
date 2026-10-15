@@ -78,6 +78,14 @@ constexpr uint32_t SIM_DEFAULT_MASK =
 constexpr uint8_t TWINGO_VEHICLE_ID_DEFAULT[4] = {0x46, 0x13, 0x88, 0x6F};
 
 // ---------------------------------------------------------------------------
+// 4. Charging (Bau 24): true = while the target "charging" runs (the wake-up through the plug and the state "charging"
+// A0/41) ALL frames that the EVC of the car sends are sent, also those whose row is switched off above (0x1A1, 0x1C7,
+// 0x4F7, 0x511; 0x500 never, it is not part of the state). The car sends all of them while it charges (charge log "Ladelog 2",
+// the same IDs at the same rates as in the awake state). false = only the rows switched on above.
+// ---------------------------------------------------------------------------
+constexpr bool LADEN_SENDS_ALL_EVC_FRAMES = true;
+
+// ---------------------------------------------------------------------------
 // Extended-address polling (0x18DADBF1 request / 0x18DAF1DB response) for
 // individual cell voltages, balancing status, and a few lifetime metrics.
 //
@@ -438,6 +446,12 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // Byte 0 of 0x436 around charging (13.10.): ramp up when the wake-up target is "charging", ramp down in the way
   // "Ladelog 2" of the Sleep run; -1 = none (the state gives 80 or AD).
   int16_t bus_b0_436(unsigned long now);
+  // Bau 24: the wake-up through the plug of the car runs (target "charging", automatic state, not in the sleep run): its
+  // frames (twingo_bus::laden_wake_form / laden_wake_423) are put over the built ones.
+  bool laden_wake_active() const;
+  // Bau 24: the rows of the EVC frames that are switched off are sent too (LADEN_SENDS_ALL_EVC_FRAMES) in the state
+  // "charging" and while the wake-up of the target "charging" runs.
+  bool laden_rows_forced(uint8_t state) const;
   // The wake-up through the plug starts 0x0EC only 2.05 s after the first frame (charge log 445a1527).
   bool bus_0ec_held_back(unsigned long now);
   // True from the moment in the closing stage (00) of the Sleep run at which the frame with this ID is over (order of the

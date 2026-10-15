@@ -273,6 +273,9 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
   bool bus_state_manual;
   /** Set by the web server to start the automatic state sequence from the beginning (switching "manual" off). */
   bool bus_session_restart;
+  /** Set by the web server when the Betriebsart (target) is changed to driving or charging: the bus session starts again,
+   *  the wake-up sequence of the new target runs from the beginning and then stays (Bau 24). Runtime only. */
+  bool bus_target_restart;
   /** true = the five Zoe-form frames (0x423, 0x426, 0x436, 0x19F, 0x69F) in the old Zoe form (all 100 ms), false = in the
    *  format of the real LBC<>EVC bus (default). NVM key TWBUSFMT. */
   bool bus_format_zoe_old;

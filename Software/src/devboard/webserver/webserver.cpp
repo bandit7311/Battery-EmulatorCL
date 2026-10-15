@@ -1228,6 +1228,11 @@ void init_webserver() {
     if (request->hasParam("value")) {
       int v = request->getParam("value")->value().toInt();
       if (v >= 0 && v < twingo_bus::TARGET_COUNT) {
+        // Bau 24: a change to driving or charging starts the wake-up sequence of the new target from the beginning
+        // (sleeping has no sequence of its own and leaves the bus as it is)
+        if (v != datalayer_extended.twingoGen1.bus_wake_target && v != twingo_bus::TARGET_SCHLAFEN) {
+          datalayer_extended.twingoGen1.bus_target_restart = true;
+        }
         datalayer_extended.twingoGen1.bus_wake_target = (uint8_t)v;
         static const char* const NAMES[twingo_bus::TARGET_COUNT] = {"mode: driving", "mode: charging",
                                                                     "mode: sleeping"};

@@ -129,7 +129,8 @@ String simulator_controls_html() {
     }
     content +=
         "<span class='sim-note'>- gespeichert; Fahren und Laden bestimmen, wo das Aufwecken endet (Laden: Aufwecken "
-        "&uuml;ber den Stecker mit Zustand A0/41), Schlafen hat noch keine eigene Folge</span><br>";
+        "&uuml;ber den Stecker mit Zustand A0/41); ein Klick auf Fahren oder Laden startet die Folge sofort neu und sie "
+        "bleibt dann stehen; Schlafen hat noch keine eigene Folge</span><br>";
     content += "<b>Einschlafweg (Sleep, Sleep 0x9281=1, NVROL reset):</b> ";
     {
       static const char* const PTH[twingo_bus::SLEEP_PATH_COUNT] = {
