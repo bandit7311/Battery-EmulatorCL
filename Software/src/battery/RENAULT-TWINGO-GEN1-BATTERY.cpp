@@ -514,6 +514,11 @@ void RenaultTwingoGen1Battery::handle_extended_multiframe_complete() {
     return;
   }
 
+  // Bau 26: the raw bytes for the page (data bytes 21 to 32 = buffer[23..34])
+  memcpy(bal_bits_raw, &ext_isotp_buffer[23], sizeof(bal_bits_raw));
+  bal_bits_ms = millis();
+  bal_bits_valid = true;
+
   bool any_balancing = false;
   // Scan positions 0-31: last 4 bytes of the 3rd continuation frame -> buffer[23..26].
   // Scan position i holds the bit for physical cell (96 - i), i.e. array index (95 - i).
@@ -3122,6 +3127,26 @@ String RenaultTwingoGen1Battery::rx_155_text() const {
   return t;
 }
 
+// Raw balancing bytes of the last 0x912B answer (Bau 26): data bytes 21 to 32 in hex in the order of the answer (the 96 bits, the
+// first bit is cell 96), and the age of the answer.
+String RenaultTwingoGen1Battery::bal_bits_text() const {
+  String t = "0x912B raw (data bytes 21-32, first bit = cell 96):";
+  if (!bal_bits_valid) {
+    t += " not yet read";
+    return t;
+  }
+  char b[4];
+  for (uint8_t i = 0; i < sizeof(bal_bits_raw); i++) {
+    snprintf(b, sizeof(b), "%02X", bal_bits_raw[i]);
+    t += " ";
+    t += b;
+  }
+  t += " (read ";
+  t += String((unsigned long)((millis() - bal_bits_ms) / 1000UL));
+  t += " s ago)";
+  return t;
+}
+
 // What the OLED display shows during a Sleep run (13.10.): "Sleep requested" with 00:00:00 while the shutdown sequence runs,
 // "Sleep pls wait" with the time of the silence from its start (the end time is the duration of this run: the "Sleep failsafe
 // minutes" for the page button and the push button, the duration of the daily sleep for the daily sleep) in the true
@@ -3364,8 +3389,23 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
           wake_priority_timeout = true;  // gave up after 30s
         }
         ext_priority_pending_mask = 0;
-        pid = ext_poll_list[ext_poll_index];
-        ext_poll_index = (ext_poll_index + 1) % EXT_POLL_LIST_LENGTH;
+        if (currentMillis - previous_bal_poll_ms >= BAL_POLL_INTERVAL_MS) {
+          // Bau 26: the balancing bits every BAL_POLL_INTERVAL_MS; the round-robin goes on at the next request
+          previous_bal_poll_ms = currentMillis;
+          pid = EXT_POLL_BALANCE_SWITCHES;
+        } else {
+          pid = ext_poll_list[ext_poll_index];
+          ext_poll_index = (ext_poll_index + 1) % EXT_POLL_LIST_LENGTH;
+          if (pid == EXT_POLL_BALANCE_SWITCHES) {
+            if (currentMillis - previous_bal_poll_ms < BAL_POLL_INTERVAL_MS / 2) {
+              // asked a moment ago by the extra request: the entry of the list is skipped
+              pid = ext_poll_list[ext_poll_index];
+              ext_poll_index = (ext_poll_index + 1) % EXT_POLL_LIST_LENGTH;
+            } else {
+              previous_bal_poll_ms = currentMillis;  // asked by the round-robin: the 20 s start from here
+            }
+          }
+        }
         // Cell source "broadcast": the cell voltages arrive by themselves, skip their PIDs (0x9021..0x9083).
         for (uint16_t guard = 0; datalayer_extended.twingoGen1.cell_source_broadcast && pid >= 0x9021 &&
                                  pid <= 0x9083 && guard < EXT_POLL_LIST_LENGTH;
@@ -3631,6 +3671,8 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "function twingoTxReset(){fetch('/twingoTxStat?reset=1');}";
     content += "setInterval(function(){var r=document.getElementById('twingoRx155');if(!r){return;}";
     content += "fetch('/twingoRx155').then(function(a){return a.text();}).then(function(x){r.textContent=x;});},1000);";
+    content += "setInterval(function(){var r=document.getElementById('twingoBalBits');if(!r){return;}";
+    content += "fetch('/twingoBalBits').then(function(a){return a.text();}).then(function(x){r.textContent=x;});},1000);";
     content += "function twingoPoll(which,span){var n=0;var h=setInterval(function(){";
     content += "fetch('/twingoQueryResult?which='+which).then(function(a){return a.text();}).then(function(x){";
     content += "span.textContent=x;if((x!=='requested'&&x!=='')||++n>40){clearInterval(h);}});},250);}";
@@ -3672,7 +3714,8 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
              "DTC Erase (ext. protocol, Erase DTC button): " << dtc_ext_log_erase << "<br>"
              "<button onclick='twingoTxReset()'>Reset</button> Own send intervals 0x426 / 0x435 / 0x436 (time of the call "
              "to the send function in microseconds, not of the wire; target 100 ms):<pre id='twingoTxStat'>-</pre>"
-             "<span id='twingoRx155'>" << rx_155_text() << "</span><br>";
+             "<span id='twingoRx155'>" << rx_155_text() << "</span><br>"
+             "<span id='twingoBalBits'>" << bal_bits_text() << "</span><br>";
   // clang-format on
   {
     // Bau 10: the block of the sleep run is a collapsible section: open while a run is going, closed afterwards, so

@@ -86,6 +86,13 @@ constexpr uint8_t TWINGO_VEHICLE_ID_DEFAULT[4] = {0x46, 0x13, 0x88, 0x6F};
 constexpr bool LADEN_SENDS_ALL_EVC_FRAMES = true;
 
 // ---------------------------------------------------------------------------
+// 5. Balancing bits (Bau 26): the polling asks the balancing switches of the pack (DID 0x912B, 96 bits) every
+// BAL_POLL_INTERVAL_MS besides the round-robin (which has it once per round of about 140 s); the page shows the raw bytes under
+// the 0x155 line. The extra request takes the place of the next entry of the round-robin (one request per second stays).
+// ---------------------------------------------------------------------------
+constexpr unsigned long BAL_POLL_INTERVAL_MS = 20000;
+
+// ---------------------------------------------------------------------------
 // Extended-address polling (0x18DADBF1 request / 0x18DAF1DB response) for
 // individual cell voltages, balancing status, and a few lifetime metrics.
 //
@@ -298,6 +305,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   void tx_measure_text(char* out, size_t n) const { tx_measure.format(out, n); }
   void tx_measure_reset() { tx_measure.reset(); }
   String rx_155_text() const;  // last 0x155 of the battery, byte 7 to byte 0 in decimal
+  // Bau 26: the 12 data bytes (21 to 32) of the last answer of DID 0x912B (the 96 balancing bits, the first bit is cell 96) in
+  // hex, and how old it is; "not yet read" before the first answer. Text for the page under the 0x155 line.
+  String bal_bits_text() const;
   // 0x350 / sleep / wake builders and the simulator rows ask this before sending (bit n = sim_signals[n]).
   bool sim_enabled(uint8_t row);
 
@@ -693,6 +703,11 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
                                        // CAN log: First Frame "10 23 62 91 2b ...") - the old 24-byte
                                        // buffer was too small, causing every reassembly attempt to be
                                        // abandoned before Flow Control was even sent back.
+  // Bau 26: raw balancing bytes of the last 0x912B answer (data bytes 21 to 32) and the time it came
+  uint8_t bal_bits_raw[12] = {0};
+  unsigned long bal_bits_ms = 0;
+  bool bal_bits_valid = false;
+  unsigned long previous_bal_poll_ms = 0;  // last extra request of 0x912B (BAL_POLL_INTERVAL_MS)
   uint16_t ext_isotp_expected_len = 0;
   uint16_t ext_isotp_received_len = 0;
   bool ext_isotp_in_progress = false;

@@ -1326,6 +1326,11 @@ void init_webserver() {
     request->send(200, "text/plain", static_cast<RenaultTwingoGen1Battery*>(battery)->rx_155_text());
   });
 
+  // Raw balancing bytes of the last 0x912B answer under the 0x155 line (Bau 26), polled by the page.
+  def_route_with_auth("/twingoBalBits", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/plain", static_cast<RenaultTwingoGen1Battery*>(battery)->bal_bits_text());
+  });
+
   // Isolation monitor control (RoutineControl 0x2008). One setting, applied to both batteries.
   def_route_with_auth("/bydAtto3IsoDisable", server, HTTP_GET, [](AsyncWebServerRequest* request) {
     datalayer_extended.bydAtto3.UserRequestIsoRoutineDisable = true;
