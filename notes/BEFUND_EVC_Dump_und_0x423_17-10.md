@@ -62,3 +62,10 @@ Die Bitposition steht in keiner Frame-Liste. Weitere EVC->LBC-Signale: $33BE LBC
 ## 7. Inverter (INV_0220_750_V1.4, Dump 5a971c55; Tabelle: INV_Dump_5a971c55_dekodiert.md)
 - Misst selbst: $2004 Udc 368,84 V, $7049 Strom 0 A. Bekommt vom Akku: $70D7 369 V, $7031 Interlock Closed. Bekommt vom EVC: $2003 Drehmoment-Sollwert 0, $7025 Ladeanforderung 0, $7027 DCDC an, $7029 Inverter aus, $703C Strecke 85465 km.
 - HINWEIS (Schlussfolgerung, nicht gemessen): 0x19F Byte 2 + oberes Halbbyte Byte 3 (12 Bit, Leerlauf 2000 = 0x7D0) = obere 12 Bit von $2001 Rotordrehzahl (Rohwert 7D 00 = 0 rpm; Schritt 0,5 rpm, Offset -16000, also 8 rpm/Bit). In 22aaf176 weicht der Wert oft ab (min 1069, max 4095), in den Ladelogs fast nie. Dann waere 0x19F ein Inverter-Frame (PEB), kein EVC-Frame.
+
+## 8. BCM-Zeit, Pack-Zeit und 0x436 (BCM-Dump 35655b33, 04.11.2025 12:51:35 UTC; Tabelle: BCM_Dump_35655b33_dekodiert.md)
+- Belegt: $8005 ABSOLUTETIME = 00 25 F2 75 = 2486901 min; $6012 V_TM_ABSOLUTETIMESINCE1RSTIGN = 00 25 F2 76. Klimabox 12:49:14 = 2486898 (IH_AbsoluteTimeSinceFirstIgnition): +3 in 141 s = Minuten, gleicher Zaehler.
+- Belegt: Pack im Auto-Dump 04.11.2025 13:17: $9261 = 25 F2 56 = 2486870 (BCM um 13:17 etwa 2486927, also ca. 57 min Vorsprung; gegen 12:51: 31 min). $91C1 = 19 F2 52 = 1700434 (BCM minus 91C1 = 786467 min; die frueher notierten 784382 min stammen aus anderen Dumps, nicht neu nachgerechnet).
+- Schlussfolgerung: 0x436 B1-3 in den Auto-Logs (22aaf176: 2969614, 598b197c: 2972365..2972377, Ladelog: 2972444..2972454) = BCM-Minuten seit erster Zuendung; rueckgerechnet 05.10. (22aaf176) und 07.10.2026 (598b197c, Ladelog). Aufnahmetage nicht bekannt, Upload 09.-15.10.
+- Bench-Pack am 11.10.2026: $9261 = 2D 5A D9 = 2972377 = letzter 0x436-Wert aus 598b197c -> unser Alter-Startwert stammt wohl aus diesem Log.
+- VIN steht im BCM (22 10 0C, 21 81, 21 7E), nicht im Pack.
