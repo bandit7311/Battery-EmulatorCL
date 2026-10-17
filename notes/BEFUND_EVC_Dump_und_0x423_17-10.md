@@ -53,3 +53,12 @@ Die Bitposition steht in keiner Frame-Liste. Weitere EVC->LBC-Signale: $33BE LBC
 - Balancing: Min/Max aller 96 Zellen am Bench zusammen mit 0x912B lesen (Spreizung gegen Bit-Muster).
 - 22 33 C2 / 22 35 67 im Auto sofort nach dem Wecken lesen (mehrfach in den ersten 5 s).
 - Pack mit mehreren Minuten Stille wecken: kommen 240..245 ungueltige 0x155?
+
+## 6. Absender der gesendeten Frames (Pruefung 17.10.)
+- Im Code ist die Quelle bei 0x157, 0x0EC, 0x0ED, 0x428, 0x42F, 0x435 nur "not sent by the battery alone (bench log 25.09.)" = Ausschluss, kein Nachweis des EVC. 0x419: "unclear". 0x69F: CanZE sagt BCM (_Frames.csv: 69F,1000,1000,BCM). 0x350: BCM.
+- Veralteter Text in BATTERY.cpp (sim_signals): bei 0x19F, 0x426, 0x436, 0x423 steht "The Twingo vehicle never sends it". Die Auto-Logs (22aaf176) enthalten alle vier.
+- JB2-XML (2c3e3125) = Bordlader (plug/mains-Felder, 259x "mains"); $5015 Wake/Sleep-Request vom EVC (0 GoToSleep, 3 WakeUp), $5016 State-Request (0 init, 1 Charge, 4 Wait, 5 Power Off/Sleep). Nicht der Akku.
+
+## 7. Inverter (INV_0220_750_V1.4, Dump 5a971c55; Tabelle: INV_Dump_5a971c55_dekodiert.md)
+- Misst selbst: $2004 Udc 368,84 V, $7049 Strom 0 A. Bekommt vom Akku: $70D7 369 V, $7031 Interlock Closed. Bekommt vom EVC: $2003 Drehmoment-Sollwert 0, $7025 Ladeanforderung 0, $7027 DCDC an, $7029 Inverter aus, $703C Strecke 85465 km.
+- HINWEIS (Schlussfolgerung, nicht gemessen): 0x19F Byte 2 + oberes Halbbyte Byte 3 (12 Bit, Leerlauf 2000 = 0x7D0) = obere 12 Bit von $2001 Rotordrehzahl (Rohwert 7D 00 = 0 rpm; Schritt 0,5 rpm, Offset -16000, also 8 rpm/Bit). In 22aaf176 weicht der Wert oft ab (min 1069, max 4095), in den Ladelogs fast nie. Dann waere 0x19F ein Inverter-Frame (PEB), kein EVC-Frame.
