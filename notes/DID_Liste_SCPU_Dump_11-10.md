@@ -1,4 +1,4 @@
-# SCPU-Dump 99dc0411 (11.10.2026 15:21 UTC, Bench-Pack) dekodiert mit RBMS_SCPU_RL_06xx_V1.2
+# SCPU-Dump 99dc0411 (11.10.2026 15:21 UTC, AUTO-Pack, nicht Bench: $9262 = 92785 km) dekodiert mit RBMS_SCPU_RL_06xx_V1.2
 
 Im Dump abgelehnt (keine Antwort): 229015, 2291BF, 2291FB, 2291FD, 229202, 229207, F182-F195.
 

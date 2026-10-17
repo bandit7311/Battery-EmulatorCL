@@ -4,7 +4,7 @@ Nur eine Notiz, nichts gebaut. Die Advanced-Seite uebernimmt davon nur nach "bau
 
 ## 1. Balancing-Zaehler im Pack (MCPU, Anfrage 22 xx xx an 0x18DADBF1)
 Quelle: RBMS_MCPU_RL_06xx_V1.7 (22d72d9b). Alle sechs DIDs: 4 Byte, vorzeichenbehaftet, Wert = Rohwert * 1/1024 + 2097152.
-| DID | Name | Einheit | 04.11.2025 13:17 (Auto) | 06.10.2026 (Bench) | 11.10.2026 (Bench) |
+| DID | Name | Einheit | 04.11.2025 13:17 (Auto) | 06.10.2026 (AUTO) | 11.10.2026 (AUTO) |
 |---|---|---|---|---|---|
 | $924F | Total cumulated capacity balanced (Zxx_bal_chg_tot) | Ah | 95,12 | 127,97 | 130,00 |
 | $9250 | Total balancing time (Zxx_bal_time_tot) | h | 163,91 | 219,28 | 222,11 |
@@ -13,7 +13,7 @@ Quelle: RBMS_MCPU_RL_06xx_V1.7 (22d72d9b). Alle sechs DIDs: 4 Byte, vorzeichenbe
 | $9262 | ... Wake Up mode (Zxx_bal_chg_tot_wk) | - | 0 | 0 | 0 |
 | $9263 | balancing time, Wake Up mode (Zxx_bal_time_tot_wk) | h | 0 | 0 | 0 |
 Rohbytes 11.10.: 924F/9251 = 80 02 08 00, 9250/9252 = 80 03 78 74, 9262/9263 = 80 00 00 00.
-- Befund: In allen 13 MCPU-Dumps sind Total = Sleep-mode, Wake-Up-Zaehler = 0. Zwischen 06.10. und 11.10.2026 +2,03 Ah und +2,83 h: Der Pack hat im Schlaf balanciert.
+- Befund: In allen 13 MCPU-Dumps sind Total = Sleep-mode, Wake-Up-Zaehler = 0. Zwischen 06.10. und 11.10.2026 +2,03 Ah und +2,83 h: der AUTO-Pack hat im Schlaf balanciert (nicht der Bench-Pack, siehe Korrektur unten).
 - Schlussfolgerung (nicht geprueft): Balancing laeuft im Schlafmodus und ist dann fuer uns nicht lesbar; wach gelesene 0x912B-Bits sind deshalb meist 0. Offen, ob die Zaehler nur bei Schlaf-/Aufwachuebergaengen fortgeschrieben werden (wie $9261) - das erklaert dann auch die wach gesehenen Bits (25.09., ESP-Log SOC 97 %).
 - Test: vor und nach mehreren Stunden Stille die sechs DIDs lesen, dazu Min/Max der 96 Zellen (22 90 08/0A bzw. Zellabfragen). Waechst $9252, schrumpft die Spreizung?
 
@@ -43,3 +43,9 @@ Vorschlag neu (Klartext in der Antwort: Wert = Rohwert/1024 + 2097152, Einheit j
 - Mode 22 92 70 (BMS-Statusverlauf, 32 Eintraege: 4 Non Isolated Charge, 6 Driving), 22 92 6D (Schreib-Freigabe-Bit, nur lesen), 22 92 5E (Fahrzeug-ID), 22 91 C1 (Pack-Zeit)
 - EVC als drittes Ziel (0x18DADAF1): $33C2, $3567, $33BE, $3201, $3202, $3444 (Auto-Wecken-Test, am Bench nicht sinnvoll, da wir das EVC sind)
 Die komplette DID-Liste mit Namen, Skalierung und letztem Dumpwert: DID_Liste_MCPU_Dump_11-10.md, DID_Liste_SCPU_Dump_11-10.md (und EVC_Dump_a80d130b_dekodiert.md, INV_Dump_5a971c55_dekodiert.md).
+
+## KORREKTUR 17.10.2026 (Fehler in dieser Notiz)
+- Alle 13 MCPU-Dumps (04.11.2025, 06.10., 11.10.2026) und die SCPU-Dumps sind vom AUTO-Pack, nicht vom Bench-Pack. Belege: $925F = 85465 km (04.11.2025, = EVC $2006), 92677 km (06.10.), 92785 km (11.10.); $9261 folgt der BCM-Zeit; Bench zeigt $925F = 19400 km (aus unserem 0x426). SCPU $9262 = 92677/92785 km.
+- Die Tabelle in Abschnitt 1 gilt deshalb fuer das AUTO. Dort laeuft der Zaehler: +2,03 Ah und +2,83 h zwischen 06.10. und 11.10.2026, alles im Schlafmodus (Wake-Zaehler 0).
+- Bench-Pack: Seit dem NVROL-Reset (23./24.09.) sind alle Lebensdaten und die Balancing-Zaehler 0 bzw. 80000000 (gemessen 28.09., 29.09., 01.10.; Nutzer 09.10. und 17.10.), siehe WERTE_Bench-Akku_vor_NVROL-Reset.md. Vor dem Reset (05.08.): 45,0 Ah / 112,5 h, alles im Schlaf (laut Notiz, nicht neu geprueft).
+- Folge: Am Bench wurde Balancing in 0x912B gesehen (25.09. Zellen 85-96; ESP-Log mit 76 Bits, SOC 97 %), die Zaehler $924F/$9250 blieben aber 0. Die Zaehler laufen am Bench-Pack also nicht, wie auch $91C1/$9261/$91CF seit dem Reset stehen. Sie taugen am Bench nicht als Nachweis fuer Balancing.

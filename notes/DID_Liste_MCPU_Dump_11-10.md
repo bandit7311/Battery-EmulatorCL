@@ -1,4 +1,4 @@
-# MCPU-Dump dd511859 (11.10.2026 15:16 UTC, Bench-Pack) dekodiert mit RBMS_MCPU_RL_06xx_V1.7
+# MCPU-Dump dd511859 (11.10.2026 15:16 UTC, AUTO-Pack, nicht Bench: $925F = 92785 km) dekodiert mit RBMS_MCPU_RL_06xx_V1.7
 
 Alle DIDs mit Anfrage (22 xx xx), Name, Variable, Rohbytes, Wert. Vorlage fuer die Advanced-Seite. Bit-Felder (912B.xx) und Vektoren sind je Element aufgefuehrt; 113 Zeilen sind nicht dekodierbar (Bitmaps, Text).
 

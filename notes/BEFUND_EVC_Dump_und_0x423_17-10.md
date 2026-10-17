@@ -45,7 +45,7 @@ Die Bitposition steht in keiner Frame-Liste. Weitere EVC->LBC-Signale: $33BE LBC
 - $F190 liefert im EVC die VIN (nicht im Akku). EVC-Software $F194 0A40, $F195 3000.
 
 ## Pack-Software (Dumps)
-- Bench-Pack und Auto-Dump: F194 RL00, F195 0620. XML V1.7 kennt ausserdem 0603, 0604, 0605, 0630, 0632, 0640.
+- Auto-Pack (alle 13 MCPU-Dumps) und Auto-Dump: F194 RL00, F195 0620. XML V1.7 kennt ausserdem 0603, 0604, 0605, 0630, 0632, 0640.
 - DID $926D "Boolean to authorize DID writing sequence": Zweck unbekannt; Lesen 22 92 6D -> 00, im Werkstatt-Makro mit 0 geschrieben.
 - $925E: Auto 13 88 6F (= 1280111, auch in 0x69F), Bench-Pack 03.10. 30 28 2F (3156015).
 
@@ -67,5 +67,5 @@ Die Bitposition steht in keiner Frame-Liste. Weitere EVC->LBC-Signale: $33BE LBC
 - Belegt: $8005 ABSOLUTETIME = 00 25 F2 75 = 2486901 min; $6012 V_TM_ABSOLUTETIMESINCE1RSTIGN = 00 25 F2 76. Klimabox 12:49:14 = 2486898 (IH_AbsoluteTimeSinceFirstIgnition): +3 in 141 s = Minuten, gleicher Zaehler.
 - Belegt: Pack im Auto-Dump 04.11.2025 13:17: $9261 = 25 F2 56 = 2486870 (BCM um 13:17 etwa 2486927, also ca. 57 min Vorsprung; gegen 12:51: 31 min). $91C1 = 19 F2 52 = 1700434 (BCM minus 91C1 = 786467 min; die frueher notierten 784382 min stammen aus anderen Dumps, nicht neu nachgerechnet).
 - Schlussfolgerung: 0x436 B1-3 in den Auto-Logs (22aaf176: 2969614, 598b197c: 2972365..2972377, Ladelog: 2972444..2972454) = BCM-Minuten seit erster Zuendung; rueckgerechnet 05.10. (22aaf176) und 07.10.2026 (598b197c, Ladelog). Aufnahmetage nicht bekannt, Upload 09.-15.10.
-- Bench-Pack am 11.10.2026: $9261 = 2D 5A D9 = 2972377 = letzter 0x436-Wert aus 598b197c -> unser Alter-Startwert stammt wohl aus diesem Log.
+- ZURUECKGENOMMEN: Der Dump vom 11.10.2026 ($9261 = 2D 5A D9 = 2972377) ist vom AUTO-Pack, nicht vom Bench. Dass er dem letzten 0x436-Wert aus 598b197c entspricht, ist die Auto-Uhr (BCM-Minuten) und kein Hinweis auf unseren Alter-Startwert.
 - VIN steht im BCM (22 10 0C, 21 81, 21 7E), nicht im Pack.
