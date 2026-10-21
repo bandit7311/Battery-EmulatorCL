@@ -1,6 +1,7 @@
 #ifndef BATTERY_H
 #define BATTERY_H
 
+#include <stddef.h>
 #include <vector>
 #include "../../src/devboard/utils/types.h"
 #include "../../src/devboard/webserver/BatteryHtmlRenderer.h"
@@ -70,7 +71,9 @@ extern const char* name_for_chemistry(battery_chemistry_enum chem);
 extern const char* name_for_comm_interface(comm_interface comm);
 
 extern BatteryType user_selected_battery_type;
+extern BatteryType user_selected_battery_type_2;
 extern bool user_selected_second_battery;
+extern bool user_selected_battery2_rx_only;
 extern bool user_selected_triple_battery;
 
 extern battery_chemistry_enum user_selected_battery_chemistry;
@@ -105,6 +108,9 @@ class Battery {
   virtual bool supports_read_DTC_scpu() { return false; }
   virtual bool supports_reset_DTC_scpu() { return false; }
   virtual const char* dtc_title_suffix() { return ""; }  // appended to the titles of Read DTC / Erase DTC
+  virtual bool supports_measure_list() { return false; }
+  virtual bool supports_quick_time_query() { return false; }
+  virtual bool supports_live_page() { return false; }
   virtual bool supports_reset_SOH() { return false; }
   virtual bool supports_reset_BECM() { return false; }
   virtual bool supports_calibrate_SOC() { return false; }
@@ -141,6 +147,16 @@ class Battery {
   virtual void read_DTC() {}
   virtual void read_DTC_scpu() {}
   virtual void reset_DTC_scpu() {}
+  virtual void run_measure_list() {}
+  virtual void run_quick_time_query() {}
+  // Live page /kangooLive: short text for the page (key=value lines) and the actions of its buttons
+  virtual size_t live_text(char* out, size_t n) {
+    if (n > 0) {
+      out[0] = 0;
+    }
+    return 0;
+  }
+  virtual void live_action(const char* cmd, int value) {}
   virtual void reset_SOH() {}
   virtual void reset_BECM() {}
   virtual void request_open_contactors() {}

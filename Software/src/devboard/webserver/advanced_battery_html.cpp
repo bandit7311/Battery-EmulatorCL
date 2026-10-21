@@ -94,6 +94,11 @@ std::vector<BatteryCommand> battery_commands = {
      [](Battery* b) { b->read_DTC(); }, true},
     {"readDTCscpu", "Read DTC SCPU", nullptr, [](Battery* b) { return b && b->supports_read_DTC_scpu(); },
      [](Battery* b) { b->read_DTC_scpu(); }, true},
+    {"measureList", "Measure list",
+     "send the measurement list? This transmits 15 read requests (service 0x22) on the bus, even though RX only is set!",
+     [](Battery* b) { return b && b->supports_measure_list(); }, [](Battery* b) { b->run_measure_list(); }, true},
+    {"timeQuery", "Time 22 92 61", nullptr, [](Battery* b) { return b && b->supports_quick_time_query(); },
+     [](Battery* b) { b->run_quick_time_query(); }, true},
     {"resetBECM", "Restart BECM module", "restart BECM??", [](Battery* b) { return b && b->supports_reset_BECM(); },
      [](Battery* b) {
        b->reset_BECM();

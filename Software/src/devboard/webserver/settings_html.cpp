@@ -267,6 +267,10 @@ String settings_processor(const String& var, BatteryEmulatorSettingsStore& setti
     return options_for_enum_with_none((BatteryType)settings.getUInt("BATTTYPE", (int)BatteryType::None),
                                       name_for_battery_type, BatteryType::None);
   }
+  if (var == "BATT2TYPE") {
+    return options_for_enum_with_none((BatteryType)settings.getUInt("BATT2TYPE", (int)BatteryType::None),
+                                      name_for_battery_type, BatteryType::None);
+  }
   if (var == "BATTCOMM") {
     return options_for_enum((comm_interface)settings.getUInt("BATTCOMM", (int)comm_interface::CanNative),
                             name_for_comm_interface);
@@ -508,6 +512,10 @@ String raw_settings_processor(const String& var, BatteryEmulatorSettingsStore& s
     return settings.getBool("DBLBTR") ? "checked" : "";
   }
 
+  if (var == "BATT2RXONLY") {
+    return settings.getBool("BATT2RXONLY") ? "checked" : "";
+  }
+
   if (var == "TRIBTR") {
     return settings.getBool("TRIBTR") ? "checked" : "";
   }
@@ -694,6 +702,14 @@ String raw_settings_processor(const String& var, BatteryEmulatorSettingsStore& s
 
   if (var == "CANLOGUSB") {
     return settings.getBool("CANLOGUSB") ? "checked" : "";
+  }
+
+  if (var == "CANLOGFLT") {
+    // Returned raw like all values here, settings_processor() escapes it for HTML. A percent sign is removed because the
+    // web server would take it for the start of a template placeholder.
+    String raw = settings.getString("CANLOGFLT");
+    raw.replace("%", "");
+    return raw;
   }
 
   if (var == "USBENABLED") {
@@ -1844,10 +1860,19 @@ const char* getCANInterfaceName(CAN_Interface interface) {
         title="Enable this option if you intend to run two batteries in parallel" />
 
         <div class="if-dblbtr">
+            <label>Battery 2 type (None = same as battery 1): </label>
+            <select name='BATT2TYPE'>
+                %BATT2TYPE%
+            </select>
+
             <label>Battery 2 interface: </label>
             <select name='BATT2COMM'>
                 %BATT2COMM%
             </select>
+
+            <label>Battery 2 RX only: </label>
+            <input type='checkbox' name='BATT2RXONLY' value='on' %BATT2RXONLY%
+                title="Never transmit anything on this CAN bus - pure listener. Use this when battery2 shares a bus with other active devices (e.g. a live vehicle) you don't want to interfere with. Disables polling; only passively broadcast values will be available." />
 
         <div class="if-tricapable">
         <label>Triple battery: </label>
@@ -2256,6 +2281,10 @@ const char* getCANInterfaceName(CAN_Interface interface) {
         <label>CAN message logging via USB serial: </label>
         <input type='checkbox' name='CANLOGUSB' value='on' %CANLOGUSB%
             title="WARNING: Causes performance issues! Log incoming/outgoing CAN messages via USB cable. Avoid if possible!" />
+
+        <label>CAN USB log filter (hex IDs): </label>
+        <input type='text' name='CANLOGFLT' value="%CANLOGFLT%" maxlength='120' placeholder='empty = log every frame'
+            title="Only used with CAN message logging via USB serial. Hex IDs or ranges separated by commas, for example 350,53B,700-7FF. ext = every 29 bit frame, std = every 11 bit frame. Start with an exclamation mark to log everything except the listed IDs. Empty = log every frame. Applies after a reboot." />
 
         )rawliteral" SD_SETTING_HTML SYSLOG_SETTING_HTML R"rawliteral(
 

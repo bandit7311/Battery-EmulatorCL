@@ -52,6 +52,7 @@ static MyTimer ota_progress_timer = MyTimer(1000);
 #include "debug_logging_html.h"
 #include "events_html.h"
 #include "index_html.h"
+#include "kangoo_live_html.h"
 #include "settings_html.h"
 #include "simulator_html.h"
 
@@ -193,6 +194,17 @@ void def_route_with_auth(const char* uri, AsyncWebServer& serv, WebRequestMethod
     }
     handler(request);
   });
+}
+
+// The battery (1, 2 or 3) that offers the live page /kangooLive, or nullptr.
+static Battery* find_live_battery() {
+  Battery* candidates[3] = {battery, battery2, battery3};
+  for (Battery* b : candidates) {
+    if (b && b->supports_live_page()) {
+      return b;
+    }
+  }
+  return nullptr;
 }
 
 void init_webserver() {
@@ -515,6 +527,7 @@ void init_webserver() {
       "PYLONOFFSET",  "PYLONORDER",   "DEYEBYD",       "NCCONTACTOR", "TRIBTR",        "CNTCTRLTRI",   "ESPNOWENABLED",
       "PRIMOGEN24",   "CTINVERT",     "LOWPASSFILTER", "WEBAUTH",     "SLOWCANINV",    "CHGTAPERSOC",  "MEASURECPUTEMP",
       "SYSLOGEN",     "PERBMSDEFSOC", "PERBMSSKIPBAL", "INVOFFGRID",  "CHGESTIMATED",  "MQTTHEAP",     "HADISCFWU",
+      "BATT2RXONLY",
 #ifdef SDCARD
       "SDLOGENABLED", "CANLOGSD",
 #endif  // SDCARD
@@ -533,7 +546,7 @@ void init_webserver() {
 
   const char* stringSettingNames[] = {"APPASSWORD", "HOSTNAME",    "MQTTSERVER", "MQTTUSER",  "MQTTPASSWORD",
                                       "HTTPUSER",   "HTTPPASS",    "LOCALIP",    "GATEWAY",   "SUBNET",
-                                      "DNS",        "HADISCTOPIC", "SYSLOGIP",   "ESPNOWMACS"};
+                                      "DNS",        "HADISCTOPIC", "SYSLOGIP",   "ESPNOWMACS", "CANLOGFLT"};
 
   // Handles the form POST from UI to save settings of the common image
   server.on("/saveSettings", HTTP_POST,
@@ -600,6 +613,9 @@ void init_webserver() {
                 } else if (p->name() == "EQSTOP") {
                   auto type = static_cast<STOP_BUTTON_BEHAVIOR>(atoi(p->value().c_str()));
                   settings.saveUInt("EQSTOP", (int)type);
+                } else if (p->name() == "BATT2TYPE") {
+                  auto type = static_cast<BatteryType>(atoi(p->value().c_str()));
+                  settings.saveUInt("BATT2TYPE", (int)type);
                 } else if (p->name() == "BATT2COMM") {
                   auto type = static_cast<comm_interface>(atoi(p->value().c_str()));
                   settings.saveUInt("BATT2COMM", (int)type);
@@ -675,6 +691,16 @@ void init_webserver() {
               }
               if (!battery_supports_triple(selectedBatteryType) && settings.getBool("TRIBTR", false)) {
                 settings.saveBool("TRIBTR", false);
+              }
+
+              // Same safety net for the independently selected battery 2 type: if it doesn't
+              // (or no longer) support being a second battery, don't leave DBLBTR enabled for it.
+              auto selectedBattery2Type = static_cast<BatteryType>(settings.getUInt("BATT2TYPE", (int)BatteryType::None));
+              if (selectedBattery2Type == BatteryType::None) {
+                selectedBattery2Type = selectedBatteryType;  // "None" = same type as battery 1 (old behaviour)
+              }
+              if (!battery_supports_double(selectedBattery2Type) && settings.getBool("DBLBTR", false)) {
+                settings.saveBool("DBLBTR", false);
               }
 
               settingsUpdated = settings.were_settings_updated();
@@ -1520,6 +1546,32 @@ void init_webserver() {
   // Send a GET request to <ESP_IP>/update
   def_route_with_auth("/debug", server, HTTP_GET,
                       [](AsyncWebServerRequest* request) { request->send(200, "text/plain", "Debug: all OK."); });
+
+  // Live page of the Renault Kangoo driver (RX only, 04.10.): a fixed small page, a short text that it fetches every
+  // second and the actions of its buttons. Only offered by a battery that supports it (supports_live_page()).
+  def_route_with_auth("/kangooLive", server, HTTP_GET,
+                      [](AsyncWebServerRequest* request) { request->send(200, "text/html", kangoo_live_page); });
+  def_route_with_auth("/kangooLiveData", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    static char live_buffer[2600];  // the response copies the text, so one buffer is enough
+    Battery* live_batt = find_live_battery();
+    if (live_batt) {
+      live_batt->live_text(live_buffer, sizeof(live_buffer));
+    } else {
+      snprintf(live_buffer, sizeof(live_buffer), "state=--\nstate_age=0\ncounter=-\nbus=none\nshutdown=none\n");
+    }
+    request->send(200, "text/plain", live_buffer);
+  });
+  def_route_with_auth("/kangooLiveAction", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    Battery* live_batt = find_live_battery();
+    if (live_batt == nullptr || !request->hasParam("cmd")) {
+      request->send(400, "text/plain", "no live page");
+      return;
+    }
+    const String cmd = request->getParam("cmd")->value();
+    const int value = request->hasParam("value") ? request->getParam("value")->value().toInt() : 0;
+    live_batt->live_action(cmd.c_str(), value);
+    request->send(200, "text/plain", "OK");
+  });
 
   // Route to handle reboot command
   def_route_with_auth("/reboot", server, HTTP_GET, [](AsyncWebServerRequest* request) {
