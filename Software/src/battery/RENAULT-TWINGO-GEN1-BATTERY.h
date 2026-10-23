@@ -92,6 +92,10 @@ constexpr bool LADEN_SENDS_ALL_EVC_FRAMES = true;
 // ---------------------------------------------------------------------------
 constexpr unsigned long BAL_POLL_INTERVAL_MS = 20000;
 
+// 6. Charge limit of the pack (Bau 28): UDS 0x9018 is asked every CHG_POLL_INTERVAL_MS besides the round-robin; its age
+// decides in update_values() (twingo::charge_power_limit_W, older than 30 s = 0 W).
+constexpr unsigned long CHG_POLL_INTERVAL_MS = 5000;
+
 // ---------------------------------------------------------------------------
 // Extended-address polling (0x18DADBF1 request / 0x18DAF1DB response) for
 // individual cell voltages, balancing status, and a few lifetime metrics.
@@ -708,6 +712,9 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   unsigned long bal_bits_ms = 0;
   bool bal_bits_valid = false;
   unsigned long previous_bal_poll_ms = 0;  // last extra request of 0x912B (BAL_POLL_INTERVAL_MS)
+  unsigned long previous_chg_poll_ms = 0;  // last extra request of 0x9018 (CHG_POLL_INTERVAL_MS)
+  unsigned long ext_max_charge_power_ms = 0;  // millis() of the last answer of 0x9018
+  uint32_t charge_limit_sent_W = 0;           // what update_values() put into max_charge_power_W (page)
   uint16_t ext_isotp_expected_len = 0;
   uint16_t ext_isotp_received_len = 0;
   bool ext_isotp_in_progress = false;
