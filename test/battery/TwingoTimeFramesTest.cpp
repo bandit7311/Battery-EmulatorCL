@@ -304,7 +304,7 @@ TEST(TwingoTimeFramesTests, TimePidsAreInThePollList) {
   b.setup();
   std::set<uint16_t> pids;
   uint32_t requests = 0;
-  for (uint64_t t = 1000; t < 1000 + 200000; t += 100) {  // 1 request per second: 136 PIDs + extra 0x9018 (5 s) and 0x912B (20 s) = about 175 s
+  for (uint64_t t = 1000; t < 1000 + 200000; t += 100) {  // 1 request/s: 136 PIDs + extra 0x9018 and 0x912B = about 175 s
     for (const CAN_frame& f : tick(b, t)) {
       if (f.ext_ID && f.ID == 0x18DADBF1 && f.data.u8[0] == 0x03 && f.data.u8[1] == 0x22) {
         pids.insert((uint16_t)((f.data.u8[2] << 8) | f.data.u8[3]));
@@ -566,7 +566,7 @@ TEST(TwingoNewDisplayPidsTests, NewPidsAreInThePollListAndNoneAreDuplicated) {
   RenaultTwingoGen1Battery b;
   b.setup();
   std::set<uint16_t> pids;
-  for (uint64_t t = 1000; t < 1000 + 200000; t += 100) {  // 1 request per second: 136 PIDs + extra 0x9018 (5 s) and 0x912B (20 s) = about 175 s
+  for (uint64_t t = 1000; t < 1000 + 200000; t += 100) {  // 1 request/s: 136 PIDs + extra 0x9018 and 0x912B = about 175 s
     for (const CAN_frame& f : tick(b, t)) {
       if (f.ext_ID && f.ID == 0x18DADBF1 && f.data.u8[0] == 0x03 && f.data.u8[1] == 0x22) {
         pids.insert((uint16_t)((f.data.u8[2] << 8) | f.data.u8[3]));

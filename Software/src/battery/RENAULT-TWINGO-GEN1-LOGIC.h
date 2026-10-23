@@ -34,8 +34,8 @@ inline uint16_t soc_pptt_capped(uint16_t soc_raw) {
 // Charge power limit towards the inverter (Bau 28, 24.10.2026). The pack names two limits: 0x424 byte 2 x 500 W
 // (follows "Max Generated Power" 0x900E, i.e. the regeneration of the car) and UDS 0x9018 "Max Charge Power" (raw x
 // 10 W, the charging of the pack; 0 W at 8:16 on 23.10. while the broadcast still allowed 4 kW and the inverter
-// charged with 3.7 A). The smaller one counts. 0x9018 older than 30 s (or never read) counts as 0 W: if the pack cannot be asked,
-// nothing is charged.
+// charged with 3.7 A). The smaller one counts. 0x9018 older than 30 s (or never read) counts as 0 W: if the pack
+// cannot be asked, nothing is charged.
 inline constexpr unsigned long CHARGE_LIMIT_MAX_AGE_MS = 30000;
 inline uint32_t charge_power_limit_W(uint32_t regen_W, bool ext_valid, uint32_t ext_raw, unsigned long age_ms) {
   if (!ext_valid || age_ms > CHARGE_LIMIT_MAX_AGE_MS) {
