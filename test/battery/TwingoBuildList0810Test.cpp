@@ -77,8 +77,41 @@ TEST(TwingoBuild0810, Frame155ValidityRule) {
   EXPECT_TRUE(twingo::frame_155_valid(0x000, 0));        // empty pack is valid
   EXPECT_TRUE(twingo::frame_155_valid(0x7FF, 40000));    // exactly 100 % is valid
   EXPECT_FALSE(twingo::frame_155_valid(0xFFF, 9184));    // current marker
-  EXPECT_FALSE(twingo::frame_155_valid(0x800, 40001));   // above 100 %
+  EXPECT_TRUE(twingo::frame_155_valid(0x800, 40001));    // a full pack reports a little above 100 % (24.10.)
+  EXPECT_TRUE(twingo::frame_155_valid(0x800, 40808));    // 102.02 % (UDS 0x91BA of 23.10.)
+  EXPECT_TRUE(twingo::frame_155_valid(0x800, 45000));    // the new limit, 112.5 %
+  EXPECT_FALSE(twingo::frame_155_valid(0x800, 45001));
   EXPECT_FALSE(twingo::frame_155_valid(0x800, 0xFFF8));  // 163.82 % of 06.10.
+  EXPECT_FALSE(twingo::frame_155_valid(0x7D0, 65528));   // car logs: the SOC marker with a normal current (2000 = 0 A)
+  EXPECT_FALSE(twingo::frame_155_valid(0x7D0, 65531));
+  EXPECT_FALSE(twingo::frame_155_valid(0x7D0, 65535));
+}
+
+TEST(TwingoBuild0810, SocIsCappedAtOneHundredPercent) {
+  EXPECT_EQ(twingo::soc_pptt_capped(0), 0);
+  EXPECT_EQ(twingo::soc_pptt_capped(9184), 2296);
+  EXPECT_EQ(twingo::soc_pptt_capped(39992), 9998);   // 99.98 %
+  EXPECT_EQ(twingo::soc_pptt_capped(40000), 10000);  // 100.00 %
+  EXPECT_EQ(twingo::soc_pptt_capped(40001), 10000);
+  EXPECT_EQ(twingo::soc_pptt_capped(40808), 10000);  // 102.02 %
+  EXPECT_EQ(twingo::soc_pptt_capped(45000), 10000);
+}
+
+TEST(TwingoBuild0810, FullPackAbove100PercentIsTakenOverAndCapped) {
+  datalayer_extended.twingoGen1.frame_155_dropped = 0;
+  TestTwingo b;
+  b.setup();
+  b.handle_incoming_can_frame(frame_155(10, 0x7D0 + 40, 39992));  // 99.98 %, charging
+  b.update_values();
+  EXPECT_EQ(datalayer.battery.status.real_soc, 9998);
+  const int32_t charging_dA = datalayer.battery.status.current_dA;
+  EXPECT_GT(charging_dA, 0);
+
+  b.handle_incoming_can_frame(frame_155(0, 0x7D0, 40808));  // 102.02 %, no current any more: taken over, not frozen
+  b.update_values();
+  EXPECT_EQ(datalayer.battery.status.real_soc, 10000);
+  EXPECT_EQ(datalayer.battery.status.current_dA, 0);
+  EXPECT_EQ(datalayer_extended.twingoGen1.frame_155_dropped, 0u);
 }
 
 TEST(TwingoBuild0810, InvalidFrame155KeepsTheLastValidValues) {

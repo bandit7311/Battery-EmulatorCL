@@ -26,7 +26,8 @@ void RenaultTwingoGen1Battery::
     update_values() {  //This function maps all the values fetched via CAN to the correct parameters used for modbus
   datalayer_battery->status.soh_pptt = (LB_SOH * 100);  // Increase range from 99% -> 99.00%
 
-  datalayer_battery->status.real_soc = (uint16_t)(LB_Display_SOC * 0.25f);  // 0.0025% per bit -> pptt (0.01% units)
+  datalayer_battery->status.real_soc =
+      twingo::soc_pptt_capped(LB_Display_SOC);  // 0.0025% per bit -> pptt (0.01% units), capped at 100.00%
   // Alternative: datalayer_battery->status.real_soc = (LB_SOC * 100); // Use raw BMS Chemical SOC% (0x654)
 
   datalayer_battery->status.current_dA = (((int32_t)LB_Current_raw * 10) / 4) - 5000;
@@ -1717,7 +1718,7 @@ void RenaultTwingoGen1Battery::append_live_html(String& s) {
       append_ext_value(s, "Battery Current (0x900D, display only, see current_dA ToDo)", ext_battery_current,
                        battery_current_A, "A");
     }
-    s += "0x155 frames dropped as invalid (current raw 0xFFF or SOC raw above 40000): ";
+    s += "0x155 frames dropped as invalid (current raw 0xFFF or SOC raw above 45000): ";
     s += String((unsigned long)datalayer_extended.twingoGen1.frame_155_dropped);
     s += "<br>";
   }
@@ -2194,9 +2195,10 @@ void RenaultTwingoGen1Battery::handle_incoming_can_frame(CAN_frame rx_frame) {
       datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;
       memcpy(rx_155_last, rx_frame.data.u8, 8);  // raw bytes for the page (also of frames that are dropped below)
       rx_155_seen = true;
-      // A frame with the "invalid" markers (current raw 0xFFF or SOC raw above 40000, i.e. 100 %; seen right
+      // A frame with the "invalid" markers (current raw 0xFFF or SOC raw above 45000, i.e. 112.5 %; seen right
       // after a wake-up and with only 0x350 on: SOC raw 0xFFF8 = 163.82 %) is dropped as a whole, the last valid
-      // values stay (08.10.).
+      // values stay (08.10.). A full pack reports up to about 102 %: those frames are valid (24.10.), the SOC is capped
+      // at 100.00 % in update_values().
       const uint16_t current_raw = ((rx_frame.data.u8[1] & 0x0F) << 8) | rx_frame.data.u8[2];
       const uint16_t soc_raw = ((rx_frame.data.u8[4] << 8) | rx_frame.data.u8[5]);
       if (!twingo::frame_155_valid(current_raw, soc_raw)) {
@@ -2407,9 +2409,10 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      false,
      "0x19F (upstream PR #2907)",
      true,
-     "Zoe Gen1 only",
-     "Zoe Gen1 frame from PR #2907 (labelled PEB inverter), rolling counter in byte 3. The Twingo vehicle never sends "
-     "it. Off in the default set; no finding of its own yet.",
+     "Zoe form / EVC (car)",
+     "Zoe Gen1 frame from PR #2907 (labelled PEB inverter), rolling counter in byte 3. The Twingo EVC sends 0x19F too "
+     "(60,723 frames in the drive log of 09.10., counter +5 per frame); in the format \"vehicle\" this row sends the "
+     "frame of the bus. On in the default set (SIM_ON_19F).",
      SIM_END_LEGACY},
     {0x426,
      8,
@@ -2419,10 +2422,11 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      false,
      "0x426 (upstream PR #2907)",
      true,
-     "Zoe Gen1 only",
-     "Zoe Gen1 frame from PR #2907 (labelled EVC power mux). The Twingo vehicle never sends it. Finding (bench): bytes "
-     "4-6 carry the mileage (km * 256, the pack showed exactly 19,400 km as $925F), and with this frame on the pack "
-     "sets E14381, E14281 and 1B0715. Off in the default set; mileage and byte 7 are editable below.",
+     "Zoe form / EVC (car)",
+     "Zoe Gen1 frame from PR #2907 (labelled EVC power mux). The Twingo EVC sends 0x426 too (drive log of 09.10.: "
+     "state codes in bytes 1/2, kilometres in bytes 3-5 in the vehicle form). Finding (bench, Zoe form): bytes 4-6 "
+     "carry the mileage (km * 256, the pack showed exactly 19,400 km as $925F), and with this frame on the pack sets "
+     "E14381, E14281 and 1B0715. On in the default set (SIM_ON_426); mileage and byte 7 are editable below.",
      SIM_END_LEGACY},
     {0x436,
      8,
@@ -2432,9 +2436,10 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      false,
      "0x436 (upstream PR #2907)",
      true,
-     "Zoe Gen1 only",
-     "Zoe Gen1 frame from PR #2907 (labelled EVC status, runtime clock). The Twingo vehicle never sends it. Finding: "
-     "bytes 2-3 are a minute counter (+1 every 60 s since the start of the emulator). Off in the default set.",
+     "Zoe form / EVC (car)",
+     "Zoe Gen1 frame from PR #2907 (labelled EVC status, runtime clock). The Twingo EVC sends 0x436 too (drive log of "
+     "09.10.: vehicle age in minutes in bytes 1-3, byte 0 = 0x80 or 0xAD). Finding (Zoe form): bytes 2-3 are a minute "
+     "counter (+1 every 60 s since the start of the emulator). On in the default set (SIM_ON_436).",
      SIM_END_LEGACY},
     {0x423,
      8,
@@ -2444,10 +2449,11 @@ const RenaultTwingoGen1Battery::SimSignal RenaultTwingoGen1Battery::sim_signals[
      false,
      "0x423",
      true,
-     "Zoe Gen1 only",
-     "Zoe Gen1 wake-up frame (code comment: the BMS answers diagnostics only while it receives it). The Twingo vehicle "
-     "never sends it. Finding: it wakes the pack (bytes 4 and 6 swap between B2 and 5D every 5 frames). Off in the "
-     "default set (0x387); switch it on when a test needs the wake-up.",
+     "Zoe form / EVC (car)",
+     "Wake-up and state frame of the EVC (code comment: the BMS answers diagnostics only while it receives it). The "
+     "Twingo EVC sends 0x423 (100 ms, EVC to LBC; byte 0 = 07 rest/charge, 0B ignition 3 / driving, 04 shutdown "
+     "request, 30/33 wake-up; drive log of 09.10.). Finding: it wakes the pack (bytes 4 and 6 swap between B2 and 5D "
+     "every 5 frames). On in the default set (SIM_ON_423).",
      SIM_END_LEGACY},
     {0x69F,
      8,
