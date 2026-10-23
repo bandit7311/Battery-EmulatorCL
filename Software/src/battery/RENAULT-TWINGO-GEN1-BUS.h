@@ -16,7 +16,9 @@
 //  - 0x511: bytes 1-6 are six counters with a fixed step (mod 256): +63, +201, +185, +107, +13, +227.
 //  - 0x426: bytes 3-5 = kilometres (24 bit, corrected 10.10.); 0x436: bytes 1-3 = vehicle age in minutes, byte 0 = 0x80 or 0xAD
 //    (ignition on); 0x423: bytes 4/6 alternate between 0x5D and 0xB2, the payload of both variants is stored.
-//  - everything else is sent as recorded (the checksum of 0x423 byte 7, 0x500, 0x1A1, 0x419 is unknown).
+//  - everything else is sent as recorded. 0x423 byte 7 is no CRC-8 of the other bytes (no match for 7 polynomials in
+//    the drive log of 09.10.; it rises slowly from about 0xBB to 0xEA); the checksums of 0x500, 0x1A1 and 0x419 are
+//    unknown.
 // The frames marked from_pack are the ones the battery sends on its own (bench log of 25.09., battery alone);
 // they can be sent from here too because nothing is certain, but they collide with a real battery.
 // ---------------------------------------------------------------------------------------------------------------

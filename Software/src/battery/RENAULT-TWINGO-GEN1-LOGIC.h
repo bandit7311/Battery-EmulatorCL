@@ -13,9 +13,21 @@ namespace twingo {
 // ---------------------------------------------------------------------------------------------------------
 // 0x155 (battery -> vehicle, 10 ms): current raw (12 bit, byte 1 low nibble + byte 2) and SOC raw (bytes 4/5).
 // A frame carries the "invalid" markers right after a wake-up or while the vehicle frames are missing: current
-// raw 0xFFF, SOC raw above 40000 (0.0025 % per bit, so 100 %). Seen 06.10.: SOC raw 0xFFF8 = 163.82 %.
+// raw 0xFFF and/or SOC raw 0xFFF8..0xFFFB (65528..65531 = 163.82 %, seen 06.10. and 09.10.; 918 frames of the car logs
+// have a normal current and only the SOC marker). A full pack reports a little above 100 % (UDS 0x91BA up to 102 %),
+// so the limit lies well above 40000 (= 100 %, 0.0025 % per bit) and far below the marker: 45000 = 112.5 %. Frames
+// above 100 % were dropped completely before 24.10.2026 (current, power and SOC froze at a full pack).
+inline constexpr uint16_t SOC_RAW_100_PERCENT = 40000;
+inline constexpr uint16_t SOC_RAW_MAX_VALID = 45000;
 inline bool frame_155_valid(uint16_t current_raw, uint16_t soc_raw) {
-  return current_raw != 0x0FFF && soc_raw <= 40000;
+  return current_raw != 0x0FFF && soc_raw <= SOC_RAW_MAX_VALID;
+}
+
+// SOC of 0x155 in 0.01 % units (pptt) for the datalayer, capped at 100.00 %: the pack may report up to 102 %, the
+// safety rule "full" (reported_soc / real_soc == 10000) and the inverter must never see more than 100 %.
+inline uint16_t soc_pptt_capped(uint16_t soc_raw) {
+  const float pptt = soc_raw * 0.25f;  // 0.0025 % per bit -> 0.01 % units
+  return pptt >= 10000.0f ? (uint16_t)10000 : (uint16_t)pptt;
 }
 
 // Battery current (UDS 0x900D, display only): raw * 0.025 - 1200, negated (see the driver). A pack never carries
