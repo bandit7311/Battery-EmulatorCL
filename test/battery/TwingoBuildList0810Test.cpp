@@ -139,6 +139,78 @@ TEST(TwingoBuild0810, InvalidFrame155KeepsTheLastValidValues) {
 }
 
 // ---------------------------------------------------------------------------------------------------------
+// Bau 28: charge limit = smaller of 0x424 byte 2 and the pack's own 0x9018, SOC 99.99 % while the pack allows charging
+TEST(TwingoBuild0810, ChargePowerLimitIsTheSmallerOfBothAndZeroWhenStale) {
+  EXPECT_EQ(twingo::charge_power_limit_W(5000, true, 898, 0), 5000u);    // 8.98 kW of the pack, 5.0 kW regeneration
+  EXPECT_EQ(twingo::charge_power_limit_W(5000, true, 300, 0), 3000u);    // the pack allows less than the broadcast
+  EXPECT_EQ(twingo::charge_power_limit_W(4000, true, 0, 0), 0u);         // 23.10. 8:16: pack 0 kW, broadcast 4 kW
+  EXPECT_EQ(twingo::charge_power_limit_W(0, true, 898, 0), 0u);          // broadcast says 0
+  EXPECT_EQ(twingo::charge_power_limit_W(5000, false, 898, 0), 0u);      // never read
+  EXPECT_EQ(twingo::charge_power_limit_W(5000, true, 898, 30000), 5000u);
+  EXPECT_EQ(twingo::charge_power_limit_W(5000, true, 898, 30001), 0u);   // older than 30 s
+  EXPECT_EQ(twingo::soc_pptt_for_inverter(10000, 5000), 9999);           // full by display, pack still charges
+  EXPECT_EQ(twingo::soc_pptt_for_inverter(10000, 0), 10000);             // the pack stopped: 100.00 %
+  EXPECT_EQ(twingo::soc_pptt_for_inverter(9998, 5000), 9998);
+  EXPECT_EQ(twingo::soc_pptt_for_inverter(9998, 0), 9998);
+}
+
+namespace {
+CAN_frame frame_424(uint8_t regen_byte2) {
+  CAN_frame f = {.FD = false, .ext_ID = false, .DLC = 8, .ID = 0x424};
+  const uint8_t d[8] = {0x11, 0x40, regen_byte2, 0x73, 0x35, 0x5F, 0x55, 0x35};  // heartbeat 0x55 in byte 6
+  memcpy(f.data.u8, d, 8);
+  return f;
+}
+void feed_9018(RenaultTwingoGen1Battery& b, uint16_t raw) {
+  CAN_frame f = {};
+  f.ext_ID = true;
+  f.DLC = 8;
+  f.ID = 0x18DAF1DB;
+  f.data.u8[0] = 5;  // 62 90 18 + 2 data bytes
+  f.data.u8[1] = 0x62;
+  f.data.u8[2] = 0x90;
+  f.data.u8[3] = 0x18;
+  f.data.u8[4] = (uint8_t)(raw >> 8);
+  f.data.u8[5] = (uint8_t)raw;
+  b.handle_incoming_can_frame(f);
+}
+}  // namespace
+
+TEST(TwingoBuild0810, DriverSendsTheSmallerChargeLimitAndHoldsTheSocAt9999WhileChargingIsAllowed) {
+  set_millis64(100000);
+  TestTwingo b;
+  b.setup();
+  b.handle_incoming_can_frame(frame_424(10));                // 5.0 kW
+  b.handle_incoming_can_frame(frame_155(10, 0x7D0, 40808));  // 102.02 %
+  b.update_values();
+  EXPECT_EQ(datalayer.battery.status.max_charge_power_W, 0u);  // 0x9018 never read: no charging
+  EXPECT_EQ(datalayer.battery.status.real_soc, 10000);
+
+  feed_9018(b, 898);  // 8.98 kW: the smaller (5.0 kW) counts
+  b.update_values();
+  EXPECT_EQ(datalayer.battery.status.max_charge_power_W, 5000u);
+  EXPECT_EQ(datalayer.battery.status.real_soc, 9999);
+
+  set_millis64(100000 + 5000);
+  feed_9018(b, 300);  // the pack lowers its limit to 3.0 kW
+  b.update_values();
+  EXPECT_EQ(datalayer.battery.status.max_charge_power_W, 3000u);
+
+  set_millis64(100000 + 10000);
+  feed_9018(b, 0);  // the pack forbids charging
+  b.update_values();
+  EXPECT_EQ(datalayer.battery.status.max_charge_power_W, 0u);
+  EXPECT_EQ(datalayer.battery.status.real_soc, 10000);  // now 100.00 %: the rule "battery full" of safety.cpp applies
+
+  feed_9018(b, 898);
+  b.update_values();
+  EXPECT_EQ(datalayer.battery.status.max_charge_power_W, 5000u);
+  set_millis64(100000 + 10000 + 30500);  // 0x9018 not refreshed for more than 30 s
+  b.update_values();
+  EXPECT_EQ(datalayer.battery.status.max_charge_power_W, 0u);
+}
+
+// ---------------------------------------------------------------------------------------------------------
 // Point 3: 0x900D display
 TEST(TwingoBuild0810, BatteryCurrentPlausibility) {
   EXPECT_TRUE(twingo::battery_current_plausible(0.275));

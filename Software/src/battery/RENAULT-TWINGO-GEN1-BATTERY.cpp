@@ -26,8 +26,12 @@ void RenaultTwingoGen1Battery::
     update_values() {  //This function maps all the values fetched via CAN to the correct parameters used for modbus
   datalayer_battery->status.soh_pptt = (LB_SOH * 100);  // Increase range from 99% -> 99.00%
 
+  // Charge limit (Bau 28): the smaller of 0x424 byte 2 and the pack's own 0x9018, 0 if 0x9018 is older than 30 s.
+  charge_limit_sent_W = twingo::charge_power_limit_W(LB_Regen_allowed_W, ext_max_charge_power.valid,
+                                                     ext_max_charge_power.raw, millis() - ext_max_charge_power_ms);
+  // SOC: 0.0025% per bit -> pptt (0.01% units), capped at 100.00%, 99.99% while the pack still allows charging.
   datalayer_battery->status.real_soc =
-      twingo::soc_pptt_capped(LB_Display_SOC);  // 0.0025% per bit -> pptt (0.01% units), capped at 100.00%
+      twingo::soc_pptt_for_inverter(twingo::soc_pptt_capped(LB_Display_SOC), charge_limit_sent_W);
   // Alternative: datalayer_battery->status.real_soc = (LB_SOC * 100); // Use raw BMS Chemical SOC% (0x654)
 
   datalayer_battery->status.current_dA = (((int32_t)LB_Current_raw * 10) / 4) - 5000;
@@ -38,7 +42,7 @@ void RenaultTwingoGen1Battery::
 
   datalayer_battery->status.max_discharge_power_W = LB_Discharge_allowed_W;
 
-  datalayer_battery->status.max_charge_power_W = LB_Regen_allowed_W;
+  datalayer_battery->status.max_charge_power_W = charge_limit_sent_W;
 
   datalayer_battery->status.temperature_min_dC = LB_Cell_minimum_temperature * 10;
   datalayer_battery->status.temperature_max_dC = LB_Cell_maximum_temperature * 10;
@@ -384,6 +388,9 @@ void RenaultTwingoGen1Battery::handle_extended_single_frame(uint16_t pid, const 
         }
         target->raw = v;
         target->valid = true;
+        if (target == &ext_max_charge_power) {
+          ext_max_charge_power_ms = millis();
+        }
       }
       break;
     case EXT_POLL_CYCLES:  // 0x9210, 16-bit count, no scaling
@@ -1700,6 +1707,9 @@ void RenaultTwingoGen1Battery::append_live_html(String& s) {
   append_ext_value(s, "Cell Voltage B index (0x900A)", ext_cell_v_b_nr, (double)ext_cell_v_b_nr.raw, "");
   append_ext_value(s, "Battery SOH avg (0x9003)", ext_soh_avg, ext_soh_avg.raw / 100.0, "%");
   append_ext_value(s, "Max Charge Power (0x9018)", ext_max_charge_power, ext_max_charge_power.raw / 100.0, "kW");
+  s += "Charge power sent to the inverter (smaller of 0x424 byte 2 and 0x9018, 0 if 0x9018 is older than 30 s): ";
+  s += String(charge_limit_sent_W / 1000.0, 2);
+  s += " kW<br>";
   append_ext_value(s, "Max Generated Power (0x900E)", ext_max_gen_power, ext_max_gen_power.raw / 100.0, "kW");
   append_ext_value(s, "Max Available Power (0x900F)", ext_max_avail_power, ext_max_avail_power.raw / 100.0, "kW");
   append_ext_value(s, "Battery SOC, internal (0x9001)", ext_soc_avg, ext_soc_avg.raw * 0.01 - 3.0, "%");
@@ -3395,7 +3405,11 @@ void RenaultTwingoGen1Battery::transmit_can(unsigned long currentMillis) {
           wake_priority_timeout = true;  // gave up after 30s
         }
         ext_priority_pending_mask = 0;
-        if (currentMillis - previous_bal_poll_ms >= BAL_POLL_INTERVAL_MS) {
+        if (currentMillis - previous_chg_poll_ms >= CHG_POLL_INTERVAL_MS) {
+          // Bau 28: the charge limit of the pack every CHG_POLL_INTERVAL_MS (its age is checked in update_values())
+          previous_chg_poll_ms = currentMillis;
+          pid = EXT_POLL_MAX_CHARGE_POWER;
+        } else if (currentMillis - previous_bal_poll_ms >= BAL_POLL_INTERVAL_MS) {
           // Bau 26: the balancing bits every BAL_POLL_INTERVAL_MS; the round-robin goes on at the next request
           previous_bal_poll_ms = currentMillis;
           pid = EXT_POLL_BALANCE_SWITCHES;

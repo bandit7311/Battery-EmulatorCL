@@ -30,6 +30,28 @@ inline uint16_t soc_pptt_capped(uint16_t soc_raw) {
   return pptt >= 10000.0f ? (uint16_t)10000 : (uint16_t)pptt;
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// Charge power limit towards the inverter (Bau 28, 24.10.2026). The pack names two limits: 0x424 byte 2 x 500 W
+// (follows "Max Generated Power" 0x900E, i.e. the regeneration of the car) and UDS 0x9018 "Max Charge Power" (raw x
+// 10 W, the charging of the pack; 0 W at 8:16 on 23.10. while the broadcast still allowed 4 kW and the inverter
+// charged with 3.7 A). The smaller one counts. 0x9018 older than 30 s (or never read) counts as 0 W: if the pack cannot be asked,
+// nothing is charged.
+inline constexpr unsigned long CHARGE_LIMIT_MAX_AGE_MS = 30000;
+inline uint32_t charge_power_limit_W(uint32_t regen_W, bool ext_valid, uint32_t ext_raw, unsigned long age_ms) {
+  if (!ext_valid || age_ms > CHARGE_LIMIT_MAX_AGE_MS) {
+    return 0;
+  }
+  const uint32_t pack_W = ext_raw * 10U;
+  return regen_W < pack_W ? regen_W : pack_W;
+}
+
+// SOC for the inverter: never above 100.00 %, but 99.99 % as long as the pack still allows charging. At 100.00 % the
+// rule "battery full" of safety.cpp sets the charge power to 0; the display SOC of the pack reaches 100 % at about
+// 97.9 % internal SOC, the pack itself still charges then.
+inline uint16_t soc_pptt_for_inverter(uint16_t soc_pptt_capped_value, uint32_t charge_limit_W) {
+  return (soc_pptt_capped_value >= 10000 && charge_limit_W > 0) ? (uint16_t)9999 : soc_pptt_capped_value;
+}
+
 // Battery current (UDS 0x900D, display only): raw * 0.025 - 1200, negated (see the driver). A pack never carries
 // more than a few hundred amperes; the invalid raw value of 06.10. showed -2895.875 A.
 inline bool battery_current_plausible(double amps) {
