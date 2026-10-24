@@ -64,3 +64,12 @@ Dekodiert mit den Namen/Skalen der EMS3194-XML (die zum Dump gehoerige `EVC_3180
 ## 11. Nachtrag: 79B/7BB und 18DA15F1 (mod_ddt-Liste)
 - 79B/7BB (11 Bit, LBC EV, `BMS453`): antwortet bei unserem Pack nie (Notiz 17.10., Treiberkommentar `BATTERY.h:886`); in den hochgeladenen Mitschnitten gibt es keinen einzigen 0x7BB-Frame, `0x79B` wird nur von uns gesendet (`02 21 07/41/42`).
 - `18DA15F1`/`18DAF115` (ECM_29): nur als Listenzeile in `batteryemulator_vs_ovms_031026.md` erwaehnt, nie als Frame auf dem Bus.
+
+## 12. Nachtrag: Zellwerte Broadcast gegen UDS im selben Mitschnitt (24.10., `teraterm.log`, 304 s)
+Frage vom Anfang: Warum kann ein Zellwert per UDS anders sein als im Broadcast?
+- **Gemessen:** Die UDS-Sitzung im Log (t = 122,9 bis 383,0 s, 630 Antworten, 335 DIDs) stimmt mit dem dritten MCPU-Dump in allen 335 DIDs inhaltlich ueberein. Damit liegen UDS-Werte und Broadcast desselben Zeitraums vor.
+- **Gemessen:** Je UDS-Zellwert (`9021` bis `9083`, Rohwert/1,024 in mV) gegen den zeitlich naechsten Broadcast-Wert derselben Zelle (Zellframes, Wert = Rohwert + 2000 mV): Broadcast im Mittel **2,8 mV niedriger**, Streuung 1,8 mV, groesste Abweichung 9,2 mV; 29 von 96 Zellen liegen innerhalb 2 mV.
+- **Gemessen:** Der Broadcast rauscht: Zelle 1 liefert ueber 304 s 3610, 3612, 3613, 3615, 3617 mV; mittlere Spanne einer Zelle 5,2 mV, groesste 8 mV. Spreizung bei t = 250 s: Broadcast 7 mV (3610 bis 3617), UDS 5,9 mV (3615 bis 3621).
+- **Schluss:** Kleine Abweichungen (einige mV) sind normal: fester Versatz von etwa 3 mV plus Rauschen im Broadcast. Eine grosse Abweichung erklaert das nicht.
+- **Nicht entscheidbar:** Ob Broadcast-Zelle n gleich UDS-Zelle n ist. Bei 6 mV Spreizung schneiden auch die umgekehrte und eine um 1 verschobene Nummerierung gleich gut ab (Streuung 2,5 und 1,7 mV gegen 1,8 mV). Dafuer braucht es einen Mitschnitt mit grosser Spreizung (zum Beispiel am vollen Pack).
+- Gilt fuer den Auto-Pack wach bei etwa 34 % SOC; fuer den Bench-Pack bei hohem SOC nicht gemessen.
