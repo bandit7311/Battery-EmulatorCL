@@ -633,3 +633,15 @@ Auftrag (Nutzer, 24.10.): die vom Pack gemeldete Ladegrenze nehmen, den Akku geg
 - **Tests:** zwei Poll-Listen-Tests (`TwingoTimeFramesTest.cpp`) auf 200 s Fenster, neue Tests in `TwingoBuildList0810Test.cpp`.
 - **Bekanntes Verhalten:** in den ersten Sekunden nach dem Start und bis zu 30 s nach dem Aufwachen (Prioritaetsliste fragt `0x9018` nicht) steht die Ladegrenze bei 0. Das Label "(BMS)" hinter "Max charge current" ist missverstaendlich, wenn der Emulator die Grenze setzt.
 - **Beobachtung 24.10. (Bench, nach Bau 27):** SOC 100,00 %, Strom -0,5 A, "0x155 frames dropped" = 0; `0x9018` = 8,98 kW, interner SOC 97,88 %, Max charge power 0 W (Regel "voll" bei Anzeige-SOC 100 %). Das war der Anlass fuer Bau 28.
+
+## Zum Bauen vorgemerkt (Bau 29, klein, Wunsch Nutzer 24.10.): Zeilen "Battery Mileage" und "Lifetime Energy" mit den richtigen Variablen belegen (nicht gebaut, wartet auf "bauen")
+**Befund (Bench-Screenshot 24.10.):** "Battery Mileage: 0 km" und "Lifetime Energy: 0 kWh" stehen immer auf 0, waehrend weiter unten `Pack Mileage (0x91CF)` 381 km und `Energy Charged` 15,57 kWh stehen.
+- **Ursache (aus dem Code):** `battery_mileage_in_km` und `kWh_from_beginning_of_battery_life` (`BATTERY.h:566-567`) werden nur in `handle_pid()` im Fall `GROUP3_METRICS` gesetzt (`BATTERY.cpp:163-167`, KWP-Gruppe `0x61` ueber `0x79B/0x7BB`). Dieser Pfad wird von diesem Pack nie beantwortet und seit Bau 6 nicht mehr abgefragt. Die Zeilen (`BATTERY.cpp:3482-3483`) sind aus dem Zoe-Treiber mitkopiert.
+- **Auftrag (Nutzer, 24.10.):** nicht entfernen, sondern die beiden richtigen Variablen dort hinterlegen, im naechsten Bau vorsehen.
+- **Vorschlag:**
+  1. `battery_mileage_in_km` aus `0x91CF` setzen: `(raw ^ 0x80000000) / 32` (wie die Zeile "Pack Mileage", `BATTERY.cpp:1696`), im Antwort-Handler des Eintrags `EXT_POLL_MILEAGE_PACK`.
+  2. `kWh_from_beginning_of_battery_life` aus `0x9243` ("Cumulated energy in charge", `EXT_POLL_ENERGY_CHARGED`, `BATTERY.cpp:401-405`, Faktor 0,001 kWh) setzen. **Annahme:** das ist der Lebensdauer-Zaehler; eine einzelne "Lifetime Energy" gibt es im UDS-Satz nicht, Alternative waere die Summe aus `0x9243` und `0x9245`. Bei der Umsetzung kurz bestaetigen lassen.
+  3. Die zwei Zuweisungen im toten Zweig `GROUP3_METRICS` (`BATTERY.cpp:165-166`) entfernen, damit sie die Werte nicht ueberschreiben koennen.
+- **Achtung Typ:** beide Variablen sind `uint16_t` (max. 65.535). Der Original-Pack stand im Juli 2025 bei 83.214 km (`91CF`), das laeuft ueber. Deshalb `battery_mileage_in_km` auf `uint32_t` aendern (Member nur im Twingo-Treiber) oder bei 65.535 begrenzen. `0x9243` lag bei 12.953 kWh (Original-Pack) und passt.
+- **Seiteneffekt:** die beiden Zeilen und "Pack Mileage" / "Energy Charged" zeigen dann dieselbe Zahl; kosmetisch, auf Wunsch spaeter eine Zeile streichen.
+- **Tests:** ein kleiner Test (Antwort `0x91CF` / `0x9243` einspeisen, Werte der beiden Zeilen pruefen, Wert ueber 65.535 km).
