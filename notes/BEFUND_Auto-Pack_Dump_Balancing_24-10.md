@@ -47,3 +47,20 @@ Kennzeichnung: **gemessen** = steht im Dump, **Schluss** = abgeleitet, **Annahme
 - **Gemessen:** `912B` ist in beiden Dumps **identisch** (`B9 81 60 46 88 08 C0 00 00 26 00 00`, dieselben 20 Zellen). Die Bits blieben also in diesem Zeitabstand stehen. Der Zeitabstand ist nicht bekannt.
 - **Gemessen:** Zaehler `924F` bis `9252` und `9262`/`9263` gleich; Zellsumme 347,78 -> 347,52 V (mittlere Aenderung -2,7 LSB je Zelle, 1 LSB = 0,98 mV), Spreizung 4,9 -> 6,8 mV, Strom -0,594 -> -0,516 A.
 - **Gemessen:** die 20 Bit-Zellen sanken im Mittel um 2,45 LSB, die uebrigen 76 um 2,80 LSB. **Schluss:** bei 1 mV Aufloesung kein belastbarer Unterschied; ein Beleg, dass die Schalter wirklich Strom ziehen, ist das nicht.
+
+## 9. Nachtrag: Zeitstempel, dritter MCPU-Dump und Busmitschnitt (24.10.)
+- **Gemessen:** Das Praefix der Dump-Dateinamen ist die Unix-Zeit der Aufnahme (im Juli-Dump 1753382968 = 24.07.2025 18:49 UTC, passt zu den Notizen). Damit: MCPU 1 = 14:24:52, SCPU = 14:26:04, MCPU 2 = 14:48:41, EVC = 15:01:18, MCPU 3 = 15:15:59 UTC. Die Aussage "Zeitabstand unbekannt" aus Nachtrag 8 ist damit ueberholt.
+- **Gemessen:** `912B` ist in allen drei MCPU-Dumps (51 min) **identisch**, ebenso in der Antwort im Busmitschnitt `teraterm.log` bei t = 218,2 s (dieselben 20 Bits). Zaehler `924F` bis `9252`, `9262`/`9263` unveraendert, `9259` = 05, `925C` = 01.
+- **Gemessen:** Zellsumme 347,78 -> 347,52 -> 347,37 V, Spreizung 4,9 / 6,8 / 5,9 mV, `9001` 3759 / 3725 / 3690, Strom -594 / -516 / -505 mA. Mittlere Zelldrift in 51 min: -4,3 LSB (1 LSB = 0,98 mV), Bit-Zellen -4,30, andere -4,34: **kein messbarer Unterschied**.
+- **Gemessen:** Die Bit-Zellen gehoeren in den drei Dumps zu den 20 hoechsten Zellen: 2 / 5 / 3 von 20 (Zufall waere etwa 4). **Schluss:** Die Bits folgen nicht der aktuellen Zellrangfolge. Vereinbar mit einem Bitmuster, das nicht laufend aus den Zellspannungen neu berechnet wird (zum Beispiel beim Wecken); nicht belegt.
+- **Gemessen (Busmitschnitt `5fba543f-teraterm.log`, 304 s, Auto wach):** 0x424 Byte 0 = 0x11 (damit "Cell Under Voltage: OK"), 0x155 B0 = 0x49 (21,9 kW), SOC 26,14 -> 26,09 %, Strom -0,25 A, U 347,5 V; UDS-Sitzung 122,9 bis 383,0 s mit 630 Antworten (335 verschiedene DIDs).
+- **Gemessen, drei SOC-Werte im Abstand von 25 min:** PyRen `PR297` 34,29 % (etwa 14:48), EVC `$2002` 24,06 % (15:01), 0x155 im Busmitschnitt 26,1 % (etwa 15:15 bis 15:20). Unterschiede nicht erklaert.
+
+## 10. Nachtrag: EVC-Dump 15:01 UTC (`DUMP_EVC_Auto_24-10.txt`)
+Dekodiert mit den Namen/Skalen der EMS3194-XML (die zum Dump gehoerige `EVC_3180_RH3_700_V3.0` liegt nicht vor; 467 von 468 DIDs haben dort einen Namen).
+- **Gemessen:** HV 347,5 V, Rack-Temperatur 10 C, SOH 95 %, verfuegbare Ladeleistung `$320B` 43 kW (= MCPU `900E`), Entladeleistung `$320A` 71,5 kW, max. Ladeleistung per CAN `$3444` 21,9 kW (= 0x155 B0 und MCPU `9018` = 22,00 kW). Die zwei Ladegrenzen (0x424 B2 gegen 0x155 B0 / `9018`) sind im EVC beide sichtbar; Bau 28 nimmt das Minimum.
+- **Gemessen:** Ladehistorie `$33D7` (Skala 0,2 %): 99,8 / 81,6 / 99,2 / 61,4 / 100,0 / 98,8 / 41,2 / 37,4 / 35,8 / 31,2 %; Ladeende-Grund `$33D5` (nur 5 Eintraege): 0, 1, 0, 1, 0 (0 = "Nominal end of charge (battery full)", 1 = "Unplugged"); Dauer `$33D9` 379, 21, 111, 37, 7, 87, 4, 1, 5, 25 (Einheit angenommen min). **Schluss:** der Auto-Pack wird regelmaessig voll geladen (Annahme: gleiche Reihenfolge in den Listen).
+
+## 11. Nachtrag: 79B/7BB und 18DA15F1 (mod_ddt-Liste)
+- 79B/7BB (11 Bit, LBC EV, `BMS453`): antwortet bei unserem Pack nie (Notiz 17.10., Treiberkommentar `BATTERY.h:886`); in den hochgeladenen Mitschnitten gibt es keinen einzigen 0x7BB-Frame, `0x79B` wird nur von uns gesendet (`02 21 07/41/42`).
+- `18DA15F1`/`18DAF115` (ECM_29): nur als Listenzeile in `batteryemulator_vs_ovms_031026.md` erwaehnt, nie als Frame auf dem Bus.
