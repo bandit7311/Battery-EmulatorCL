@@ -1,0 +1,36 @@
+# Befund: MCPU/SCPU-Dump des Auto-Packs (Recycler-Pack), Balancing-Bits bei 5 mV (24.10.2026)
+
+Quelle: zwei Dateien vom Nutzer (`RBMS_MCPU_RL_06xx_V1.7`, `RBMS_SCPU_RL_06xx_V1.2`), abgelegt als `DUMP_MCPU_Auto-Pack_24-10.txt` und `DUMP_SCPU_Auto-Pack_24-10.txt`. Der Dateiname nennt die Dekodier-Vorlage, nicht den Aufnahmetag. Auswertung: `tools/log_ana_mcpu_dump_balancing.py`.
+Kennzeichnung: **gemessen** = steht im Dump, **Schluss** = abgeleitet, **Annahme** = ungeprueft.
+
+## 1. Welcher Pack
+- **Gemessen:** `901B` = `295108369RTY032271FFFFFFF`, `F187` = `293A09578R`, `9282` = `...T2129902 01PDA009AR000`: der Recycler-Pack aus dem Auto (nicht der Original-Pack vom Juli 2025, `...TY008870`).
+- **Schluss:** `91C1` = 2.206.569 min, am 11.10. 2.187.978 min; Differenz 18.591 min = 12,9 Tage, Aufnahme also etwa 24.10.
+
+## 2. Zustand beim Dump
+- **Gemessen:** `9259` = 05 und `925C` = 01 (laut Foto-Tabelle Zuendung/Go/Driving, Pack wach), in MCPU und SCPU gleich. SCPU-`9261` liegt 78 min nach MCPU-`9261`.
+- **Gemessen:** SOC `9001` = 3759 (36,5 % nach der Skalierung des Juli-Dumps), Packspannung `9005` 347,7 V, Summe der 96 Zellen 347,78 V (`9006` 347,66 V).
+- **Gemessen:** Zellen 3,6201 bis 3,6250 V (Rohwert/1024), Spreizung 4,9 mV aus der Zellliste, `9007`/`9009` 6,8 mV, SCPU 78 min spaeter 3,9 mV.
+- **Schluss:** Temperatur `9012` = 792: (Rohwert/16) - 40 = 9,5 C (Skalierung am Juli-Dump geprueft: 1018 -> 23,625 C).
+
+## 3. Balancing-Schalter `912B`
+- **Gemessen:** Datenbytes 21-32 = `B9 81 60 46 88 08 C0 00 00 26 00 00`, 20 von 96 Bits gesetzt.
+- **Annahme:** erstes Bit = Zelle 96 (Seitenlogik des Treibers). Dann sind Zellen 18, 19, 22, 47, 48, 52, 60, 64, 66, 67, 71, 78, 79, 81, 88, 89, 92, 93, 94, 96 am Balancieren.
+- **Gemessen:** nur 2 der 20 Zellen gehoeren zu den 20 hoechsten Zellen. Bloecke zu je 12: Bits 0/3/0/2/2/4/3/6 (Block 1 bis 8), mittlere Hoehe ueber dem Minimum 1,4 / 2,4 / 2,4 / 3,0 / 2,4 / 2,7 / 2,9 / 3,1 mV. **Schluss:** schwacher Hinweis auf hoehere Zellen, bei 1 mV Aufloesung nicht belastbar.
+
+## 4. Zaehler
+| | 11.10. | 24.10. (Dump) |
+|---|---|---|
+| `9251` Schlaf | 130,00 Ah | 131,641 Ah |
+| `9252` Schlaf | 222,11 h | 225,277 h |
+| `924F`/`9250` gesamt | gleich Schlaf | gleich Schlaf |
+| `9262`/`9263` Wach | 0 / 0 | 0 / 0 |
+- **Gemessen:** in 12,9 Tagen +1,64 Ah und +3,17 h, nur im Schlaf-Zaehler. Der Wach-Zaehler bleibt 0, obwohl wach 20 Bits gesetzt sind.
+
+## 5. SCPU
+- **Gemessen:** nur 59 Werte, keine Balancing-Daten, kein Fehlerspeicher. `F187` = `293A05180R`, `F191` = `293A01341R`.
+
+## 6. Folgerungen
+- **Schluss:** Dieser Pack balanciert (Bits gesetzt) bei 36 % SOC und 5 mV Spreizung. Die Annahme "ab etwa 97 % SOC und 24 mV" (Zoe-Dokument, andere Firmware) trifft hier nicht zu.
+- **Schluss:** Der Wake-Test bei >= 97 % ist nicht die entscheidende Probe. Besser eine Dump-Serie am Auto (siehe `MERKLISTE_Test.md`, Abschnitt "Dump-Serie am Auto").
+- **Offen:** ob die Wach-Bits am Auto dasselbe sind wie die Bench-Bits (25.09., 76 Bits bei SOC 97 %, Zaehler 0); warum der Wach-Zaehler trotz Bits 0 bleibt (Vermutung: Zaehler nur aus dem Schlaf-Plan, nicht belegt).

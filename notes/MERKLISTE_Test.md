@@ -82,3 +82,11 @@ Frage des Nutzers: Kommt ueber 0x155 ein Status zu 0x9281 (Temporisation)? Die B
 ## Bench-Test fuer Bau 26 (nach dem Flashen, 15.10.)
 - Advanced-Seite: unter der Zeile `0x155 (B7..B0)` steht die Zeile `0x912B raw (data bytes 21-32, first bit = cell 96): ...`; nach spaetestens 20 s stehen 12 Bytes dort, das Alter ("read N s ago") springt etwa alle 20 s zurueck auf 0. Mit der Freien Anfrage `22 91 2B` die Bytes 21 bis 32 der Antwort vergleichen.
 - Der Rundlauf der anderen Werte (Zellspannungen, Zaehler, Temperaturen) laeuft unveraendert, ein Durchgang dauert etwa 7 s laenger.
+
+## Dump-Serie am Auto (Plan, 24.10.)
+Ziel: klaeren, wann der Auto-Pack Balancing-Bits setzt und wann die Zaehler steigen. Nur Lesen, es wird nichts an den Pack gesendet.
+- **Immer dieselben Werte mit Zeitstempel und Zustand notieren:** `912B`, `924F` bis `9252`, `9262`/`9263`, `9259`, `925C`, `9001`, `9007`/`9009`, `9012`, `91C1`.
+- **Zeitpunkte:** (1) vor der Fahrt, (2) direkt nach dem Fahren, (3) nach dem Laden (SOC, wenn moeglich ueber 90 %), (4) am naechsten Morgen nach der Nacht.
+- **Auswerten mit:** `python3 -I tools/log_ana_mcpu_dump_balancing.py <dump.txt>` (Bits, Spreizung, Zaehler).
+- **Fragen:** Sind die Bits nach der Nacht weg? Steigt `9251` ueber Nacht? Erscheinen Bits auch bei grosser Spreizung (ueber 25 mV) anders als bei 5 mV?
+- **Gegenprobe am Bench:** dieselben Werte lesen und mit dem Auto vergleichen (Bits bei 97 % SOC am 25.09. gegen 36 % im Auto).
