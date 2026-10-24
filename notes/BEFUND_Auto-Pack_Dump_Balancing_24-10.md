@@ -34,3 +34,10 @@ Kennzeichnung: **gemessen** = steht im Dump, **Schluss** = abgeleitet, **Annahme
 - **Schluss:** Dieser Pack balanciert (Bits gesetzt) bei 36 % SOC und 5 mV Spreizung. Die Annahme "ab etwa 97 % SOC und 24 mV" (Zoe-Dokument, andere Firmware) trifft hier nicht zu.
 - **Schluss:** Der Wake-Test bei >= 97 % ist nicht die entscheidende Probe. Besser eine Dump-Serie am Auto (siehe `MERKLISTE_Test.md`, Abschnitt "Dump-Serie am Auto").
 - **Offen:** ob die Wach-Bits am Auto dasselbe sind wie die Bench-Bits (25.09., 76 Bits bei SOC 97 %, Zaehler 0); warum der Wach-Zaehler trotz Bits 0 bleibt (Vermutung: Zaehler nur aus dem Schlaf-Plan, nicht belegt).
+
+## 7. Nachtrag: PyRen-Seiten 15 und 16 derselben Sitzung (24.10.)
+- **Gemessen:** PyRen `PR280` "Absolute time since first ignition" = 2.990.951 min = `9261` des MCPU-Dumps: Dump und PyRen-Seiten stammen aus derselben Minute. `PR339` (BMS) = 5 = `9259`, `PR342` (Relay) = 1 = `925C`.
+- **Gemessen:** SOC laut PyRen `PR297` = 34,29 %. Mein Wert 36,5 % aus `9001` beruht auf einer Skalierung, die nur an einem Punkt (Juli-Dump 98,92 %) abgeleitet ist. **Der PyRen-Wert gilt, die 36,5 % sind unsicher.** `PR340` "#BATTERY USOC" = 0,10 %, Bedeutung unbekannt.
+- **Gemessen:** Strom `PR337` = -0,52 A (Dump `9284` = -0,59 A): der Strom ist unauffaellig. `PR218` zeigt -1020 A, also ein Ungueltig-/Grenzwert dieses Signals (kein Stromsensor-Befund ableitbar).
+- **Gemessen:** `PR278` "Average voltage of cells" = 5,11 V und die daraus gebildeten Differenzen +-1,49 V sind offensichtlich Skalierungs-/Signalfehler der PyRen-Definition (hoechste Zelle 3,62 V stimmt: 5,11 - 1,49).
+- **Gemessen:** Fahrzeug-km `925F` = 93.214 km (PyRen nennt sie "Mileage since last appearance of fault"); Pack-km `PR046` = 25.328 km; Wasser 12 C, Luefter 0.
