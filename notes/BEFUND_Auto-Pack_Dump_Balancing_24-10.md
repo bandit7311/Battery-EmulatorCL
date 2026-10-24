@@ -73,3 +73,14 @@ Frage vom Anfang: Warum kann ein Zellwert per UDS anders sein als im Broadcast?
 - **Schluss:** Kleine Abweichungen (einige mV) sind normal: fester Versatz von etwa 3 mV plus Rauschen im Broadcast. Eine grosse Abweichung erklaert das nicht.
 - **Nicht entscheidbar:** Ob Broadcast-Zelle n gleich UDS-Zelle n ist. Bei 6 mV Spreizung schneiden auch die umgekehrte und eine um 1 verschobene Nummerierung gleich gut ab (Streuung 2,5 und 1,7 mV gegen 1,8 mV). Dafuer braucht es einen Mitschnitt mit grosser Spreizung (zum Beispiel am vollen Pack).
 - Gilt fuer den Auto-Pack wach bei etwa 34 % SOC; fuer den Bench-Pack bei hohem SOC nicht gemessen.
+
+## 13. Nachtrag: Dump nach dem Stehen (24.10., MCPU 15:51:45 UTC, SCPU 15:56:06 UTC)
+Ablauf (Nutzer): Auto nicht abgeschlossen, Zuendung aus, 15 bis 20 min gestanden, dann wieder gelesen.
+- **Gemessen (MCPU, gegen den Dump 15:15:59):** `9251` 131,641 -> 131,750 Ah (+0,109), `9252` 225,277 -> 225,508 h (+0,230 h = 13,8 min), `924F`/`9250` gleich Schlaf, `9262`/`9263` weiter 0. `9259`/`925C` 05/01 -> 04/02 (Merkliste: Auto "Zuendung aus" 04/02). `9261` und `91C1` je +149 min (waren in den drei Dumps davor konstant). `9279` 10 -> 11. 12-V-Wert `9011` (Skala 1/1024 vom Juli-Dump): 13,87 -> 12,90 -> 11,48 V.
+- **Gemessen:** `912B` auch jetzt identisch (dieselben 20 Bits) in allen vier MCPU-Dumps. Spreizung 5,9 -> 7,8 mV, Zellsumme 347,37 -> 347,54 V, Bit-Zellen driften nicht anders als die uebrigen (+1,9 gegen +1,8 LSB).
+- **Gemessen:** `9002` = SOC fuer Display/Deye = `0x155`-SOC (Wert/100): 26,82 / 26,49 / 26,08 / 26,15 %. Im Busmitschnitt `0x155` 26,14 -> 26,09 % passend zu 26,08 %. Damit sind `9002` und `9001` ("interner SOC", PyRen 34,29 %) verschiedene Groessen. Der EVC-Wert `$2002` (24,06 % um 15:01) passt zu keinem von beiden.
+- **Dump-Tool-Fehler:** im Dump 15:51:45 steht in der Zeile `9001` die Antwort von `9243`; `9001` fehlt dort.
+- **Korrektur zu Nachtrag 8:** die SCPU-`9261` ist eine **laufende Uhr** (2.991.029 min um 14:26:04, 2.991.120 min um 15:56:06: +91 min bei 90,03 min realer Zeit). Dagegen ist die MCPU-`9261` ein beim Wecken festgehaltener Wert.
+- **Schluss (aus Uhr und Latch, nicht direkt gemessen):** MCPU-Latch 1 (2.990.951) entspricht SCPU-Uhr 13:08 UTC = Wecken des MCPU um etwa 13:08 UTC. MCPU-Latch 2 (2.991.100) entspricht 15:37 UTC = erneutes Wecken des MCPU um etwa 15:37 UTC. Differenz 149 min = die +149 min. Das passt zum Stehen von 15 bis 20 min nach dem Dump um 15:16.
+- **Schluss:** der Pack hat im kurzen Stehen 13,8 min Balancing gebucht (Annahme: Zaehler = reale Zeit); im Mittel 0,47 A, etwa 5 Zellen zu 100 mA (Annahme aus Abschnitt "Original-Pack").
+- **Gemessen (SCPU 15:56):** `9259`/`925C` = 05/01 (Auto wieder wach), `9281` = 00, `925B` = 00, `925D` = 00 00, `925E` = 20 80 (alle unveraendert), 9007/9009 0E7A/0E77 (3 LSB Spreizung).
