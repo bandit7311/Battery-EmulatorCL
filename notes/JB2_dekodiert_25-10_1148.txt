@@ -1,0 +1,165 @@
+2180 | Identification.RenaultR2 | ApprovalNumber.BasicPartList | 1 = HMLGT | 
+2180 | Identification.RenaultR2 | CalibrationNumber | 21 70 | Numero de calibration en Hexa
+2180 | Identification.RenaultR2 | DiagnosticIdentificationCode | 04 | Diag evolution number
+2180 | Identification.RenaultR2 | EditionNumber | 09 50 | Software version(edition) number
+2180 | Identification.RenaultR2 | HardwareNumber.BasicPartList | 1 = 296H5 | 
+2180 | Identification.RenaultR2 | HardwareNumber.LowerPart | 0187R | 
+2180 | Identification.RenaultR2 | ManufacturerIdentificationCode | 136 = 5DIGITS | 
+2180 | Identification.RenaultR2 | PartNumber.BasicPartList | 1 = 296H5 | 
+2180 | Identification.RenaultR2 | PartNumber.LowerPart | 0186R | 
+2180 | Identification.RenaultR2 | SoftwareNumber | 02 10 | Software identification number
+2180 | Identification.RenaultR2 | SupplierNumber.ITG | JF2 | Supplier ITG code
+2181 | Vehicle_Identification_Number | Vin CRC | e9 8b | 
+2181 | Vehicle_Identification_Number | Vin In Ascii | VF1AH000266883164 | VIN readen in generic frame $2181
+2184 | System_traceability | ITG Supplier Number | 4a 46 32 | 
+2184 | System_traceability | Traceability Factory Code | 1 | 
+2184 | System_traceability | Traceability Serial Number | 060121433656 | 
+21B7 | Configuration of Electrical Vehicle Networks | Configuration of Electrical Vehicle Networks | 00 00 00 00 00 00 00 00 00 00 00 | Configuration of Electrical Vehicle Networks
+21B8 | List of Electrical Vehicle ECUs with After-sales diagnostic | List of Electrical Vehicle ECUs with After-sales diagnostic | 00 00 00 00 00 00 00 00 00 00 00 | List of Electrical Vehicle ECUs with After-sales diagnostic
+21F0 | History.Ident.0 | CalibrationNumber | 21 63 | Numero de calibration en Hexa
+21F0 | History.Ident.0 | DiagnosticIdentificationCode | 04 | Diag evolution number
+21F0 | History.Ident.0 | SoftwareNumber | 02 10 | Software identification number
+21F0 | History.Ident.0 | SupplierNumber.ITG | JF2 | Supplier ITG code
+21F0 | History.Ident.0 | EditionNumber | 09 50 | Software version(edition) number
+21F0 | History.Ident.0 | PartNumber.BasicPartList | 1 = 296H5 | 
+21F0 | History.Ident.0 | HardwareNumber.BasicPartList | 1 = 296H5 | 
+21F0 | History.Ident.0 | ApprovalNumber.BasicPartList | 1 = HMLGT | 
+21F0 | History.Ident.0 | PartNumber.LowerPart | 0177R | 
+21F0 | History.Ident.0 | HardwareNumber.LowerPart | 0187R | 
+21F0 | History.Ident.0 | ManufacturerIdentificationCode | 136 = 5DIGITS | 
+21F0 | History.Ident.0 | SupplierNumber | 4a 46 32 | Supplier code (hexa)
+21F1 | History.Reprog.0 | ApprovalNumber.LowerPart | 00000 | 
+21F1 | History.Reprog.0 | ProgrammingSiteReference | LEAR  | 
+21F1 | History.Reprog.0 | ProgrammingToolReference | XXXXX | 
+21F1 | History.Reprog.0 | NumberOfReprogrammings | 0 | 
+21F1 | History.Reprog.0 | DateOfReprogramming | 21 01 06 | date of the reprogramming yy.mm.dd
+21F1 | History.Reprog.0 | SaveMarking | 92 | 
+21F1 | History.Reprog.0 | CrcOfLogSave | 8f 35 | 
+21F1 | History.Reprog.0 | TimeOfReprogramming | 00 00 | Hour, Minute of the reprogramming
+21EF | Daimler system identification | Hardware Part Number 1 | 4 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 2 | 5 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 3 | 3 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 4 | 9 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 5 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 6 | 1 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 7 | 6 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 8 | 3 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 9 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 10 | 2 | Daimler Hardware Part Number
+21EF | Daimler system identification | Software Part Number 1 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 2 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 3 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 4 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 5 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 6 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 7 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 8 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 9 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 10 | 0 | Daimler Software Part Number
+222001 | ($2001) Mains phase 1 current RMS value | ($2001) Mains phase 1 current RMS value | 0 A | Vxx_mns_i_rms_1
+222002 | ($2002) CPU voltage supply from BI | ($2002) CPU voltage supply from BI | 13.5 V | Vxx_ecd_v_wi
+222003 | ($2003) Junction box 2 state | ($2003) Junction box 2 state | 4 = Wait | Vsx_jb2_stt
+222004 | ($2004) System Relative Temperature in % | ($2004) System Relative Temperature in % | 30 % | Vxx_sys_temp
+222005 | ($2005) Cooling temperature from BI | ($2005) Cooling temperature from BI | 19 °C | Vxx_tco_wi
+225001 | ($5001) Plugging counter | ($5001) Plugging counter | 5381 | Sxx_plg_ctr
+225002 | ($5002) Wake Up counter | ($5002) Wake Up counter | 13865 | Sxx_wkp_ctr
+225003 | ($5003) Raw A/C plug interlock value | ($5003) Raw A/C plug interlock value | 1 = closed | Vbx_arc_ilck_wi
+225005 | ($5005) CAN activity for JB2 | ($5005) CAN activity for JB2 | 1 = Activity | Vbx_can_act_jb2
+225007 | ($5007) MMI Green LED PWM request | ($5007) MMI Green LED PWM request | 0 % | Vxx_gnd_led_ctl
+225008 | ($5008) Raw JB2 hood plug interlock value | ($5008) Raw JB2 hood plug interlock value | 0 = open | Vbx_hod_ilck_wi
+225009 | ($5009) Raw HV Battery plug interlock value | ($5009) Raw HV Battery plug interlock value | 1 = closed | Vbx_hv_bat_ilck_wi
+22500B | ($500B) Raw mains interlock value | ($500B) Raw mains interlock value | 1 = closed | Vbx_mns_ilck_wi
+22500C | ($500C) Mains tri phases permutation | ($500C) Mains tri phases permutation | 0 = v1/v2/v3 off | Vbx_mns_ph_v_rev_id
+22500D | ($500D) Mains voltage presence | ($500D) Mains voltage presence | 0 = Absent | Vbx_mns_v_pres
+22500E | ($500E) Wake-Up request from Mains or plug presence | ($500E) Wake-Up request from Mains or plug presence | 0 = No wake-up request | Vbx_mns_wkp
+22500F | ($500F) Raw PEB plug interlock value | ($500F) Raw PEB plug interlock value | 0 = open | Vbx_peb_ilck_wi
+225010 | ($5010) Raw PEB neutral interlock value | ($5010) Raw PEB neutral interlock value | 0 = open | Vbx_peb_n_ilck_wi
+225011 | ($5011) Raw PTC plug interlock value | ($5011) Raw PTC plug interlock value | 1 = closed | Vbx_ptc_ilck_wi
+225012 | ($5012) Mains phase 1-2 voltage presence | ($5012) Mains phase 1-2 voltage presence | 0 = Absent | Vbx_raw_mns_u_12_pres
+225013 | ($5013) Mains phase 2-3 voltage presence | ($5013) Mains phase 2-3 voltage presence | 0 = Absent | Vbx_raw_mns_u_23_pres
+225014 | ($5014) Mains phase 3-1 voltage presence | ($5014) Mains phase 3-1 voltage presence | 0 = Absent | Vbx_raw_mns_u_31_pres
+225015 | ($5015) Wake-Up / Sleep request from EVC | ($5015) Wake-Up / Sleep request from EVC | 3 = WakeUp | Vsx_evc_wkp_req
+225016 | ($5016) Junction box 2 state request from EVC | ($5016) Junction box 2 state request from EVC | 4 = Wait | Vsx_jb2_stt_req
+225017 | ($5017) Mains current type | ($5017) Mains current type | 0 = Nok | Vsx_mns_i_typ
+225018 | ($5018) Mains plug unlocking CAN request | ($5018) Mains plug unlocking CAN request | 2 = No unlock request | Vsx_mns_plg_ulck_can_req
+225019 | ($5019) Memorized value of the wake up activation | ($5019) Memorized value of the wake up activation | 1 = Wake-up activated | Ssx_wkp_act
+22501A | ($501A) BCM wake-up by wire | ($501A) BCM wake-up by wire | 0 = No wake-up | Vbx_bcm_wkp
+22501C | ($501C) S2 relay control | ($501C) S2 relay control | 0 = Open | Vbx_s2_rly_ctl
+22501D | ($501D) Charge state request | ($501D) Charge state request | 0 = No charge | Vbx_chg_stt_req
+22501E | ($501E) Global system state | ($501E) Global system state | 1 = Actif | Vsx_gb_sys_stt
+22501F | ($501F) System Temperature State | ($501F) System Temperature State | 0 = Ok | Vsx_sys_temp_stt
+225021 | ($5021) Cooling Temperature State | ($5021) Cooling Temperature State | 0 = Ok | Vsx_tco_stt
+225022 | ($5022) Auto wake-up enabling | ($5022) Auto wake-up enabling | 0 = No change | Vsx_wkp_ena
+225023 | ($5023) Raw CPU temperature value from BI | ($5023) Raw CPU temperature value from BI | 31 °C | Vxx_cpu_temp_wi
+225024 | ($5024) Measured neutral current filtred | ($5024) Measured neutral current filtred | 0 A | Vxx_i_n_ftr
+225025 | ($5025) Neutral current value from BI | ($5025) Neutral current value from BI | -21.4375 A | Vxx_i_n_wi
+225026 | ($5026) J1772 control pilot raw duty cycle | ($5026) J1772 control pilot raw duty cycle | 100 % | Vxx_mns_cm_dyc_wi
+225027 | ($5027) J1772 control pilot raw voltage | ($5027) J1772 control pilot raw voltage | 0 V | Vxx_mns_cm_v_wi
+225028 | ($5028) Mains input filter temperature from SPI | ($5028) Mains input filter temperature from SPI | 0 °C | Vxx_mns_ftr_temp_spi
+225029 | ($5029) Raw AC mains phase 1 measured current | ($5029) Raw AC mains phase 1 measured current | 0 A | Vxx_mns_i_1_spi
+22502A | ($502A) Raw AC mains phase 2 measured current | ($502A) Raw AC mains phase 2 measured current | 0 A | Vxx_mns_i_2_spi
+22502B | ($502B) Raw AC mains phase 3 measured current | ($502B) Raw AC mains phase 3 measured current | 0 A | Vxx_mns_i_3_spi
+22502C | ($502C) Raw AC mains phase 1 measured voltage | ($502C) Raw AC mains phase 1 measured voltage | 0 V | Vxx_mns_v_1_spi
+22502D | ($502D) Raw AC mains phase 2 measured voltage | ($502D) Raw AC mains phase 2 measured voltage | 0 V | Vxx_mns_v_2_spi
+22502E | ($502E) Raw AC mains phase 3 measured voltage | ($502E) Raw AC mains phase 3 measured voltage | 0 V | Vxx_mns_v_3_spi
+22502F | ($502F) MMI Red LED PWM request | ($502F) MMI Red LED PWM request | 0 % | Vxx_red_led_ctl
+225030 | ($5030) Raw fuse interlock value | ($5030) Raw fuse interlock value | 1 = closed | Vbx_fus_ilck_wi
+225031 | ($5031) Raw Relay box plug interlock closed | ($5031) Raw Relay box plug interlock closed | 0 = open | Vbx_rly_bx_ilck_wi
+225032 | ($5032) Driver module power supply voltage from BI | ($5032) Driver module power supply voltage from BI | 1.125 V | Vxx_driv_mod_v
+225033 | ($5033) Raw Detection Logic line value | ($5033) Raw Detection Logic line value | 4.8926 V | Vxx_mns_dlg_wi
+22506C | ($506C) 15V from Driver flyback | ($506C) 15V from Driver flyback | 0.0156 | Vxx_driv_mod_fbk_v
+225043 | ($5043) AC mains phase 1-2 measured voltage | ($5043) AC mains phase 1-2 measured voltage | 0 V | Vxx_mns_u_12
+225044 | ($5044) AC mains phase 2-3 measured voltage | ($5044) AC mains phase 2-3 measured voltage | 0 V | Vxx_mns_u_23
+225045 | ($5045) AC mains phase 3-1 measured voltage | ($5045) AC mains phase 3-1 measured voltage | 0 V | Vxx_mns_u_31
+22506E | ($506E) Cosphi regulation enable | ($506E) Cosphi regulation enable | 1 = Enable | Sbx_bp_ena
+225051 | ($5051) CPU temperature value | ($5051) CPU temperature value | 30 °C | Vxx_cpu_temp
+225050 | ($5050) External controls denial status flags.0 | ($5050) External controls denial status flags.0 | 0 = Reserved for future use_0 | Reserved for futur use
+22505E | ($505E) FPGA ident | ($505E) FPGA ident | 6437 | Vxx_fpga_id
+22505D | ($505D) Global checksum result on SPI frames | ($505D) Global checksum result on SPI frames | 0 | Vbx_spi_gb_chk_sum
+22505F | ($505F) High part of CPU clock since power up | ($505F) High part of CPU clock since power up | 14 ms | Vxx_clk_h
+22504D | ($504D) HV Network measured current | ($504D) HV Network measured current | -0.25 A | Vxx_i_hv
+22504E | ($504E) HV voltage | ($504E) HV voltage | 402 V | Vxx_v_hv
+225052 | ($5052) IGBT Buck arm 1 temperature | ($5052) IGBT Buck arm 1 temperature | 18 °C | Vxx_igbt_temp
+22505C | ($505C) Inform on spi communication error | ($505C) Inform on spi communication error | 0 | Vbx_if_spi_err
+225064 | ($5064) Leakage current diagnostic stored completion status | ($5064) Leakage current diagnostic stored completion status | 1 = HF10 | Ssx_mns_lkg_crt_stt
+225065 | ($5065) Leakage DC current saved indicator after failure | ($5065) Leakage DC current saved indicator after failure | 0.0625 mA | Sxx_mns_lkg_i_dc_saved
+225066 | ($5066) Leakage HF 10kHz current saved indicator after failure | ($5066) Leakage HF 10kHz current saved indicator after failure | 3.625 mA | Sxx_mns_lkg_i_hf_10_ftr_saved
+225067 | ($5067) Leakage HF current saved indicator after failure | ($5067) Leakage HF current saved indicator after failure | 13.0625 mA | Sxx_mns_lkg_i_hf_ftr_saved
+225068 | ($5068) Leakage LF current saved indicator after failure | ($5068) Leakage LF current saved indicator after failure | 0.625 mA | Sxx_mns_lkg_i_lf_saved
+225069 | ($5069) LED absence configuration | ($5069) LED absence configuration | 0 = LED present | Sbx_led_abs_cfg
+225061 | ($5061) Low part of CPU clock since power up | ($5061) Low part of CPU clock since power up | 58945 ms | Vxx_clk_l
+22504A | ($504A) Mains active power consumed | ($504A) Mains active power consumed | 0 W | Vxx_mns_pw
+22503C | ($503C) Mains current phase 1 mean value | ($503C) Mains current phase 1 mean value | 0 A | Vxx_mns_i_mea_1
+22503D | ($503D) Mains current phase 2 mean value | ($503D) Mains current phase 2 mean value | 0 A | Vxx_mns_i_mea_2
+22503E | ($503E) Mains current phase 3 mean value | ($503E) Mains current phase 3 mean value | 0 A | Vxx_mns_i_mea_3
+22504B | ($504B) Mains current sum | ($504B) Mains current sum | 0 A | Vxx_mns_i_sum
+225035 | ($5035) Mains ground current 1st measurement | ($5035) Mains ground current 1st measurement | 0 mA | Vxx_mns_gnd_i_1
+225062 | ($5062) Mains ground resistance | ($5062) Mains ground resistance | 0 Ohm | Vxx_mns_gnd_r
+225054 | ($5054) Mains input filter hot spot temperature | ($5054) Mains input filter hot spot temperature | 0 °C | Vxx_mns_hspt_temp
+225055 | ($5055) Mains input filter hot spot temperature from SPI | ($5055) Mains input filter hot spot temperature from SPI | 0 °C | Vxx_mns_hspt_temp_spi
+225056 | ($5056) Mains input filter temperature | ($5056) Mains input filter temperature | 0 °C | Vxx_mns_ftr_temp
+22504F | ($504F) Mains leakage current strategy state | ($504F) Mains leakage current strategy state | 0 = OFF/Init | Vsx_mns_lkg_crt_stt
+225046 | ($5046) Mains phase 1-2 mean voltage | ($5046) Mains phase 1-2 mean voltage | 0 V | Vxx_mns_u_mea_12
+22503F | ($503F) Mains phase 1-2 voltage RMS value | ($503F) Mains phase 1-2 voltage RMS value | 0 V | Vxx_mns_u_rms_12
+22503A | ($503A) Mains phase 2 current RMS value | ($503A) Mains phase 2 current RMS value | 0 A | Vxx_mns_i_rms_2
+225047 | ($5047) Mains phase 2-3 mean voltage | ($5047) Mains phase 2-3 mean voltage | 0 V | Vxx_mns_u_mea_23
+225041 | ($5041) Mains phase 2-3 voltage RMS value | ($5041) Mains phase 2-3 voltage RMS value | 0 V | Vxx_mns_u_rms_23
+22503B | ($503B) Mains phase 3 current RMS value | ($503B) Mains phase 3 current RMS value | 0 A | Vxx_mns_i_rms_3
+225048 | ($5048) Mains phase 3-1 mean voltage | ($5048) Mains phase 3-1 mean voltage | 0 V | Vxx_mns_u_mea_31
+225042 | ($5042) Mains phase 3-1 voltage RMS value | ($5042) Mains phase 3-1 voltage RMS value | 0 V | Vxx_mns_u_rms_31
+225049 | ($5049) Mains phase frequency | ($5049) Mains phase frequency | 50 Hz | Vxx_mns_u_f_31
+225039 | ($5039) Mains plug locking control | ($5039) Mains plug locking control | 0 = No motion | Vsx_mns_plg_lck_ctl
+225038 | ($5038) Mains Plug Locking Switch raw information | ($5038) Mains Plug Locking Switch raw information | 0 = Unlocked | Vbx_mns_plg_lck_stt_wi
+22504C | ($504C) Mains voltage sum | ($504C) Mains voltage sum | 0 V | Vxx_mns_v_sum
+22506A | ($506A) Old MMI configuration | ($506A) Old MMI configuration | 0 = New MMI | Sbx_old_mmi_cfg
+22506F | ($506F) PLGW card presence | ($506F) PLGW card presence | 0 = Not Present | Sbx_plc_ena
+225053 | ($5053) Raw IGBT Buck arm 1 temperature | ($5053) Raw IGBT Buck arm 1 temperature | 19 °C | Vxx_igbt_temp_wi
+225057 | ($5057) Raw leakage current - DC part measurement | ($5057) Raw leakage current - DC part measurement | 0 mA | Vxx_mns_lkg_i_dc_spi
+225058 | ($5058) Raw leakage current - High Frequency 10kHz part measurement | ($5058) Raw leakage current - High Frequency 10kHz part measurement | 0 mA | Vxx_mns_lkg_i_hf_10_spi
+225059 | ($5059) Raw leakage current - High Frequency 1st part measurement | ($5059) Raw leakage current - High Frequency 1st part measurement | 0 mA | Vxx_mns_lkg_i_hf_spi
+22505A | ($505A) Raw leakage current - Low Frequency part measurement (50Hz) | ($505A) Raw leakage current - Low Frequency part measurement (50Hz) | 0 mA | Vxx_mns_lkg_i_lf_spi
+22506D | ($506D) Saved number of quickdrop values | ($506D) Saved number of quickdrop values | 0 | Sxx_qdp_ctr
+225063 | ($5063) Supervisor state | ($5063) Supervisor state | 1 = Wait | Vsx_evc_sup_stt
+22506B | ($506B) Vehicle configuration type | ($506B) Vehicle configuration type | 1 = X07 configuration | Ssx_vh_typ
+22505B | ($505B) Virgin neutral current acquisition tuning detection | ($505B) Virgin neutral current acquisition tuning detection | 0 | Vbx_i_n_dft_nvmy
+225070 | ($5070) max AC current limitation configuration | ($5070) max AC current limitation configuration | 32 A | Sxx_max_ac_i_cfg
