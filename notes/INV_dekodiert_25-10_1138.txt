@@ -1,0 +1,271 @@
+2180 | Identification.RenaultR2 | CalibrationNumber | 21 70 | Numero de calibration en Hexa
+2180 | Identification.RenaultR2 | DiagnosticIdentificationCode | 04 | Diag evolution number
+2180 | Identification.RenaultR2 | SoftwareNumber | 02 20 | Software identification number
+2180 | Identification.RenaultR2 | SupplierNumber.ITG | BGP | Supplier ITG code
+2180 | Identification.RenaultR2 | EditionNumber | 74 50 | Software version(edition) number
+2180 | Identification.RenaultR2 | PartNumber.BasicPartList | 1 = 292A6 | 
+2180 | Identification.RenaultR2 | HardwareNumber.BasicPartList | 1 = 292A6 | 
+2180 | Identification.RenaultR2 | ApprovalNumber.BasicPartList | 1 = HMLGT | 
+2180 | Identification.RenaultR2 | PartNumber.LowerPart | 0308R | 
+2180 | Identification.RenaultR2 | HardwareNumber.LowerPart | 0283R | 
+2180 | Identification.RenaultR2 | ManufacturerIdentificationCode | 136 = 5DIGITS | 
+2184 | Frame Traceability Information | ITG Supplier Number | 42 47 50 | 
+2184 | Frame Traceability Information | Traceability Factory Code | 1 | 
+2184 | Frame Traceability Information | Traceability Serial Number | 201221000410 | 
+2181 | Read Frame VIN | CRC | e9 8b | Vehicle Identification Number Checksum
+2181 | Read Frame VIN | V.I.N | VF1AH000266883164 | Vehicle Identification Number : 17 bytes
+21B7 | Configuration of Electrical Vehicle Networks | Configuration of Electrical Vehicle Networks | 00 00 00 00 00 00 00 00 00 00 00 | Configuration of Electrical Vehicle Networks
+21B8 | List of Electrical Vehicle ECUs with After-sales diagnostic | List of Electrical Vehicle ECUs with After-sales diagnostic | 00 00 00 00 00 00 00 00 00 00 00 | List of Electrical Vehicle ECUs with After-sales diagnostic
+21EF | Daimler system identification | Hardware Part Number 1 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 2 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 3 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 4 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 5 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 6 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 7 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 8 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 9 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Hardware Part Number 10 | 0 | Daimler Hardware Part Number
+21EF | Daimler system identification | Software Part Number 1 | 4 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 2 | 5 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 3 | 3 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 4 | 9 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 5 | 0 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 6 | 2 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 7 | 3 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 8 | 1 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 9 | 1 | Daimler Software Part Number
+21EF | Daimler system identification | Software Part Number 10 | 1 | Daimler Software Part Number
+222001 | ($2001) Rotor mechanical rotation speed | ($2001) Rotor mechanical rotation speed | 0 rpm | Vxx_emot_n
+222002 | ($2002) Emotor torque estimation, based on measured current values | ($2002) Emotor torque estimation, based on measured current values | 0 N·m | Vxx_esti_emot_tq
+222003 | ($2003) Torque setpoint from EVC | ($2003) Torque setpoint from EVC | 0 N·m | Vxx_emot_tq_sp
+222004 | ($2004) Battery voltage sensor | ($2004) Battery voltage sensor | 402 V | Vxx_udc
+222005 | ($2005) DCDC output tension measure | ($2005) DCDC output tension measure | 13700 mV | Vxx_dcdc_volt_ou_mes_raw
+222070 | ($2070) Immobilizer - diagnosis availability | ($2070) Immobilizer - diagnosis availability | 0 = unavailable | Vbx_swlk_diag_avl
+222071 | ($2071) Immobilizer - Byte 1 used to allow diagnosis | ($2071) Immobilizer - Byte 1 used to allow diagnosis | 0 | Vxx_swlk_diag_1
+222072 | ($2072) Immobilizer - Byte 2 used to allow diagnosis | ($2072) Immobilizer - Byte 2 used to allow diagnosis | 40 | Vxx_swlk_diag_2
+222073 | ($2073) Immobilizer - Byte 3 used to allow diagnosis | ($2073) Immobilizer - Byte 3 used to allow diagnosis.0 | 0 = Immobilizer engine running forbidden | Vxx_swlk_diag_3
+222073 | ($2073) Immobilizer - Byte 3 used to allow diagnosis | ($2073) Immobilizer - Byte 3 used to allow diagnosis.1 | 0 = Not used | Vxx_swlk_diag_3
+222073 | ($2073) Immobilizer - Byte 3 used to allow diagnosis | ($2073) Immobilizer - Byte 3 used to allow diagnosis.2 | 1 = Cleappli set | Vxx_swlk_diag_3
+222073 | ($2073) Immobilizer - Byte 3 used to allow diagnosis | ($2073) Immobilizer - Byte 3 used to allow diagnosis.3 | 0 = Not used | Vxx_swlk_diag_3
+222073 | ($2073) Immobilizer - Byte 3 used to allow diagnosis | ($2073) Immobilizer - Byte 3 used to allow diagnosis.4 | 3 = Not virgin ECM - Secret key learnt in non erasable area | Vxx_swlk_diag_3
+222073 | ($2073) Immobilizer - Byte 3 used to allow diagnosis | ($2073) Immobilizer - Byte 3 used to allow diagnosis.6 | 1 = ECM protected | Vxx_swlk_diag_3
+222073 | ($2073) Immobilizer - Byte 3 used to allow diagnosis | ($2073) Immobilizer - Byte 3 used to allow diagnosis.7 | 0 = Not used | Vxx_swlk_diag_3
+222074 | ($2074) Immobilizer - engine not running due to ECM | ($2074) Immobilizer - engine not running due to ECM | 0 = no | Vbx_swlk_diag_ecm
+222075 | ($2075) Immobilizer - engine not running due to BCM in secure mode | ($2075) Immobilizer - engine not running due to BCM in secure mode | 0 = no | Vbx_swlk_diag_tool
+222076 | ($2076) Immobilizer - engine not running due to no BCM authorization | ($2076) Immobilizer - engine not running due to no BCM authorization | 0 = no | Vbx_swlk_diag_ccu
+222077 | ($2077) Immobilizer - engine not running due to a CAN network problem with the BCM | ($2077) Immobilizer - engine not running due to a CAN network problem with the BCM | 0 = no | Vbx_swlk_diag_mux
+227001 | ($7001) Command of PEC fan | ($7001) Command of PEC fan | 14 % | Vxx_cfa_pwm_sp
+227002 | ($7002) Wired APC signal | ($7002) Wired APC signal | 0 = APC off | Vbx_dcdc_apc_raw
+227003 | ($7003) Measured rotor current (sensor 1) | ($7003) Measured rotor current (sensor 1) | 0.083 A | Wxx_i_f_1
+227004 | ($7004) Measured rotor current (sensor 2) | ($7004) Measured rotor current (sensor 2) | 0.0723 A | Wxx_i_f_2
+227005 | ($7005) Verlog Status | ($7005) Verlog Status | 0 = Vehicle locked | Vbx_eng_run_ena_swlk
+227006 | ($7006) Wire frame APC state | ($7006) Wire frame APC state | 0 = APC off | Vbx_wf_apc
+227007 | ($7007) Measured stator current on phase U | ($7007) Measured stator current on phase U | -1 A | Wxx_i_mot_ph_1
+227008 | ($7008) Measured stator current on phase V | ($7008) Measured stator current on phase V | -1.5625 A | Wxx_i_mot_ph_2
+227009 | ($7009) Measured stator current on phase W | ($7009) Measured stator current on phase W | -1.1562 A | Wxx_i_mot_ph_3
+22700A | ($700A) Feedback fan raw diagnostic | ($700A) Feedback fan raw diagnostic | 0 = OK | Vbx_raw_cfa_nok
+22700B | ($700B) Excitation temperature | ($700B) Excitation temperature | 13.6953 °C | Vxx_wf_exct_temp
+22700C | ($700C) Inverter temperature sensor 1 | ($700C) Inverter temperature sensor 1 | 16.5723 °C | Vxx_wf_invt_temp_1
+22700D | ($700D) MICRO temperature | ($700D) MICRO temperature | 32.5098 °C | Vxx_wf_mc_temp
+22700E | ($700E) PCB temperature | ($700E) PCB temperature | 25.6758 °C | Vxx_wf_pcb_temp
+22700F | ($700F) Stator temperature sensor 1 | ($700F) Stator temperature sensor 1 | 17.8184 °C | Vxx_sttr_temp_1
+227010 | ($7010) Stator temperature sensor 2 | ($7010) Stator temperature sensor 2 | 15 °C | Vxx_sttr_temp_2
+227011 | ($7011) Raw rotor position resolver angular position measurement | ($7011) Raw rotor position resolver angular position measurement | 275.625 ° | Wxx_sens_emot_psn_raw
+227012 | ($7012) Status flag of the Smartcoder | ($7012) Status flag of the Smartcoder | 0 | Wxx_sens_emot_psn_sf
+227013 | ($7013) Raw rotor position resolver cosine voltage | ($7013) Raw rotor position resolver cosine voltage | 0.4897 V | Wxx_sens_emot_psn_raw_cos_0
+227014 | ($7014) Raw rotor position resolver cosine voltage with 25µs delay | ($7014) Raw rotor position resolver cosine voltage with 25µs delay | 0.5305 V | Wxx_sens_emot_psn_raw_cos_25
+227015 | ($7015) Raw rotor position resolver excitation peak voltage | ($7015) Raw rotor position resolver excitation peak voltage | 0.8379 V | Wxx_sens_emot_psn_raw_exc
+227017 | ($7017) Failure vector allowing exact identification of the failure.1 | ($7017) Failure vector allowing exact identification of the failure.1 | 0000000000000000 | Vxx_dcdc_diag_1
+227018 | ($7018) Failure vector allowing exact identification of the failure.2 | ($7018) Failure vector allowing exact identification of the failure.2 | 00000000 | Vxx_dcdc_diag_2
+227019 | ($7019) Failure vector allowing exact identification of the failure.3 | ($7019) Failure vector allowing exact identification of the failure.3 | 00000000 | Vxx_dcdc_diag_3
+22701A | ($701A) Failure vector allowing exact identification of the failure.4 | ($701A) Failure vector allowing exact identification of the failure.4 | 0000000000000000 | Vxx_dcdc_diag_4
+22701B | ($701B) Failure vector allowing exact identification of the DCDC event | ($701B) Failure vector allowing exact identification of the DCDC event | 00000000 | Vxx_dcdc_diag_5
+22701D | ($701D) Counter of FAN fail times to cool the machine stator in hard conditions.1 | ($701D) Counter of FAN fail times to cool the machine stator in hard conditions.1 | 0 | Sxx_fan_nok_fail_1
+22701E | ($701E) Counter of FAN fail times to cool the machine stator in hard conditions.2 | ($701E) Counter of FAN fail times to cool the machine stator in hard conditions.2 | 0 | Sxx_fan_nok_fail_2
+22701F | ($701F) Counter of FAN fail times to cool the machine stator in hard conditions.3 | ($701F) Counter of FAN fail times to cool the machine stator in hard conditions.3 | 0 | Sxx_fan_nok_fail_3
+227058 | ($7058) 1s average dcdc temperature on break event for post mortem | ($7058) 1s average dcdc temperature on break event for post mortem | 43 °C | Sxx_pm_dcdc_temp_brk_moy
+227059 | ($7059) 1s average driver board temperature on break event for post mortem | ($7059) 1s average driver board temperature on break event for post mortem | 29.1504 °C | Sxx_pm_dri_temp_brk_moy
+22705D | ($705D) 1s average excitation temperature on break event for post mortem | ($705D) 1s average excitation temperature on break event for post mortem | 13.5723 °C | Sxx_pm_exct_temp_brk_moy
+22705E | ($705E) 1s average inverter temperature on break event for post mortem | ($705E) 1s average inverter temperature on break event for post mortem | 16.457 °C | Sxx_pm_invt_temp_brk_moy
+22705F | ($705F) 1s average pcb temperature on break event for post mortem | ($705F) 1s average pcb temperature on break event for post mortem | 25.7227 °C | Sxx_pm_pcb_temp_brk_moy
+227043 | ($7043) activated downgraded mode FPGA number | ($7043) activated downgraded mode FPGA number | 0 = Nsx_no_sfty_dfl : no downgraded mode | Wsx_dm_act_fpga
+227044 | ($7044) activated downgraded mode number | ($7044) activated downgraded mode number | 0 = Nsx_no_sfty_dfl : no downgraded mode | Wsx_dm_act_sfty
+227022 | ($7022) Active discharge request from EVC to PEB | ($7022) Active discharge request from EVC to PEB | 0 = Discharge not requested | Vbx_actv_dchg_req
+22706C | ($706C) Alim 21 monitoring | ($706C) Alim 21 monitoring | 0 = No default | Vbx_alim_21_mon
+22706D | ($706D) Alim 21 with redundance monitoring | ($706D) Alim 21 with redundance monitoring | 0 = No default | Vbx_alim_21_mon_red
+22707E | ($707E) Alimentation 11 state | ($707E) Alimentation 11 state | 1 = Start | Vbx_sta_stop_alim_11
+22707F | ($707F) Alimentation 21 state | ($707F) Alimentation 21 state | 1 = Start | Vbx_sta_stop_alim_21
+227067 | ($7067) APC and zero torque time counter for post mortem analysis | ($7067) APC and zero torque time counter for post mortem analysis | -2.1465e+09 s | Sxx_pm_apc_ztq_t_ctr
+227024 | ($7024) APC state (from CAN) | ($7024) APC state (from CAN) | 0 = APC off | Vbx_apc_stt
+22702B | ($702B) Auto Diag enable | ($702B) Auto Diag enable | 0 = Nsx_auto_diag_nok (0) : Auto diag not allowed | Vsx_auto_diag_ena
+22705B | ($705B) Blocked rotor counter for post mortem | ($705B) Blocked rotor counter for post mortem | 0 | Sxx_pm_drt_igbt_ctr
+227081 | ($7081) Bypass mode | ($7081) Bypass mode | 0 = Bypass off | Vsx_byp_mod
+227092 | ($7092) CAN Etude activation | ($7092) CAN Etude activation | 0 = deactivated | Sbx_can_etu_ena
+227066 | ($7066) Charge or non zero torque time counter for post mortem analysis | ($7066) Charge or non zero torque time counter for post mortem analysis | -2.13351e+09 s | Sxx_pm_tra_chg_t_ctr
+227025 | ($7025) Charge request from EVC to PEB | ($7025) Charge request from EVC to PEB | 0 = No charge requested | Vbx_chg_req
+227049 | ($7049) Combinated current value on the HV Network of Inverter and Excitation | ($7049) Combinated current value on the HV Network of Inverter and Excitation | 0 A | Wxx_i_pwt
+227039 | ($7039) Combination of inverter, Excitation, PCB, MC and DRI temperatures, so in % | ($7039) Combination of inverter, Excitation, PCB, MC and DRI temperatures, so in % | 13.125 % | Vxx_invt_norm_temp
+22703A | ($703A) Combination of rotor and stator temperatures, so in % | ($703A) Combination of rotor and stator temperatures, so in % | 7.125 % | Vxx_mot_norm_temp
+227079 | ($7079) Copy Over voltage protection (before flipflop) | ($7079) Copy Over voltage protection (before flipflop) | 0 = No default | Vbx_pwm_dfl_sfty_mem
+22708C | ($708C) Copy Raw rotor position resolver excitation peak voltage | ($708C) Copy Raw rotor position resolver excitation peak voltage | 0.8384 V | Vxx_sens_emot_psn_raw_exc
+22709B | ($709B) CPU load at 10ms | ($709B) CPU load at 10ms | 70 µs | Vtx_TaskDurationIT_A[12]
+227084 | ($7084) DCDC Input current measure | ($7084) DCDC Input current measure | 0 A | Vxx_dcdc_cur_in_mes_raw
+227033 | ($7033) DCDC input voltage | ($7033) DCDC input voltage | 404 V | Vxx_dcdc_volt_in_mes_raw
+227085 | ($7085) DCDC output current measure | ($7085) DCDC output current measure | 8 A | Vxx_dcdc_cur_ou_est_raw
+227086 | ($7086) DCDC power card temperature | ($7086) DCDC power card temperature | 43 °C | Vxx_dcdc_temp_pw_sens
+22702E | ($702E) DCDC state | ($702E) DCDC state | 4 = Pwer ON (Nsx_dcdc_stt_on) | Vsx_dcdc_stt
+22705A | ($705A) Derating counter for post mortem | ($705A) Derating counter for post mortem | 3971 | Sxx_pm_drt_ctr
+22706E | ($706E) DID for activation of bypass frame | ($706E) DID for activation of bypass frame | 0 = Frame inactivated | Vbx_byp_frm_act
+227023 | ($7023) Effective active discharge feedback to EVC | ($7023) Effective active discharge feedback to EVC | 0 = Active Discharge Not In Progress | Vbx_actv_dchg_stt
+227026 | ($7026) Effective Charge feedback to EVC | ($7026) Effective Charge feedback to EVC | 0 = No charge in progress | Vbx_chg_stt
+227046 | ($7046) Excitation Current Default | ($7046) Excitation Current Default | 0 = Nsx_ok (0) : no excitation sensor default | Wsx_i_f_dfl_sfty
+227098 | ($7098) Excitation currents safety check | ($7098) Excitation currents safety check | 0 = Both currents are consistent  (difference &lt;thershold) | Wsx_i_f_chk_sfty
+22707A | ($707A) Excitation driver state (ready or not) | ($707A) Excitation driver state (ready or not) | 1 = Ready | Vbx_rdy_exct
+22706F | ($706F) Excitation high arm IGBT driver fault | ($706F) Excitation high arm IGBT driver fault | 0 = No default | Vbx_exct_flt_dri_h
+227070 | ($7070) Excitation low arm IGBT driver fault | ($7070) Excitation low arm IGBT driver fault | 0 = No default | Vbx_exct_flt_dri_l
+227073 | ($7073) Excitation over current protection (before flipflop) High | ($7073) Excitation over current protection (before flipflop) High | 0 = No default | Vbx_ocp_exct_h
+227074 | ($7074) Excitation over current protection (before flipflop) Low | ($7074) Excitation over current protection (before flipflop) Low | 0 = No default | Vbx_ocp_exct_l
+22702D | ($702D) Failure class of the DCDC converter | ($702D) Failure class of the DCDC converter | 0 = Nsx_dcdc_err_stt_ok  : No Fault type | Vsx_dcdc_err_stt
+227030 | ($7030) Failure class of the Inverter | ($7030) Failure class of the Inverter | 0 = Nsx_invt_flt_type_0 (0): no downgraded mode | Vsx_invt_flt_typ
+227082 | ($7082) FPGA fault sent by SPI | ($7082) FPGA fault sent by SPI | 0 = no fault | Vsx_hw_fpga_id
+22708A | ($708A) FPGA firmware version Identifier | ($708A) FPGA firmware version Identifier | 10048 | Vxx_fpga_fw_id
+22709C | ($709C) Gestion of current sensors | ($709C) Gestion of current sensors | 0 = No Default | Vsx_pwm_oc_auto_diag
+227069 | ($7069) Hardware (by the fpga) overcurrent protection counter for post mortem analysis | ($7069) Hardware (by the fpga) overcurrent protection counter for post mortem analysis | 7355 | Sxx_pm_hw_ocp_invt_ctr
+22706A | ($706A) Hardware (by the fpga) overvoltage protection counter for post mortem analysis | ($706A) Hardware (by the fpga) overvoltage protection counter for post mortem analysis | 515 | Sxx_pm_hw_ovp_ctr
+22702F | ($702F) High Voltage Network Default | ($702F) High Voltage Network Default | 1 = Nsx_hv_ok (1): No Default | Vsx_hv_dfl_sfty
+227031 | ($7031) Interlock plug service status, from LBC (condition for reprogramming) | ($7031) Interlock plug service status, from LBC (condition for reprogramming) | 0 = Closed | Vsx_lbc_ilck_stt
+227083 | ($7083) INV Automation State | ($7083) INV Automation State | 5 = Stand By | Vsx_invt_stt
+227071 | ($7071) Inverter high arm IGBT driver fault | ($7071) Inverter high arm IGBT driver fault | 0 = No default | Vbx_invt_flt_dri_h
+22707B | ($707B) Inverter high IGBT driver state (ready or not) | ($707B) Inverter high IGBT driver state (ready or not) | 1 = Ready | Vbx_rdy_invt_h
+227072 | ($7072) Inverter low arm IGBT driver fault | ($7072) Inverter low arm IGBT driver fault | 0 = No default | Vbx_invt_flt_dri_l
+22707C | ($707C) Inverter low IGBT driver state (ready or not) | ($707C) Inverter low IGBT driver state (ready or not) | 1 = Ready | Vbx_rdy_invt_l
+227075 | ($7075) Inverter over current protection (before flipflop) Arm U | ($7075) Inverter over current protection (before flipflop) Arm U | 0 = No default | Vbx_ocp_invt_u
+227076 | ($7076) Inverter over current protection (before flipflop) Arm V | ($7076) Inverter over current protection (before flipflop) Arm V | 0 = No default | Vbx_ocp_invt_v
+227077 | ($7077) Inverter over current protection (before flipflop) Arm W | ($7077) Inverter over current protection (before flipflop) Arm W | 0 = No default | Vbx_ocp_invt_w
+227091 | ($7091) Last driver board temperature on 1s in the minute before break event for post mortem | ($7091) Last driver board temperature on 1s in the minute before break event for post mortem | 61.2793 °C | Sxx_pm_dri_temp_clk_moy
+22709A | ($709A) Max CPU load at 10ms | ($709A) Max CPU load at 10ms | 78 µs | Vtx_TaskMaxDurationIT_A[12]
+2270A1 | ($70A1) Max of 10ms task (Vtx_TaskMaxDurationIT_A[3]) | ($70A1) Max of 10ms task (Vtx_TaskMaxDurationIT_A[3]) | 0000000000000000 | Vxx_invt_rst_ctx_3
+22709F | ($709F) Max of CPU load in micro-seconds (Vtx_TaskMaxDurationIT_A[12]) | ($709F) Max of CPU load in micro-seconds (Vtx_TaskMaxDurationIT_A[12]) | 0000000000000000 | Vxx_invt_rst_ctx_2
+227035 | ($7035) Maximal available calculated torque in generator mode | ($7035) Maximal available calculated torque in generator mode | 0 N·m | Vxx_emot_max_gen_tq
+227036 | ($7036) Maximal available calculated torque in motor mode | ($7036) Maximal available calculated torque in motor mode | 0 N·m | Vxx_emot_max_mot_tq
+227061 | ($7061) Maximum driver board temperature during last derating | ($7061) Maximum driver board temperature during last derating | 17.1484 °C | Sxx_pm_temp_dri_drt_max
+227062 | ($7062) Maximum excitation temperature during last derating | ($7062) Maximum excitation temperature during last derating | 3.8457 °C | Sxx_pm_temp_exct_drt_max
+2270A5 | ($70A5) Maximum instant value of normalized torque for cell overvoltage | ($70A5) Maximum instant value of normalized torque for cell overvoltage | 1 | Vxx_norm_tq_max_cell_ov_fac
+2270A6 | ($70A6) Maximum instant value of normalized torque for temperature derating | ($70A6) Maximum instant value of normalized torque for temperature derating | 1 | Vxx_norm_tq_max_temp
+2270A7 | ($70A7) Maximum instant value of normalized torque for voltage derating | ($70A7) Maximum instant value of normalized torque for voltage derating | 1 | Vxx_norm_tq_max_udc
+227063 | ($7063) Maximum inverter temperature during last derating | ($7063) Maximum inverter temperature during last derating | 150 °C | Sxx_pm_temp_inv_drt_max
+2270A3 | ($70A3) Maximum normalized torque corresponding to max current saturation value | ($70A3) Maximum normalized torque corresponding to max current saturation value | 1 | Vxx_norm_tq_cur_sat_max
+227064 | ($7064) Maximum pcb temperature during last derating | ($7064) Maximum pcb temperature during last derating | 15.0781 °C | Sxx_pm_temp_pcb_drt_max
+227065 | ($7065) Maximum water temperature during last derating | ($7065) Maximum water temperature during last derating | 18 °C | Sxx_pm_wtr_temp_brk_moy
+2270A8 | ($70A8) Minimum instant value of normalized torque for cell overvoltage | ($70A8) Minimum instant value of normalized torque for cell overvoltage | 1 | Vxx_norm_tq_min_cell_ov_fac
+2270A4 | ($70A4) Minimum normalized torque corresponding to max current saturation value | ($70A4) Minimum normalized torque corresponding to max current saturation value | -1 | Vxx_norm_tq_cur_sat_min
+22703E | ($703E) Mode of the power train (motor or generator) | ($703E) Mode of the power train (motor or generator) | 0 = Motor | Vbx_emot_mod
+227096 | ($7096) Normalized inverter-Excitation temperature | ($7096) Normalized inverter-Excitation temperature | 8.5625 % | Vxx_invt_exct_norm_temp
+227097 | ($7097) Normalized PCB-Micro_driverboard temperature | ($7097) Normalized PCB-Micro_driverboard temperature | 13.125 % | Vxx_pcb_mc_dri_norm_temp
+227093 | ($7093) Number of Derating CFA functionnal failure 1 cycles saved | ($7093) Number of Derating CFA functionnal failure 1 cycles saved | 0 | Sxx_fan_der_fail_1
+227094 | ($7094) Number of Derating CFA functionnal failure 2 cycles saved | ($7094) Number of Derating CFA functionnal failure 2 cycles saved | 0 | Sxx_fan_der_fail_2
+227095 | ($7095) Number of Derating CFA functionnal failure 3 cycles saved | ($7095) Number of Derating CFA functionnal failure 3 cycles saved | 0 | Sxx_fan_der_fail_3
+2270CA | ($70CA) Number of the bloc which has nvrol error | ($70CA) Number of the bloc which has nvrol error | 0 | Vxx_inv_nvrol_err_bloc
+227087 | ($7087) Observer estimation for stack rotor temperature | ($7087) Observer estimation for stack rotor temperature | 14.5312 °C | Vxx_esti_rot_ac_temp
+227029 | ($7029) On/Off power train activation request from EVC | ($7029) On/Off power train activation request from EVC | 0 = Inverter Off | Vbx_invt_act
+22705C | ($705C) Water overheat temperature counter for post mortem | ($705C) Water overheat temperature counter for post mortem | 0 | Sxx_pm_drt_tco_ctr
+227027 | ($7027) On/Off request of the DCDC from EVC | ($7027) On/Off request of the DCDC from EVC | 1 = DCDC On | Vbx_dcdc_actv_req_evc
+22708F | ($708F) Opening relays wire request | ($708F) Opening relays wire request | 0 = Not open | Wbx_wi_hv_rly_open
+2270A9 | ($70A9) Vxx_invt_rst_ctx_5 | ($70A9) Vxx_invt_rst_ctx_5 | 0000000000000000 | Vxx_invt_rst_ctx_5
+227055 | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem.0 | 33.4082 °C | Stx_pm_invt_temp_clk_moy
+227055 | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem.1 | 33.3926 °C | Stx_pm_invt_temp_clk_moy
+227055 | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem.2 | 33.2227 °C | Stx_pm_invt_temp_clk_moy
+227055 | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem.3 | 33.1113 °C | Stx_pm_invt_temp_clk_moy
+227055 | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem | ($7055) Vector of 5 average inverter temperature on 1s in the minute before break event for post mortem.4 | 32.8867 °C | Stx_pm_invt_temp_clk_moy
+227054 | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem.0 | 31.8672 °C | Stx_pm_exct_temp_clk_moy
+227054 | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem.1 | 31.8203 °C | Stx_pm_exct_temp_clk_moy
+227054 | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem.2 | 31.748 °C | Stx_pm_exct_temp_clk_moy
+227054 | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem.3 | 31.7012 °C | Stx_pm_exct_temp_clk_moy
+227054 | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem | ($7054) Vector of 5 average excitation temperature on 1s in the minute before break event for post mortem.4 | 31.5664 °C | Stx_pm_exct_temp_clk_moy
+227053 | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem.0 | 48.8789 °C | Stx_pm_dri_temp_clk_moy
+227053 | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem.1 | 48.8574 °C | Stx_pm_dri_temp_clk_moy
+227053 | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem.2 | 48.8516 °C | Stx_pm_dri_temp_clk_moy
+227053 | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem.3 | 48.8184 °C | Stx_pm_dri_temp_clk_moy
+227053 | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem | ($7053) Vector of 5 average driver board temperature on 1s in the minute before break event for post mortem.4 | 48.7891 °C | Stx_pm_dri_temp_clk_moy
+227052 | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem.4 | 39 °C | Stx_pm_dcdc_temp_clk_moy
+227052 | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem.0 | 40 °C | Stx_pm_dcdc_temp_clk_moy
+227052 | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem.1 | 39 °C | Stx_pm_dcdc_temp_clk_moy
+227052 | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem.2 | 39 °C | Stx_pm_dcdc_temp_clk_moy
+227052 | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem | ($7052) Vector of 5 average dcdc temperature on 1s in the minute before break event for post mortem.3 | 39 °C | Stx_pm_dcdc_temp_clk_moy
+227050 | ($7050) Value for reference rotor resistance (for safety monitoring) | ($7050) Value for reference rotor resistance (for safety monitoring) | 4.2969 Ohm | Sxx_rot_r_ref_sfty
+227034 | ($7034) Voltage demand for the DCDC converter from the EVC | ($7034) Voltage demand for the DCDC converter from the EVC | 13500 mV | Vxx_dcdc_volt_sp
+22703C | ($703C) Vehicle distance totalizer from EVC | ($703C) Vehicle distance totalizer from EVC | 93214 km | Vxx_vh_dist
+227057 | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem.0 | 33 °C | Stx_pm_wtr_temp_clk_moy
+227057 | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem.1 | 33 °C | Stx_pm_wtr_temp_clk_moy
+227057 | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem.2 | 33 °C | Stx_pm_wtr_temp_clk_moy
+227057 | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem.3 | 33 °C | Stx_pm_wtr_temp_clk_moy
+227057 | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem | ($7057) Vector of 5 average wtr temperature on 1s in the minute before break event for post mortem.4 | 33 °C | Stx_pm_wtr_temp_clk_moy
+227056 | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem.0 | 41.5605 °C | Stx_pm_pcb_temp_clk_moy
+227056 | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem.1 | 41.5723 °C | Stx_pm_pcb_temp_clk_moy
+227056 | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem.2 | 41.6055 °C | Stx_pm_pcb_temp_clk_moy
+227056 | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem.3 | 41.623 °C | Stx_pm_pcb_temp_clk_moy
+227056 | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem | ($7056) Vector of 5 average pcb temperature on 1s in the minute before break event for post mortem.4 | 41.627 °C | Stx_pm_pcb_temp_clk_moy
+227045 | ($7045) Validity status of the rotor electrical rotation speed | ($7045) Validity status of the rotor electrical rotation speed | 0 = Nsx_emot_n_chk_ok: OK | Wsx_emot_n_dfl_sfty
+227048 | ($7048) Validity status of the rotor electrical angular position | ($7048) Validity status of the rotor electrical angular position | 0 = Nsx_dgt_emot_psn_chk_ok: OK | Wsx_theta_dfl_sfty
+227032 | ($7032) Torque Default | ($7032) Torque Default | 0 = No default | Vsx_tq_dfl_sfty
+227078 | ($7078) Over voltage protection (before flipflop) | ($7078) Over voltage protection (before flipflop) | 0 = No default | Vbx_ovp_udc
+227047 | ($7047) Phase Current Default | ($7047) Phase Current Default | 0 = Nsx_ok (0) : no sensor default | Wsx_i_mot_ph_dfl_sfty
+227099 | ($7099) Phase currents safety check | ($7099) Phase currents safety check | 0 = the summ of the 3 currents is close to zero (&lt; threshold) | Wsx_i_mot_ph_chk_sfty
+227051 | ($7051) Position sensor type | ($7051) Position sensor type | 1 = 1: Sensor type B = MINEBEA | Sbx_sens_emot_psn_typ
+22704C | ($704C) Received rotor reference resistance CRC | ($704C) Received rotor reference resistance CRC | 00 | Vxx_rot_r_ref_crc_rcp
+22704B | ($704B) Received TETA position offset | ($704B) Received TETA position offset | 360 | Vxx_emot_psn_ofs_rcp
+22704D | ($704D) Received value for reference rotor resistance | ($704D) Received value for reference rotor resistance | 15 Ohm | Vxx_rot_r_ref_rcp
+22709D | ($709D) redundant supply 21 failure counter for post mortem analysis | ($709D) redundant supply 21 failure counter for post mortem analysis | 0 | Sxx_pm_alim_21_red_ctr
+22703B | ($703B) Resistance rotor learning + CRC written by diag tool | ($703B) Resistance rotor learning + CRC written by diag tool.1 | 1e 00 | Vxx_rot_r_ref_rcp
+22703B | ($703B) Resistance rotor learning + CRC written by diag tool | ($703B) Resistance rotor learning + CRC written by diag tool.2 | 00 | Vxx_rot_r_ref_crc_rcp
+227088 | ($7088) Rotor copper temperature estimation | ($7088) Rotor copper temperature estimation | 14.5391 °C | Vxx_esti_rot_cu_temp
+227038 | ($7038) Rotor copper temperature raw estimation | ($7038) Rotor copper temperature raw estimation | 16.7812 °C | Vxx_esti_rot_cu_temp_raw
+227041 | ($7041) Rotor overcurrent validated | ($7041) Rotor overcurrent validated | 0 = No default | Wbx_sw_ocp_exct_mem
+22708B | ($708B) Rotor position measure | ($708B) Rotor position measure | 184.125 | Vxx_sens_emot_psn
+22708D | ($708D) Rotor position measure (for safety monitoring) | ($708D) Rotor position measure (for safety monitoring) | 182.242 | Vxx_sens_emot_psn_sfty
+227037 | ($7037) Rotor position offset learning + CRC written by diag tool | ($7037) Rotor position offset learning + CRC written by diag tool.1 | b4 00 | Vxx_emot_psn_ofs_rcp
+227037 | ($7037) Rotor position offset learning + CRC written by diag tool | ($7037) Rotor position offset learning + CRC written by diag tool.2 | 00 | Vxx_emot_psn_ofs_crc_rcp
+227021 | ($7021) Saved resistance rotor | ($7021) Saved resistance rotor.value | 08 98 | Sxx_rot_r_ref + Sxx_rot_r_ref_crc_rcp
+227021 | ($7021) Saved resistance rotor | ($7021) Saved resistance rotor.CRC | 9f | Sxx_rot_r_ref + Sxx_rot_r_ref_crc_rcp
+22709E | ($709E) SeedBreaker to explain the reset cause | ($709E) SeedBreaker to explain the reset cause | 0000000000000000 | Vxx_invt_rst_ctx_1
+227068 | ($7068) Software overcurrent protection counter for post mortem analysis | ($7068) Software overcurrent protection counter for post mortem analysis | 0 | Sxx_pm_sw_ocp_invt_ctr
+22706B | ($706B) Software overvoltage protection counter for post mortem analysis | ($706B) Software overvoltage protection counter for post mortem analysis | 4 | Sxx_pm_sw_ovp_ctr
+22708E | ($708E) Spare signal for driver board temperature | ($708E) Spare signal for driver board temperature | 29.1895 °C | Vxx_wf_dri_temp
+22703F | ($703F) SPI communication default | ($703F) SPI communication default | 0 = No default | Wbx_spi_dfl_sfty
+227089 | ($7089) Stator copper temperature estimation | ($7089) Stator copper temperature estimation | 17.8125 °C | Vxx_esti_sttr_cu_temp
+227042 | ($7042) Stator overcurrent validated | ($7042) Stator overcurrent validated | 0 = No default | Wbx_sw_ocp_invt_mem
+227028 | ($7028) status verlog from PEB to EVC | ($7028) status verlog from PEB to EVC | 0 = Vehicle locked | Vbx_eng_run_ena_swlk
+22707D | ($707D) Supply monitoring default | ($707D) Supply monitoring default | 0 = No default | Vbx_sply_mon
+22704A | ($704A) TETA CRC received | ($704A) TETA CRC received | 00 | Vxx_emot_psn_ofs_crc_rcp
+22703D | ($703D) The water temperature produced by the Rectifier | ($703D) The water temperature produced by the Rectifier | 18 °C | Vxx_wtr_temp
+2270D7 | ($70D7) HVNetworkVoltage from Battery | ($70D7) HVNetworkVoltage from Battery | 402.5 V | Vxx_hv_bat
+2270D8 | ($70D8) HVNetworkVoltage from DCDC | ($70D8) HVNetworkVoltage from DCDC | 404 V | Vxx_hv_dcdc
+2270E7 | ($70E7) Normalized rotor temperature | ($70E7) Normalized rotor temperature | 4.2988 % | Vxx_rot_norm_temp
+2270D5 | ($70D5) Rotor position sensor safety check | ($70D5) Rotor position sensor safety check | 1 = Both positions are consistent  (difference &lt;thershold) | Vbx_emot_psn_chk_sfty
+2270D6 | ($70D6) Rotor Positions Diag | ($70D6) Rotor Positions Diag | 0 = both diag are OK | Vsx_dgt_emot_psn_sens_chk_sfty
+2270E8 | ($70E8) Stator temperature sensor 1 for freeze frame management | ($70E8) Stator temperature sensor 1 for freeze frame management | 17.75 °C | Vxx_sttr_temp_1_ffm
+2270E9 | ($70E9) Stator temperature sensor 2 for freeze frame management | ($70E9) Stator temperature sensor 2 for freeze frame management | 15 °C | Vxx_sttr_temp_1_ffm
+2270EA | ($70EA) spare signal for driver board temperature for freeze frame management | ($70EA) spare signal for driver board temperature for freeze frame management | 29 °C | Vxx_sttr_temp_1_ffm
+2270EB | ($70EB) Excitation temperature for freeze frame management | ($70EB) Excitation temperature for freeze frame management | 13.25 °C | Vxx_sttr_temp_1_ffm
+2270EC | ($70EC) Inverter temperature sensor 1 for freeze frame management | ($70EC) Inverter temperature sensor 1 for freeze frame management | 16.5 °C | Vxx_sttr_temp_1_ffm
+2270ED | ($70ED) MICRO temperature for freeze frame management | ($70ED) MICRO temperature for freeze frame management | 32.5 °C | Vxx_sttr_temp_1_ffm
+2270EE | ($70EE) PCB temperature for freeze frame management | ($70EE) PCB temperature for freeze frame management | 25.5 °C | Vxx_sttr_temp_1_ffm
+2270F0 | ($70F0) Absolute time since first Ignition | ($70F0) Absolute time since first Ignition | 2.15048e+09 min | Vxx_t_abs_igk_1
+2270EF | ($70EF) Counter giving the nb of times Wsx_cuc_f_dfl is equal to Nsx_i_f_df | ($70EF) Counter giving the nb of times Wsx_cuc_f_dfl is equal to Nsx_i_f_df | 20879 | Sxx_cuc_f_dfl_3_ctr
+2270F2 | ($70F2) Environment temperature | ($70F2) Environment temperature | 10 °C | Vxx_air_tenv
+2270F1 | ($70F1) Max ratio between the square of excitation sgnl and the sun of squares of rotor reslver cos and sin sgnl | ($70F1) Max ratio between the square of excitation sgnl and the sun of squares of rotor reslver cos and sin sgnl | 0 | Vxx_emot_psn_sq_rat_max
+2270F3 | ($70F3) Ratio between square of excitation signal and sum of squares of rotor reslver cos and sine signals | ($70F3) Ratio between square of excitation signal and sum of squares of rotor reslver cos and sine signals | 0.6797 | Vxx_emot_psn_sq_rat
+227016 | ($7016) result of the check on CAN communication with EVC | ($7016) result of the check on CAN communication with EVC | 0 = Check is Ok | Vbx_can_emot_tq_sp_nok
+2270CB | ($70CB) Nvrol error counters.8 bits MSB.8 bits LSB | ($70CB) Nvrol error counters.8 bits MSB.8 bits LSB | 0 | Vxx_inv_nvrol_err_cnt
+222000 | DIDs supported in range [$2001 - $2020] | DIDs supported in range [$2001 - $2020] | 00 00 00 3e | Supplier
+222060 | DIDs supported in range [$2061 - $2080] | DIDs supported in range [$2061 - $2080] | 00 ff 00 00 | Supplier
+2270A2 | ($70A2) Vxx_invt_rst_ctx_4 | ($70A2) Vxx_invt_rst_ctx_4.($70A2) Vbx_rot_temp_dfl_sfty_(bit0) | 0 | Vxx_invt_rst_ctx_4
+2270A2 | ($70A2) Vxx_invt_rst_ctx_4 | ($70A2) Vxx_invt_rst_ctx_4.($70A2) Vsx_emot_n_dfl_sfty_(bit1) | 0 | Vxx_invt_rst_ctx_4
+2270A2 | ($70A2) Vxx_invt_rst_ctx_4 | ($70A2) Vxx_invt_rst_ctx_4.($70A2) Vbx_dfl_i_f_low_(bit2) | 0 | Vxx_invt_rst_ctx_4
+2270A2 | ($70A2) Vxx_invt_rst_ctx_4 | ($70A2) Vxx_invt_rst_ctx_4.($70A2) Vbx_alim_21_mon_(bit3) | 0 | Vxx_invt_rst_ctx_4
+2270A2 | ($70A2) Vxx_invt_rst_ctx_4 | ($70A2) Vxx_invt_rst_ctx_4.($70A2) Vbx_alim_21_mon_red_(bit4) | 0 | Vxx_invt_rst_ctx_4
+2270A2 | ($70A2) Vxx_invt_rst_ctx_4 | ($70A2) Vxx_invt_rst_ctx_4.($70A2) Vbx_sply_mon_(bit5) | 0 | Vxx_invt_rst_ctx_4
+2270A2 | ($70A2) Vxx_invt_rst_ctx_4 | ($70A2) Vxx_invt_rst_ctx_4.($70A2) Stack Overflow on State_(bit6-7) | 0 = No overflow | Vxx_invt_rst_ctx_4
+2270A2 | ($70A2) Vxx_invt_rst_ctx_4 | ($70A2) Vxx_invt_rst_ctx_4.($70A2) Vtx_TaskMaxDurationIT_A[3]_(bit8-11) | 0000 | Vxx_invt_rst_ctx_4
+2270A2 | ($70A2) Vxx_invt_rst_ctx_4 | ($70A2) Vxx_invt_rst_ctx_4.($70A2) Vxx_10ms_max_duration_(bit12-15) | 0000 | Vxx_invt_rst_ctx_4
