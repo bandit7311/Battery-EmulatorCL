@@ -652,3 +652,4 @@ Auftrag (Nutzer, 24.10.): die vom Pack gemeldete Ladegrenze nehmen, den Akku geg
 - **Bedeutung von B1:** unbekannt; ob sie mit dem Balancing zusammenhaengt, ist nicht belegt (Vermutung: nein).
 - **Hinweis:** `0x4F7` wird am Bench im Standard nur im Ladezustand gesendet (`SIM_ON_4F7 = false`, `BATTERY.h:51`; erzwungen ueber `laden_rows_forced`, `BATTERY.cpp:3079`). Beim Fahren und Schlafen fehlt es am Bench; Auto: 6072 Frames in 1528 s (Fahrlog `22aaf176`).
 - **Tests:** ein Test, der B1 im Ladezustand zu den Zeiten 0 s, 60 s, 300 s und am Ende prueft.
+- **Option (Wunsch Nutzer 25.10.):** `SIM_ON_4F7 = true` (`BATTERY.h:51`), damit der Emulator `0x4F7` auch beim Fahren und im Schlaf sendet, nicht nur im Ladezustand. **Nicht entschieden:** beim Bauen von Bau 29 erneut fragen, ob die Option mitgebaut werden soll. Ohne Antwort bleibt `SIM_ON_4F7 = false`.
