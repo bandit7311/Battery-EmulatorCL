@@ -35,3 +35,9 @@ Kennzeichnung: **gemessen** = aus Dump/Airtable/Mitschnitt, **Schluss** = abgele
 - Wecken ohne Fahrt nach dem ungestoerten Lauf (02.11. ca. 19:08 UTC): entsteht wieder ein Plan? (trennt "bei jedem Wecken" von "nach Entladung").
 - Bench-Versuch: Pack mit realistischer Mission ("Fahren", GO, hohe Last) auf < 30 % USOC entladen, danach wecken und `912B` lesen.
 - Natuerliches Aufwachen heute Nacht mit Mitschnitt (Fahrzeugseite) und, wenn moeglich, Teraterm am naechsten Zuendungs-Aus (Einschlafen mit Plan).
+
+## Nachtrag 02.11. spaet (siehe Befund 37c)
+- **Gemessen:** Der Plan wird beim Wecken neu berechnet (7 -> 8 -> 0 Zellen), der Lauf beginnt 37 s nach dem Einschlafen des Packs, zaehlt in Echtzeit und ist nach insgesamt 1653 Schritten (725 + 928) beendet; kurze Weckungen (19:07, 19:12) erzeugten keinen neuen Plan.
+- **Neue Prioritaet fuer die Bench:** (1) Pack-Uhr/Ruhezeit (Bench `9261` = 0, `91C1` = 0): kann der Pack ohne gueltige Zeit keinen Plan anlegen? (2) Wecken nach langer Ruhe. (3) SOC am Fahrtende <= 34 %.
+- **Naechster Versuch am Auto:** 45 bis 60 min Ruhe, dann ein Wecken mit einzelnen Befehlen, `912B` lesen.
+
