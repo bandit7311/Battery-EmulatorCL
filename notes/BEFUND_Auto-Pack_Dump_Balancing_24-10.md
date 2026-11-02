@@ -365,3 +365,28 @@ Notation im Bild: `[Startbit m Laenge]`, `m` = Motorola (Big Endian). Gemessen =
   - Zellframes: `0x5F4`/`0x5F2` bei +2,385 s alle `ff` (ungueltig, 4095); `0x5AC` `0x5AD` `0x5A1` bei +8,415 / +8,466 s gueltig (Rohwerte 1693 bis 1695 je Zelle).
   - **Schluss (nicht bewiesen):** Nach dem Aufwachen sind die Akku-Werte erst ca. 3,5 s (Spannung, Temperatur) bis 9,5 s (kWh), Zellen ca. 8,4 s ungueltig, dann gueltig. Wer `0x42E`/`0x427`/`0x432` sendet (Pack oder EVC), ist nicht bestimmt; 354,5 V durch 96 Zellen ergibt 3,693 V je Zelle, passend zu den frueher gelesenen Zellspannungen (3,68 V).
 
+## 37b. Airtable-Reihe 01.11. 20:34 bis 02.11. 16:38 UTC: erster Plan, seine Ausfuehrung, Latch und der 482-Minuten-Abstand (nur Gemessenes; Kennzeichnung wie in 37)
+Quelle: Airtable-Zeilen (Spalten `912B 9251 9252 9279 scpu9261 91C1 9261 9259 924F 9250 9262 9263 9210 9215 grund v12`), Zeit = `timestamp` (UTC) der Zeile, 15 bis 30 s nach dem Ereignis. Ereignisse laut Nutzer: Fahrt 01.11. ca. 22:23 CET, Laden 02.11. ab ca. 07:55 CET, Fahrt 02.11. 08:51 CET Ende, Heimweg am 02.11. ab ca. 17:38 CET (Auto faehrt, laut Nutzer).
+
+| Zeit (UTC) | grund | `9279` | `912B` | `9252` Schritte (h) | `scpu9261` | `9261` (MCPU) | `91C1` | `9259` | `v12` |
+|---|---|---|---|---|---|---|---|---|---|
+| 01.11. 20:34:57 | auto | 0x18 | 0 | 0x38F63 (227,847) | `000000` | 0x2DD200 | 0x21DA02 | 04 | 11,9 |
+| 01.11. 21:23:49 | fahrt_ende | 0x19 | 0 | 0x38F63 | 0x2DD231 | 0x2DD200 | 0x21DA02 | 04 | 13,04 |
+| 02.11. 05:26:26 | auto | 0x19 | 0 | 0x38F63 | 0x2DD413 | 0x2DD413 | 0x21DC15 | 04 | 12,43 |
+| 02.11. 06:55:25 | auto (Kabel eingesteckt, Nutzer) | 0x19 | 0 | 0x38F63 | 0x2DD46B | 0x2DD413 | 0x21DC15 | 04 | 12,16 |
+| 02.11. 07:17:36 | lade_ende | 0x1B | 0 | 0x38F63 | 0x2DD482 | 0x2DD413 | 0x21DC15 | 04 | 12,81 |
+| 02.11. 07:51:38 | fahrt_ende | 0x1C | 0 | 0x38F63 | 0x2DD4A4 | 0x2DD413 | 0x21DC15 | 04 | 12,88 |
+| 02.11. 15:54:24 | auto | 0x1C | **7 Bits** | 0x38F63 | 0x2DD686 | 0x2DD686 | 0x21DE88 | 04 | 12,4 |
+| 02.11. 16:38:24 | auto (Fahren) | 0x1C | **8 Bits** | **0x39238 (228,555)** | 0x2DD6B2 | 0x2DD686 | 0x21DE88 | **05** | 12,16 |
+
+- **Gemessen (Plan):** `912B` war in allen Zeilen bis 07:51 UTC 0 (auch 15 s nach der Fahrt 07:51 und nach dem Laden 07:17). Um **15:54:24 UTC** (Aufwachen) stehen **7 Bits** `082000280000000200808000`, nach der Zuordnung des Emulator-Codes (Zelle = 96 - Bitindex, MSB zuerst) **Zellen 16, 24, 34, 68, 70, 86, 92**. Zaehler zu diesem Zeitpunkt unveraendert (`9251` 0x211F0, `9252` 0x38F63): im 8-Stunden-Schlaf (ca. 07:55 bis 15:54 UTC) wurde **nicht** balanciert.
+- **Gemessen (Ausfuehrung):** Um **16:38:24 UTC** `9252` = 0x39238, **+725 Schritte = 0,708 h = 42,5 min**, `9251` = 0x21300, **+272 Schritte = 0,266 Ah**; `924F`/`9250` gleich `9251`/`9252`, `9262`/`9263` = 0. `912B` jetzt **8 Bits** `ca0090022000000000000000` = **Zellen 62, 66, 77, 80, 90, 92, 95, 96** (nur Zelle 92 in beiden Schnappschuessen). Teillauf (voll waeren 1080 Schritte = 63,3 min).
+- **Schluss (nicht bewiesen):** Der Lauf begann ca. 37 s nach dem Busende nach dem Aufwachen um 15:54 (wie in Abschnitt 35 beschrieben) und wurde um ca. 16:38 durch das naechste Aufwachen (Fahren, `9259` = 05) beendet: 15:54:24 + ca. 1 min + 37 s + 42,5 min ergibt ca. 16:38. `912B` sind danach die momentan eingeschalteten Schalter und aendern sich im Verlauf (7 -> 8 Bits, andere Zellen).
+- **Gemessen (Missionszeiger):** 0x18 -> 0x19 (Fahrt 01.11. Abend), 0x19 -> 0x1B (**+2** bis `lade_ende`, `9215` 321 -> 322 = eine Teilladung, `9210` bleibt 212), 0x1B -> 0x1C (Fahrt 07:51). Neueste Mission bei Zeiger 28 = Platz (32 - 28) mod 32 = 4; die Missionsdaten (`9270`, `9273`..`9278`, `926E`/`926F`) wurden **nicht** gelesen.
+- **Gemessen (482 Minuten):** Differenz zwischen der SCPU-Zeit in der `fahrt_ende`-Zeile und `9261` (MCPU) im naechsten natuerlichen Aufwachen: Fahrt 01.11. Abend: 0x2DD413 - 0x2DD231 = **482**; Fahrt 02.11. morgens: 0x2DD686 - 0x2DD4A4 = **482**. Beide `fahrt_ende`-Zeilen entstanden ca. 15 s nach `vehicle.off`. Das natuerliche Aufwachen kam also in beiden Faellen **482 min nach dem Zuendungs-Aus** (Zaehlerauflosung 1 min); das passt zur frueheren Messung "Einschlafbeginn bis Aufwachen ca. 477,2 bis 477,7 min" plus ca. 4,5 min bis zum Einschlafen.
+- **Nicht passend:** 01.11. Aufwachen 07:53 -> 20:34 UTC (761 min), dort kein Zuendungs-Aus dazwischen, und das erwartete Aufwachen um ca. 15:53 UTC blieb aus. Ob 482 min ab Zuendungs-Aus die Regel ist und sonst ein anderer Ausloeser gilt, **offen**.
+- **Gemessen (Latch):** `9261` und `91C1` aendern sich nur bei den Aufwachern des Packs (05:26: `SCPU = MCPU` 0x2DD413; 15:54: 0x2DD686). Bei den Zeilen `fahrt_ende`, `lade_ende` und beim Einstecken (06:55, `SCPU - MCPU` = 88 min) bleiben sie unveraendert.
+- **Gemessen (SCPU-Uhr):** zwischen den Zeilen stets gleich der echten Zeit (z. B. 07:17:36 -> 15:54:24 = 516,8 min, Zaehler +516; 15:54:24 -> 16:38:24 = 44,0 min, +44). `scpu9261` = `000000` nur in der Zeile 01.11. 20:34:57 (ungeklaert).
+- **Gemessen (12 V):** 13,04 V 15 s nach Fahrtende (01.11.), 12,88 V (02.11. 07:51), 12,81 V nach Ladeende, 11,9 bis 12,4 V im Ruhezustand.
+- **Offen:** (1) Dauer, Strecke und SOC-Verlust der Fahrt 02.11. morgens (ab hoechstens 07:17 bis 07:51 UTC, also hoechstens 34 min); die Fahrt 01.11. Abend hat keinen Plan erzeugt. (2) Ob das Aufwachen um 15:54 UTC ohne Zutun des Nutzers kam (die 482 min sprechen dafuer). (3) Warum die Fahrt am Morgen einen Plan erzeugte und die am Abend nicht. (4) Welche Zellen im Plan hoeher liegen als der Rest (Zellspannungen nicht gelesen).
+
