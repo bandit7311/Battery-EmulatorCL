@@ -697,3 +697,9 @@ Auftrag (Nutzer, 24.10.): die vom Pack gemeldete Ladegrenze nehmen, den Akku geg
 - **Folgen, vorher zu beachten:** (1) Eine im Flash gespeicherte Maske ueberschreibt die Standardwerte, also auch die Option `SIM_ON_4F7` aus 29c: bei Seite AN gilt, was auf der Seite gespeichert ist. (2) Programmgroesse und Speicher steigen um Seite, Routen und Empfangsverfolgung; ESP-Build auf dem Geraet pruefen (auf dieser Maschine nicht moeglich). (3) Der Steuerblock auf der Advanced-Seite (Bau 15) bleibt unabhaengig davon.
 - **Alternative (kleiner):** nur im Build-Flag statt im Quelltext setzen (`-DTWINGO_SIM_PAGE` in der `platformio.ini`); dann bleibt der Quelltext-Standard AUS, der Bau-Standard des Geraets AN. Entscheidung beim Bau.
 - **Tests:** vorhanden (Testbau mit und ohne Seite: 457 Tests mit Seite / 320 ohne Seite zum Stand Bau 17); beide Zustaende muessen uebersetzen; Golden-Lauf in beiden Zustaenden unveraendert.
+
+
+## Zum Bauen vorgemerkt (Wunsch Nutzer 02.11., nichts gebaut, wartet auf "bauen"): Zeit in `0x436` soll im Balancing-Sleep (Stille) weiterlaufen
+- **Heute (aus dem Code):** Die getippte Zeit in `0x436` ("Time in 0x436") zaehlt nur beim Senden (60-s-Block `BATTERY.cpp:3302` bis `3318`); in der Stille (`NVROLstateMachine == 5`, Rueckkehr bei `:3217`) steht sie. Der Pack sieht deshalb keine vergehende Bus-Zeit; im Auto laeuft die Uhr durch.
+- **Gewuenschte Aenderung:** Die Zeit in der Stille nach der Uhr weiterzaehlen lassen (z. B. beim Wecken den Stand um die vergangenen Minuten, durch den Minutenfaktor geteilt, erhoehen oder die Zeit wie das Fahrzeugalter nach der Uhr fuehren).
+- **Bewertung (Nutzer):** moeglicherweise nur ein Schoenheitsfehler, weil das Balancing scheinbar trotzdem laeuft (56 s gebucht, Bits da). Zusatz des Nutzers, Wortlaut unklar: "evtl nimmer beendet wird". **Entscheidung nach dem Test ohne Umbau** (Fahrzeugalter statt getippter Zeit, siehe `ZIEL_Plan-Ausloeser_fuer_Bench.md`, Hypothese 02.11. spaet).
