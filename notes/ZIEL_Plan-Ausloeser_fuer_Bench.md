@@ -41,3 +41,10 @@ Kennzeichnung: **gemessen** = aus Dump/Airtable/Mitschnitt, **Schluss** = abgele
 - **Neue Prioritaet fuer die Bench:** (1) Pack-Uhr/Ruhezeit (Bench `9261` = 0, `91C1` = 0): kann der Pack ohne gueltige Zeit keinen Plan anlegen? (2) Wecken nach langer Ruhe. (3) SOC am Fahrtende <= 34 %.
 - **Naechster Versuch am Auto:** 45 bis 60 min Ruhe, dann ein Wecken mit einzelnen Befehlen, `912B` lesen.
 
+
+## Stand 02.11. nachts (komprimiert)
+- **Gemessen:** Plan 2 endete nach **928 Schritten = 54,4 min** (nicht 63,3); abgefuehrte Ladung je Zeit sinkt (Lauf 1: 0,266 Ah in 0,708 h = 0,375 A, ca. 54 mA je Zelle bei 7 Zellen; Lauf 2: 0,25 Ah in 0,906 h = 0,276 A, im Mittel nur ca. 5 von 8 Zellen aktiv).
+- **Schluss:** Der Plan endet **zellweise** (Zellen fallen nacheinander heraus), nicht nach fester Zeit; die 1080 Schritte vom 24.10./28.10. waren die Dauer der damals laengsten Zelle. Ein Wecken allein erzeugt keinen neuen Plan (19:07, 19:12 = 0).
+- **Hypothese fuer die Bench (nicht bewiesen):** Plan entsteht beim Wecken nach **>= ca. 8 h Ruhe** (Ruhespannung aussagekraeftig; passt zum natuerlichen Aufwachen nach 482 min) **und** ungleichen Zellen (niedriger SOC am Fahrtende). Belegt nur durch 2 Faelle (15:54 nach 8 h, 24.10. 14:24 nach ca. 1 Tag), beide zugleich mit SOC-Ende <= 34 %.
+- **Gestrichen:** Ruhe-Experiment "45 bis 60 min, dann Wecken" (kein neuer Plan ohne Entladung erwartet).
+- **Tests:** (Auto) nach der naechsten Fahrt auf niedrigen SOC **nach ca. 60 min** wecken, `912B` lesen (Plan da = Ruhe nicht noetig). (Bench) Failsafe-Fenster >= 600 min (Emulator: 1 bis 1440 min), Pack vorher unter ca. 30 % SOC entladen, echter Schlaf >= 8 h, dann wecken, `912B`/`9252` lesen; Bench-`9261`/`91C1` = 0 im Blick behalten.
