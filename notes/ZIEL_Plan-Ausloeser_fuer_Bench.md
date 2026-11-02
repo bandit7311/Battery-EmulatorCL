@@ -52,3 +52,20 @@ Kennzeichnung: **gemessen** = aus Dump/Airtable/Mitschnitt, **Schluss** = abgele
 ## Korrektur 02.11. (Nutzer): Stand Bench-Zeit
 - Der Hinweis "Bench `9261`/`91C1` = 0, keine gueltige Zeit" gilt **nicht mehr**. Seit 25.10. (Befund 21 bis 23) zaehlt der Bench-Pack Pack-Minuten nach der vom Emulator gesendeten Zeit (Faktor 3: 480 Pack-min = 1 Tag), schreibt Missionen und beendet sie beim Daily-Sleep. Ein Plan entsteht trotz Laden auf 100 %, 20 bis 25 mV Spreizung und taeglichem Daily-Sleep nicht.
 - **Offener Unterschied (passt zur Hypothese 8 h Ruhe):** Bench-Schlaf nur 5 bis 6 min, Auto 8 h. Bench-Test: Faktor 1 und echter Schlaf >= 8 h (oder Faktor 3 und 24 h Schlaf = 480 Pack-min), vorher entladen, dann wecken und `912B`/`9252` lesen.
+
+## Bench 02.11. abends (ca. 23:08 bis 23:30 Uhr Handyzeit): Sleep kurz, +478 min auf 0x436, nach ca. 6 min geweckt, `912B` gesetzt
+Kennzeichnung: **gemessen** = aus den Bildern (`BILD_Bench_02-11_*`), **Bericht** = Aussage des Nutzers ohne Zeitstempel, **Schluss** = abgeleitet, **offen**.
+
+- **Bericht (Nutzer):** Einschlafweg "kurz", nur zwischen Zustand "awake" und Schlaf (Wecken endet in "awake"); waehrend der Stille wurde die Zeit in `0x436` um **+478 min** gesetzt; nach ca. **6 min** geweckt; danach waren die Bits in `912B` gesetzt.
+- **Gemessen (Bild `BILD_Bench_02-11_912B_84_Bits.jpg`, "read 13 s ago", ohne Uhrzeit):** `912B` Datenbytes 21-32 = `FF FF FF FF FF FF FF FF FF FF F0 00` = **84 Bits**, erstes Bit = Zelle 96, also **Zellen 96 bis 13** gesetzt, Zellen 1 bis 12 nicht. Das Zellbild zeigt dieselbe Aufteilung (erste 12 Balken Idle, die uebrigen Balancing). Zellen im Broadcast ueberwiegend 3632 mV, Zelle 91 = 3638 mV.
+- **Gemessen:** `9251`/`9252` = 0,000 Ah / 0,000 h (raw `80000000`), `9262`/`9263` = 0 (Bilder 23:18). Der Plan lief zu diesem Zeitpunkt noch nicht (im Auto beginnt der Lauf erst nach dem Einschlafen des Packs plus ca. 37 s).
+- **Gemessen (Zeit):** 23:08 SCPU `9261` = 71343 min, MCPU = 71341 min. 23:18 MCPU = **71345**, SCPU = **71823**; Feld "Time in 0x436" = 71823, ACTIVE. **71823 - 71345 = 478.** Die SCPU folgt `0x436` sofort, die MCPU zeigt 71345.
+- **Gemessen (Einstellungen, Bilder 23:18):** Einschlafweg **kurz** (Fahrlog Sitzung 3), Zustand **awake**, manuell angehakt, Betriebsart Fahren, Minutenfaktor 3, Failsafe "auto wake after" **20 min**, Daily Sleep **angehakt** (00:30, 5 min, 2 km), "Shutdown and wake-up" = like the car, Zellwerte-Quelle Broadcast, "Manual vehicle age" 1380368 ACTIVE, `0x426` 6924 km.
+- **Schluss (nur wenn der Bericht stimmt):** Der Plan entstand nach einem Wecken mit **+478 min Bus-Zeit bei nur ca. 6 min echter Ruhe**. Dann kaeme es auf die Zeit in `0x436` an, nicht auf echte Erholung der Zellen. Das widerspraeche der Auto-Hypothese ">= 8 h echte Ruhe" nicht, haelt sie aber fuer den Bench nicht fuer noetig.
+- **Offen / nicht belegt:**
+  1. `912B` **vor** dem Sleep wurde nicht dokumentiert (die Notizen sagen bisher: Bench legt keinen Plan an). Ohne diesen Wert ist nicht belegt, dass die Bits erst durch den Ablauf entstanden sind.
+  2. **Gegenprobe fehlt:** derselbe Ablauf (kurz, awake, ca. 6 min) **ohne** Zeitsprung. Erst dann ist der Sprung als Ursache belegt.
+  3. Die MCPU zeigte um 23:18 `9261` = 71345, die SCPU 71823. Beim natuerlichen Aufwachen im Auto war `9261` (MCPU) beim Wecken gleich der SCPU. Ob die Lesung vor oder nach dem Wecken lag und ob die MCPU den Sprung erst beim naechsten Einschlafen uebernimmt, ist unklar.
+  4. Reicht ein kleinerer Sprung als 478 min?
+  5. Daily Sleep (00:30) und Failsafe (20 min) koennen weitere Laeufe ausloesen; bei einem Test darueber abhaken.
+- **Naechste Lesungen (nur Lesen):** `912B`, `9251`/`9252`, `9262`/`9263`, `924F`/`9250` nach einer Weile; nach dem naechsten Einschlafen und Wecken `9261`/`91C1` (MCPU und SCPU).
