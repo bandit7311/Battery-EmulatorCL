@@ -36,3 +36,11 @@ Alle Notizen bis `93bb59c` sind gepusht (03.11.). Hinweis: GitHub meldet "reposi
 - **Neue Spur (Schluss):** `9259` folgt der externen BMS-Mode-Nummerierung (`05` Driving, `04` Wait/Sleep transient, `02` Non-iso Charge); `925C` = "Relay status, internal value" (`01` latched, `02` unlatched fuer "sleep transient and balance"). Balancing wahrscheinlich nur in `04`/`02`. Zu pruefen: `925C` nach dem Wecken am Bench und beim natuerlichen Aufwachen im Auto lesen (Skript liest `925C` noch nicht).
 - **Zoe Gen2:** Zeit laeuft im NVROL-Ablauf durch (kein `return` in `transmit_can`), Sleep = nur `0x373` B0 = `01`; Zoe Gen1 hat keinen Sleep/NVROL. Details in `QUELLE_Zoe_Gen2_und_ljames28_ZE50_03-11.md`.
 - **ZE50-README:** "will not balance" ohne korrekte Zeit; Zeit nur vorwaerts senden.
+
+## Nachtrag 03.11. abends: Stand Punkt X (Bericht Nutzer und Messungen)
+Kennzeichnung: **gemessen** = Bild/Airtable, **Bericht** = Aussage des Nutzers, **Schluss** = abgeleitet.
+- **Rezept fuer einen neuen Plan am Bench (Bericht Nutzer, 03.11.):** Nur bis **awake** aufwecken, dort **kurz verbleiben** und ueber den Einschlafweg **"lang" (Fahrlog)** wieder einschlafen lassen; das schreibt mittlerweile **zuverlaessig einen Plan**. (Frueher Weg "kurz" aus awake mit +478 min; Einzelheiten in `ZIEL_Plan-Ausloeser_fuer_Bench.md`.)
+- **Balancing-Lauf am Bench (gemessen, 4 Faelle):** bucht je Schlaf-Lauf hoechstens **1080 Schritte (63,3 min)**; Ah-Zaehler = Bits x 22,2 mA x Zeit (berechnet); Plan wird bei jedem Wecken neu berechnet; Bits sanken 84 -> 33 -> 84 -> 83 -> 26 (3:36 bis 15:55).
+- **Auto (gemessen):** natuerlicher Aufwacher 03.11. 16:09 UTC nach genau **480 min** Pack-Schlaf (Fahrtende USOC 26 %), Plan mit ca. 66 Bits, danach Lauf 56 min, beim Wecken von Hand um 17:06 UTC 48 Bits. Bench und Auto verhalten sich gleich (Befund 37g).
+- **Offen:** SOC-Schwelle fuer das natuerliche Aufwachen (zwischen 15 und 26 %); Herkunft der 1080-Grenze (Chip-Watchdog 64 min oder Firmware); Zahl der Laeufe bis der Plan leer ist; Bau "Zeit in der Stille" (`BAULISTE.md`).
+- **Nicht noetig fuer den Bench:** Weckart (`evc3302`, `0x350` `WakeUpType`, BCM `212E`); der Plan entsteht ohne diese Information.
