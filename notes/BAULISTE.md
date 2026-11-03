@@ -771,3 +771,9 @@ Kennzeichnung: **Bericht** = Aussage des Nutzers, **gelesen** = aus dem Code (St
 - **29e:** `#define TWINGO_SIM_PAGE` aktiv (mit `#ifndef`, damit Build-Flags nicht kollidieren).
 - **B11:** das Neuladen setzt Wert, Haken und Cursor des Feldes mit Fokus nach dem Ersetzen wieder ein (JavaScript, nur im Browser pruefbar, nicht getestet).
 - **Nicht pruefbar auf diesem Rechner:** ESP-Build; `webserver.cpp` (ESP-Bibliotheken) nur durchgesehen, nicht uebersetzt.
+
+## Zum Bauen vorgemerkt (Wunsch Nutzer 03.11. abends, entschieden, **nichts gebaut, wartet auf "bauen"**): Abbruch-Knopf fuer Daily balance
+- **Knopf "Abort"** hinter der Statuszeile von Daily balance, mit Rueckfrage, neue Route ohne Parameter; ohne laufenden Lauf ohne Wirkung.
+- **Wirkung je Phase (aus dem Code):** Wartezeit vor dem Start: Abbruch, Freigabe nach der Bedingung. Abschaltfolge oder Stille: wie "Wake up" (`nvrol_wake_request`), danach keine Plan-Pruefung und kein weiterer Zyklus. Awake zwischen den Zyklen: sofortiger Abbruch. Danach immer: Einschlafweg zurueck, normale Wecken-Folge nach Fahren, Freigabe der Stroeme erst bei "Zustand wie vorher" (spaetestens 180 s), Status "aborted by user", erhoehte Zeit in `0x436` bleibt.
+- **Entscheidung Nutzer 03.11.: Variante A:** das Haekchen "enable" bleibt stehen, morgen laeuft Daily balance wieder zur eingestellten Uhrzeit.
+- **Nachweis wie beim ersten Bau:** neue Tests (Abbruch in jeder Phase und ohne Lauf), alle bisherigen Tests gruen, Golden-Lauf (neun Hashes) identisch, ein Commit auf `kangoo-parallel`, Push nur auf Wort, danach ESP-Build beim Nutzer.
