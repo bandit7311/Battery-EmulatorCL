@@ -155,6 +155,7 @@ class BalanceTwingo : public RenaultTwingoGen1Battery {
     t.daily_sleep_duration_min = 5;
     t.daily_balance_cycles = 1;
     t.daily_balance_mode = 1;
+    t.daily_balance_abort = false;
     t.daily_balance_test_min = 10;
     t.daily_balance_check_s = 120;
     t.bus_sleep_path = twingo_bus::SLEEP_LANG;
@@ -475,4 +476,119 @@ TEST(TwingoDailyBalanceRun, SleepPlus9281WritesTheTemporisationInEveryCycleWhenC
   EXPECT_EQ(b.test_db_phase(), DB_SLEEPING);
   EXPECT_EQ(b.test_nvrol_mode(), 2);
   EXPECT_TRUE(wrote_9281(s.log, 0));
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Abort button
+// ---------------------------------------------------------------------------------------------------------
+
+TEST(TwingoDailyBalanceAbort, WithoutARunNothingHappensAndTheRequestIsTaken) {
+  BalanceTwingo b;
+  Sim s(b);
+  prepare(b, s);
+  datalayer_extended.twingoGen1.daily_balance_abort = true;
+  s.run(2000);
+  EXPECT_FALSE(datalayer_extended.twingoGen1.daily_balance_abort) << "the request is taken";
+  EXPECT_EQ(b.test_db_phase(), DB_IDLE);
+  EXPECT_FALSE(b.test_db_hold_zero());
+  EXPECT_STREQ(b.test_db_status(), "");
+  // and it does not stay for a run that starts later
+  b.clock_secs = 3 * 3600 + 10;
+  s.run(3000);
+  EXPECT_EQ(b.test_db_phase(), DB_ZERO_WAIT) << "the run starts normally afterwards";
+}
+
+TEST(TwingoDailyBalanceAbort, BeforeTheFirstSleepEndsTheRunAtOnceAndKeepsTheCheckbox) {
+  BalanceTwingo b;
+  Sim s(b);
+  prepare(b, s);
+  b.clock_secs = 3 * 3600 + 10;
+  s.run(1500);
+  ASSERT_EQ(b.test_db_phase(), DB_ZERO_WAIT);
+  datalayer_extended.twingoGen1.daily_balance_abort = true;
+  s.run(1100);
+  EXPECT_EQ(b.test_db_phase(), DB_RELEASE);
+  EXPECT_STREQ(b.test_db_status(), "aborted by user");
+  EXPECT_FALSE(b.test_nvrol_request()) << "no sleep was started";
+  EXPECT_FALSE(wrote_9281(s.log, 31000));
+  EXPECT_TRUE(datalayer_extended.twingoGen1.daily_sleep_enabled) << "the checkbox enable stays";
+  EXPECT_EQ(datalayer_extended.twingoGen1.bus_sleep_path, twingo_bus::SLEEP_LADELOG2) << "the way of the user";
+  EXPECT_TRUE(b.test_db_hold_zero()) << "released only when the state is as before";
+  b.test_pack_answered();
+  s.run(3000);
+  EXPECT_EQ(b.test_db_phase(), DB_IDLE);
+  EXPECT_FALSE(b.test_db_hold_zero());
+}
+
+TEST(TwingoDailyBalanceAbort, InTheSilenceWakesUpAtOnceWithoutCheckAndWithoutAFurtherCycle) {
+  BalanceTwingo b;
+  Sim s(b);
+  prepare(b, s);
+  datalayer_extended.twingoGen1.daily_sleep_duration_min = 30;  // a long silence: the abort must not wait for it
+  datalayer_extended.twingoGen1.daily_balance_test_min = 30;
+  b.clock_secs = 3 * 3600 + 10;
+  ASSERT_TRUE(s.until([&] { return b.test_nvrol_state() == 5; }, 400000));
+  s.run(5000);
+  const uint32_t v = b.test_time_436();
+  const uint64_t t_abort = s.now;
+  datalayer_extended.twingoGen1.daily_balance_abort = true;
+  s.run(1100);
+  EXPECT_TRUE(b.test_db_user_abort());
+  EXPECT_STREQ(b.test_db_status(), "abort requested: waking up");
+  ASSERT_TRUE(s.until([&] { return b.test_db_phase() == DB_RELEASE; }, 20000)) << "the wake-up burst, then the end";
+  EXPECT_LT(s.now - t_abort, 20000u) << "not after the 30 minutes of the silence";
+  EXPECT_STREQ(b.test_db_status(), "aborted by user");
+  EXPECT_FALSE(b.test_nvrol_request()) << "no further cycle";
+  EXPECT_FALSE(b.test_db_hold_awake()) << "no awake phase and no plan check";
+  EXPECT_GE(b.test_time_436(), v) << "the raised time stays (never backwards)";
+  EXPECT_EQ(datalayer_extended.twingoGen1.bus_sleep_path, twingo_bus::SLEEP_LADELOG2);
+  EXPECT_TRUE(datalayer_extended.twingoGen1.daily_sleep_enabled);
+  EXPECT_TRUE(b.test_db_hold_zero());
+  // the walk goes to driving, then the limits are released
+  b.test_pack_answered();
+  ASSERT_TRUE(s.until([&] { return Bat::bus_state_shown == twingo_bus::BUS_FAHRT; }, 60000));
+  s.run(1500);
+  EXPECT_EQ(b.test_db_phase(), DB_IDLE);
+  EXPECT_FALSE(b.test_db_hold_zero());
+  // not again in the same minute (the checkbox is still on, tomorrow it runs again)
+  s.run(20000);
+  EXPECT_EQ(b.test_db_phase(), DB_IDLE);
+}
+
+TEST(TwingoDailyBalanceAbort, InTheShutdownWalkEndsTheRunLongBeforeTheNormalSilence) {
+  BalanceTwingo b;
+  Sim s(b);
+  prepare(b, s);
+  b.clock_secs = 3 * 3600 + 10;
+  ASSERT_TRUE(s.until([&] { return b.test_db_phase() == DB_SLEEPING; }, 20000));
+  s.run(20000);  // in the shutdown walk (the silence would only start after about 190 s)
+  ASSERT_NE(b.test_nvrol_state(), 5);
+  const uint64_t t_abort = s.now;
+  datalayer_extended.twingoGen1.daily_balance_abort = true;
+  ASSERT_TRUE(s.until([&] { return b.test_db_phase() == DB_RELEASE; }, 60000));
+  EXPECT_LT(s.now - t_abort, 20000u);
+  EXPECT_STREQ(b.test_db_status(), "aborted by user");
+  EXPECT_FALSE(b.test_nvrol_request());
+  EXPECT_EQ(datalayer_extended.twingoGen1.bus_sleep_path, twingo_bus::SLEEP_LADELOG2);
+}
+
+TEST(TwingoDailyBalanceAbort, WhileAwakeBetweenTwoCyclesEndsTheRunAndTheNextCycleDoesNotStart) {
+  BalanceTwingo b;
+  Sim s(b);
+  prepare(b, s);
+  b.clock_secs = 3 * 3600 + 10;
+  ASSERT_TRUE(s.until([&] { return b.test_db_phase() == DB_AWAKE; }, 600000));
+  s.run(2000);
+  datalayer_extended.twingoGen1.daily_balance_abort = true;
+  s.run(1100);
+  EXPECT_EQ(b.test_db_phase(), DB_RELEASE);
+  EXPECT_STREQ(b.test_db_status(), "aborted by user");
+  EXPECT_FALSE(b.test_db_hold_awake()) << "the bus goes back to the normal wake-up walk";
+  b.test_bal_answer(PLAN_96);  // even a plan does not start the next cycle any more
+  b.test_pack_answered();
+  s.run(15000);
+  EXPECT_FALSE(b.test_nvrol_request());
+  EXPECT_EQ(datalayer_extended.twingoGen1.bus_sleep_path, twingo_bus::SLEEP_LADELOG2);
+  ASSERT_TRUE(s.until([&] { return b.test_db_phase() == DB_IDLE; }, 60000));
+  EXPECT_FALSE(b.test_db_hold_zero());
 }

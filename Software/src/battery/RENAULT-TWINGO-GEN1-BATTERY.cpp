@@ -756,6 +756,32 @@ void RenaultTwingoGen1Battery::db_set_status(const char* text) {
   snprintf(db_status, sizeof(db_status), "%s", text);
 }
 
+// The Abort button (Bau "Abort", 03.11.2026): without a run nothing happens. Before the first sleep and while awake between
+// two cycles the run ends at once; in the shutdown walk or the silence the wake-up of the "Wake up" button is requested and
+// the run ends after the wake-up burst, without the plan check and without a further cycle. After the end the way is as
+// before, the bus walks to driving and the limits are released as soon as the state is as before. The checkbox "enable"
+// stays: the next day the run starts again.
+void RenaultTwingoGen1Battery::db_take_abort_request(void) {
+  auto& t = datalayer_extended.twingoGen1;
+  if (!t.daily_balance_abort) {
+    return;
+  }
+  t.daily_balance_abort = false;
+  switch (db_phase) {
+    case DB_ZERO_WAIT:
+    case DB_AWAKE:
+      db_end("aborted by user");
+      break;
+    case DB_SLEEPING:
+      db_user_abort = true;
+      nvrol_wake_request = true;
+      db_set_status("abort requested: waking up");
+      break;
+    default:  // idle or already releasing: nothing to abort
+      break;
+  }
+}
+
 // The run is over (all cycles done, aborted or refused): the sleep path is as before, a held "awake" goes back to the normal
 // wake-up walk, and the limits towards the inverter are released only once the state is as before (DB_RELEASE).
 void RenaultTwingoGen1Battery::db_end(const char* text) {
@@ -776,6 +802,7 @@ void RenaultTwingoGen1Battery::db_start_sleep(void) {
   db_hold_awake = false;
   db_booked = false;
   db_run_seen = false;
+  db_user_abort = false;
   datalayer_extended.twingoGen1.bus_sleep_path = twingo_bus::SLEEP_KURZ;
   start_nvrol_run(db_run_mode);
   if (!UserRequestNVROLReset) {
@@ -802,6 +829,7 @@ void RenaultTwingoGen1Battery::db_start_sleep(void) {
 void RenaultTwingoGen1Battery::daily_balance_service(void) {
   auto& t = datalayer_extended.twingoGen1;
   const unsigned long now = millis();
+  db_take_abort_request();
   switch (db_phase) {
     case DB_IDLE: {
       if (!t.daily_sleep_enabled || t.daily_sleep_duration_min == 0) {
@@ -877,6 +905,10 @@ void RenaultTwingoGen1Battery::daily_balance_service(void) {
       }
       if (!UserRequestNVROLReset && NVROLstateMachine == 0) {
         // the wake-up burst is over (finish_nvrol_silence() ran)
+        if (db_user_abort) {
+          db_end("aborted by user");
+          return;
+        }
         if (!twingo::db_check_plan_after(db_cycle, db_total)) {
           db_end("done: all cycles");
           return;
@@ -3770,7 +3802,7 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
           "> Sleep 0x9281=1</h4>"
           "<h4>Daily balance status: <span id='twingoDbStatus'>";
       content += db_status[0] != '\0' ? db_status : "idle";
-      content += "</span>";
+      content += "</span> <button onclick='twingoDbAbort()'>Abort</button>";
       if (db_bit_log[0] != '\0') {
         content += " (first plan bit after: ";
         content += db_bit_log;
@@ -3875,6 +3907,9 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
         "var x=new XMLHttpRequest();x.open('GET','/editTwingoDailyBalance?time='+t+'&dur='+d+'&cyc='+c+'&tst='+s+'&chk='+k"
         "+'&mod='+m+'&en='+e,true);"
         "x.send();}";
+    content +=
+        "function twingoDbAbort(){if(window.confirm('Are you sure you want to abort the running daily balance?'))"
+        "{var x=new XMLHttpRequest();x.open('GET','/twingoDailyBalanceAbort',true);x.send();}}";
     content += "function twingoSetAgeFactor(){";
     content += "var f=document.getElementById('twingoAgeFactor').value;";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoAgeFactor?value='+f,true);x.send();}";

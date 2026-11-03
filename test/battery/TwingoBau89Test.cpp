@@ -275,6 +275,9 @@ TEST(TwingoBau9, AdvancedPageHasTheFieldsUnderTheSleepMinutes) {
   EXPECT_NE(page.find("<input type='radio' name='twingoDsMode' id='twingoDsMode2' value='2' > Sleep 0x9281=1"),
             std::string::npos);
   EXPECT_NE(page.find("&mod='+m"), std::string::npos) << "the Set button sends the mode";
+  EXPECT_NE(page.find("<button onclick='twingoDbAbort()'>Abort</button>"), std::string::npos) << "the Abort button";
+  EXPECT_NE(page.find("/twingoDailyBalanceAbort"), std::string::npos);
+  EXPECT_NE(page.find("Are you sure you want to abort the running daily balance?"), std::string::npos);
   EXPECT_NE(page.find("id='twingoDbStatus'>idle</span>", end_of_row2 - 200), std::string::npos);
   EXPECT_NE(page.find("id='twingoAgeFactor' min='1' max='1440' value='3'", end_of_row2), std::string::npos);
   EXPECT_NE(page.find("/editTwingoDailyBalance?time="), std::string::npos);

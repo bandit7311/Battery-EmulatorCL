@@ -240,6 +240,7 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
   uint16_t daily_balance_test_min;
   uint16_t daily_balance_check_s;
   uint8_t daily_balance_cycles;
+  bool daily_balance_abort;    // set by the Abort button of the page, taken (and cleared) by the driver within a second
   uint8_t daily_balance_mode;  // 1 = "Sleep" (default), 2 = "Sleep 0x9281=1": the run mode of the sleep of the cycles
   bool daily_sleep_enabled;  // the checkbox "enable" of the daily balance (Bau 10), persisted, default off
   /** Hardware push button "Sleep" (Bau 12, GPIO15): a long press starts "Sleep 0x9281=1" on the long way; the

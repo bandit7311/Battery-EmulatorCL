@@ -503,6 +503,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   uint8_t test_nvrol_state() const { return NVROLstateMachine; }
   bool test_nvrol_request() const { return UserRequestNVROLReset; }
   uint8_t test_nvrol_mode() const { return nvrol_mode; }
+  bool test_nvrol_wake_request() const { return nvrol_wake_request; }
+  bool test_db_user_abort() const { return db_user_abort; }
   void test_silence_frame() {  // a frame of the BMS arrives in the silence
     nvrol_silence_last_rx_ms = millis();
   }
@@ -858,6 +860,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   bool db_hold_awake = false;  // the bus state is held at "awake" (bus_state_now())
   bool db_run_seen = false;    // the sleep run of this cycle has really started
   bool db_booked = false;      // the time of 0x436 is raised in this cycle
+  bool db_user_abort = false;  // the Abort button was pressed in the sleep of a cycle: no check, no further cycle
   uint8_t db_cycle = 0;        // 0 = test, 1..db_total
   uint8_t db_total = 1;        // snapshot of the settings at the start of the run
   uint16_t db_dur_min = 5;
@@ -876,6 +879,7 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   void db_start_sleep(void);
   void db_end(const char* text);       // the run is over: path back, limits released, status text
   void db_set_status(const char* text);
+  void db_take_abort_request(void);  // the Abort button
   unsigned long db_cycle_silence_ms(void) const;  // the silence of the running cycle, 0 = no daily balance run
   void start_nvrol_run(uint8_t mode) {
     if (!UserRequestNVROLReset) {

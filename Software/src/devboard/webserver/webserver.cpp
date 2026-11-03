@@ -963,6 +963,12 @@ void init_webserver() {
     request->send(400, "text/plain", "bad value");
   });
 
+  // Abort button of the daily balance: the driver takes the request within a second (nothing happens without a run)
+  def_route_with_auth("/twingoDailyBalanceAbort", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    datalayer_extended.twingoGen1.daily_balance_abort = true;
+    request->send(200, "text/plain", "OK");
+  });
+
 #ifdef TWINGO_CELLWATCH
   // Cellwatch: runtime-only diagnostic (fast single-cell poll), NOT persisted to NVM on purpose - always
   // starts disabled after a reboot, see datalayer_extended.h.
