@@ -26,3 +26,18 @@ Kennzeichnung: **gemessen/gelesen** = aus Code oder Datei, **Schluss** = abgelei
 2. **Das Balancing passt zu "Wait/Sleep transient" (External 4):** der Bench-Pack stand nach dem Sleep auf `9259 = 04` (0:47 am 03.11.) und balancierte; im Zustand "Fahren" (`05`) legte er bisher keinen Plan an. Das ist nur eine Spur.
 3. Dass der Pack ohne **richtige Zeit** nicht balanciert (README), deckt sich mit der Messung vom 03.11.: gebucht wird nach der Bus-Zeit-Differenz (56 s bei Differenz 0, 25,6 min bei +25).
 4. **Offen:** Ob der Twingo-LBC ein `0x440`-aehnliches "latched/unlatched"-Signal vom EVC bekommt (im Twingo-Bus bisher nicht gefunden); ob der Twingo-LBC dieselben Schutzmechanismen wie der ZE50-LBC hat (der Zoe-Gen2-Satz weckt den Twingo-Pack nicht zum Broadcast, `BEFUND_Echter_Bus_LBC_EVC_09-10.md` Abschnitt 10.1).
+
+## 5. Nachtrag: `Can_frames.xlsx` (Blatt CAN0, Spalte "Comment" 2) im Detail
+Gelesen: Die LBC (ZE50) verarbeitet nur 11 Frames: `0x0EE`, `0x0F5`, `0x133`, `0x373`, `0x375`, `0x376`, `0x440`, `0x4CE`, `0x4FB`, `0x5F8`, `0x6BF`; dazu OBD-Frames, die nicht auf dem Bus liegen. Die Spalten "CRC Poly" und "CRC XOR" nennen CRC-8, Polynom `1D`, XOR `AC` (`0x0EE`), `16` (`0x0F5`), `4E` (`0x133`), `AB` (`0x440`), `0A` (`0x4CE`), `82` (`0x4FB`).
+- **`0x4CE` "Charging type changes BMS state":** `0F/1F` = Mode 4 (idle), `2F/3F` = Mode 1 (Iso-Charge), `4F/5F` = Mode 2 (Non-iso Charge), `6F/7F` = Mode 5 (Driving), `8F/9F` = Mode 3 (External Charge), `AF/BF` = Mode 7 (DC), `CF/DF` = Mode 9 (DC+RISOL). Das ist die **externe** Nummerierung aus `BMS Modes.xlsx`; dort bestimmt der Fahrzeug-Controller den BMS-Modus ueber dieses Frame.
+- **`0x440` "Relay status, internal value":** "Affects BMS State and Current offset calculations. States 0/1/2/3 internally. Options are 0x30/31/32/33. **0x31: 1 = latched. 0x32: 2 = unlatched for sleep transient and balance.** 0/3 ignored." In `Can_frames.xlsx` B1: `0x31` normal, `0x32` idle, `0x33` transition, `0x39` init.
+- **`0x376`:** "The time must be **sequential** or it'll be really confused and you have to reset NVROL then do temporisation before sleep. Time is really important." Also nur vorwaerts, nie rueckwaerts senden.
+- **`0x373`:** B0 `C1` = streaming (3), `01` = no streaming (0); B5 "affects Can0/UDS"; B7 = Mode (3 = ok).
+- **`0x4FB` "DC Relay" / "Relay 4":** `0x4` = 1, `0x2` = 0, `0` = Fehler.
+
+## 6. Schluss fuer die Twingo (nicht bewiesen, Gegenprobe noetig)
+- **`925C` ist laut XML "Relay status, internal value" (`Wsx_rly_stt`)**, derselbe Name wie `0x440` im ZE50. Die gemessenen Werte passen zur ZE50-Beschreibung: `02` = unlatched/idle bei **Closed** und **Awake** (Handtabelle 16.10.), `01` = latched in allen Fahr- und Ladezustaenden, `03` am Bench mit HV-Zeilen ("transition", `MERKLISTE_Test.md` Zeile 68), `00` wird ignoriert.
+- Damit waere der Zustand, in dem der Pack "sleep transient and balance" macht, **`9259` = 04 (Wait/Sleep transient) und `925C` = 02 (unlatched)**. Beim natuerlichen Aufwachen im Auto steht `9259` = 04 (gemessen, Airtable); `925C` wurde dort nicht gelesen.
+- Bench: nach dem Sleep stand `9259` = 04 (0:47 am 03.11.) und der Pack balancierte; im Zustand "Fahren" (`05`/`01`) bisher kein Plan.
+- **Zu pruefen (nur Lesen):** `22 92 5C` direkt nach dem Wecken und nach dem Sleep am Bench lesen (Taste "Relay 22 92 5C MCPU" auf der Advanced-Seite), und im Skript `925C` beim natuerlichen Aufwachen im Auto mitlesen.
+- **Warnung:** Die Zeit in `0x436` nie rueckwaerts setzen (ZE50-Hinweis zu `0x376`); die Tests mit +478, +25, +70 gehen alle vorwaerts.
