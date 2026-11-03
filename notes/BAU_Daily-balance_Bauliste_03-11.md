@@ -49,3 +49,9 @@ Vorher (heute, `BATTERY.cpp` 3562 bis 3575): `enable`, `Time`, `Duration`, `Km`,
 - Der Sleep-Kasten (`nvrolBox`) laedt waehrend eines Laufs jede Sekunde neu und ueberschreibt die Eingabefelder: jetzt als Bauschritt **B11** in der Liste (vorher nur als Hinweis und in `PUNKT_X_Stand_03-11.md`).
 - Nicht gemessen: welchen Frame der Deye auswertet; Dauer bis der Plan nach dem Wecken sichtbar wird (Testzyklus misst sie); `reported_current_dA` nicht bis zur Zuweisung verfolgt.
 - Offen vor dem Bau: nur noch der Branch (`kangoo-parallel` Stand `90af77b` oder anderer).
+
+## 6. Bauumfang (Nutzer 03.11.): Daily balance (B1 bis B11) + 29a + 29e, Basis `kangoo-parallel` (Stand `90af77b`)
+Nicht dabei: 29b, 29c (`SIM_ON_4F7` bleibt `false`), 29d, Zellwerte-Quelle, 100 % SOC an den Deye, `CAN NATIVE BUS ERROR` quittieren.
+- **29e (entschieden):** `TWINGO_SIM_PAGE` im **Quelltext** aktiv setzen (`RENAULT-TWINGO-GEN1-BATTERY.h` Zeile 15 bis 20). Mit Seite AN gilt die im Flash gespeicherte Maske.
+- **29a "Lifetime Energy" (Hinweis Nutzer: in OVMS werden die Werte richtig angezeigt):** gelesen im OVMS-Quelltext (`vehicle_renaultzoe_ph2`, `rz2_pids_LBC.cpp` Zeile 84 bis 100, Abfragen `vehicle_renaultzoe_ph2.cpp` Zeile 381/382): `0x9243` = "Battery energy charged kWh" (`ms_v_charge_kwh_grid_total`, UINT32 x 0,001), `0x9245` = discharged (`ms_v_bat_energy_used_total`), `0x9247` = regenerated (`ms_v_bat_energy_recd_total`). **Vorschlag: "Lifetime Energy" = `0x9243` allein** (wie OVMS "charged total"); Entladen und Rekuperation haben im Emulator eigene Zeilen. Typ vorsorglich `uint32_t`.
+- **29a "Battery Mileage":** OVMS liest den Kilometerstand des Fahrzeugs aus dem EVC (`0x2006`, `rz2_pids_EVC.cpp` Zeile 34 bis 35), nicht aus `0x91CF`; die OVMS-Anzeige belegt also nur die Energiewerte, nicht den Pack-Kilometerstand. Plan bleibt `0x91CF`, `(raw ^ 0x80000000) / 32`, Typ `uint32_t`.
