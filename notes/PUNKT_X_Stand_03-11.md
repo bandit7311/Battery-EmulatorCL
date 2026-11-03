@@ -30,3 +30,9 @@ Gesamtes Skript wurde geliefert (Token nur als Platzhalter): Abfragen als Einzel
 
 ## Git-Stand (notes-Branch `claude/notes-test-9259`)
 Alle Notizen bis `93bb59c` sind gepusht (03.11.). Hinweis: GitHub meldet "repository moved" -> `https://github.com/bandit7311/Battery-EmulatorCL.git`.
+
+## Nachtrag 03.11. (nach dem Ausflug in die Zoe Gen2 / ljames28)
+- **Frage fuer die naechste Bauliste:** Bleibt der Akku still, wenn `0x436` in der Stille weiterlaeuft, und laeuft die Pack-Uhr dann weiter? (`BAULISTE.md`, letzter Abschnitt.)
+- **Neue Spur (Schluss):** `9259` folgt der externen BMS-Mode-Nummerierung (`05` Driving, `04` Wait/Sleep transient, `02` Non-iso Charge); `925C` = "Relay status, internal value" (`01` latched, `02` unlatched fuer "sleep transient and balance"). Balancing wahrscheinlich nur in `04`/`02`. Zu pruefen: `925C` nach dem Wecken am Bench und beim natuerlichen Aufwachen im Auto lesen (Skript liest `925C` noch nicht).
+- **Zoe Gen2:** Zeit laeuft im NVROL-Ablauf durch (kein `return` in `transmit_can`), Sleep = nur `0x373` B0 = `01`; Zoe Gen1 hat keinen Sleep/NVROL. Details in `QUELLE_Zoe_Gen2_und_ljames28_ZE50_03-11.md`.
+- **ZE50-README:** "will not balance" ohne korrekte Zeit; Zeit nur vorwaerts senden.
