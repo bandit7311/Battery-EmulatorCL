@@ -42,9 +42,10 @@ Vorher (heute, `BATTERY.cpp` 3562 bis 3575): `enable`, `Time`, `Duration`, `Km`,
 - **B7 Zeitbuchung** ueber `time_436_set()` (`BATTERY.cpp` 1400 bis 1407), einmal je Einschlafen.
 - **B8 Plan-Pruefung** (`bal_bits_valid`/`bal_bits_ms`, `bal_bits_raw[12]`, `BATTERY.cpp` 525 bis 528; 912B alle 20 s, Abfrage `BATTERY.cpp` 3412).
 - **B9 Wiederherstellung und Freigabe** (Punkt 3.10).
+- **B11 Eingabefelder waehrend des Laufs (Nutzer, 03.11.: man kann nichts eintragen, solange der Sleep laeuft):** Ursache (gelesen): `append_refresh_script_html` (`BATTERY.cpp` 2138 bis 2160) laedt waehrend des Laufs jede Sekunde die Seite neu und ersetzt `nvrolBox` komplett (`cur.innerHTML = nb.innerHTML`); das HTML (Aufbau ab Zeile 3489) enthaelt auch die Felder von Daily balance, Sleep failsafe, Zeit in `0x436` usw., die dabei auf den gespeicherten Wert zurueckgesetzt werden. **Vorschlag (nicht entschieden):** vor dem Ersetzen den Wert und Haken jedes Feldes merken, das der Nutzer geaendert hat (Ereignis `input`/`change`), und nach dem Ersetzen wieder setzen; Felder mit Fokus nicht anfassen. Ein Feld gilt wieder als "nicht geaendert", sobald der Set-Knopf gedrueckt wurde. Die Direktlinks (`/editTwingoTime436?value=`, `/editTwingoAgeManual?value=`) bleiben als Umgehung. Test: Skript-Verhalten per Browser-Test pruefen (`run`), da `LOGIC.h` kein JavaScript testet.
 - **B10 Tests** (`LOGIC.h`, reine Logik): Faelligkeit, Zykluszaehler, Wartezeiten 5 s / 10 s / 30 s, Zeitbuchung genau einmal, Plan-Pruefung (sofort / nach Check-Zeit), Abbruch, Freigabebedingung; Golden-Lauf Wege lang, kurz, Ladelog 2 byte-identisch.
 
 ## 5. Hinweise
-- Der Sleep-Kasten (`nvrolBox`) laedt waehrend eines Laufs jede Sekunde neu und ueberschreibt die Eingabefelder; Einstellen waehrend eines Laufs per Direktlink.
+- Der Sleep-Kasten (`nvrolBox`) laedt waehrend eines Laufs jede Sekunde neu und ueberschreibt die Eingabefelder: jetzt als Bauschritt **B11** in der Liste (vorher nur als Hinweis und in `PUNKT_X_Stand_03-11.md`).
 - Nicht gemessen: welchen Frame der Deye auswertet; Dauer bis der Plan nach dem Wecken sichtbar wird (Testzyklus misst sie); `reported_current_dA` nicht bis zur Zuweisung verfolgt.
 - Offen vor dem Bau: nur noch der Branch (`kangoo-parallel` Stand `90af77b` oder anderer).
