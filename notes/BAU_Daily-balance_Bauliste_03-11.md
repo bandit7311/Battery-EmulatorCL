@@ -17,7 +17,7 @@ Vorher (heute, `BATTERY.cpp` 3562 bis 3575): `enable`, `Time`, `Duration`, `Km`,
 - **bleibt:** enable, Time, Duration (jetzt Balancezeit D), Set.
 - **entfaellt:** Km (entschieden, keine Kilometer mehr).
 - **neu:** Cycles N (1 bis 5, entschieden), Test (Zyklus 0, einstellbar, Standard 10 min, entschieden), Check (Wartezeit "kein Plan", Standard 120 s, einstellbar, entschieden), Hinweis "recommended 65 min" (entschieden), Statuszeile "Zyklus x von N" (entschieden).
-- **Vorschlag:** Test = 0 schaltet den Testzyklus aus; Statuszeile zeigt auch "Abbruch: kein Plan", "wartet auf Uhrzeit", "nicht gestartet: nicht in Drive / Zeit in 0x436 nicht aktiv".
+- **Entschieden (Nutzer 03.11., beides ok):** Test = 0 schaltet den Testzyklus aus; Statuszeile zeigt auch "Abbruch: kein Plan", "wartet auf Uhrzeit", "nicht gestartet: nicht in Drive / Zeit in 0x436 nicht aktiv".
 
 ## 3. Ablauf
 1. Start zur Uhrzeit, nur wenn: enable, Uhr gueltig, Zustand Drive (`05`/`01`), getippte Zeit in `0x436` aktiv, kein anderer Sleep-Lauf aktiv. Sonst kein Start und nichts inkrementieren.
@@ -47,4 +47,4 @@ Vorher (heute, `BATTERY.cpp` 3562 bis 3575): `enable`, `Time`, `Duration`, `Km`,
 ## 5. Hinweise
 - Der Sleep-Kasten (`nvrolBox`) laedt waehrend eines Laufs jede Sekunde neu und ueberschreibt die Eingabefelder; Einstellen waehrend eines Laufs per Direktlink.
 - Nicht gemessen: welchen Frame der Deye auswertet; Dauer bis der Plan nach dem Wecken sichtbar wird (Testzyklus misst sie); `reported_current_dA` nicht bis zur Zuweisung verfolgt.
-- Offen vor dem Bau: Branch (`kangoo-parallel` Stand `90af77b` oder anderer); Vorschlaege aus Abschnitt 2 bestaetigen.
+- Offen vor dem Bau: nur noch der Branch (`kangoo-parallel` Stand `90af77b` oder anderer).
