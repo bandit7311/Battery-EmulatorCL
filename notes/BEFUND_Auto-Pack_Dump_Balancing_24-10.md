@@ -412,3 +412,10 @@ Rohdaten: `DUMP_*_02-11_*.txt` (MCPU, SCPU, BCM, INV, EVC, Cluster, JB2; nach Zu
 - **Gemessen (Bild):** `912B` = 84 Bits (Zellen 96 bis 13), `9251`/`9252` = 0 (Plan laeuft noch nicht), 23:18 MCPU `9261` = 71345, SCPU = 71823 (= 71345 + 478).
 - **Bericht (Nutzer):** Sleep kurz aus "awake", waehrend der Stille +478 min auf `0x436`, nach ca. 6 min geweckt, Bits gesetzt.
 - **Offen:** `912B` vor dem Sleep; Gegenprobe ohne Zeitsprung; ob die MCPU den Zeitsprung uebernimmt.
+
+## 37e. Airtable 03.11. 06:39 und 06:41 UTC: Wecken durch Einstecken nach 10 h 20 min Schlaf, kein natuerlicher Aufwacher in der Nacht (Kennzeichnung wie in 37)
+- **Bericht (Nutzer):** Um ca. 07:39 CET (06:39 UTC) Ladestecker eingesteckt. Das Wecken um 06:39:52 UTC (`auto`) war damit **von uns ausgeloest**, `lade_start` folgte um 06:41:09 UTC.
+- **Gemessen (Zeilen):** 06:39:52: `912B` 0, `9251`/`9252` `80021400`/`800395d8` (unveraendert gegen 20:16 am 02.11.), `9279` = `1d`, SCPU-`9261` `2dd9f9`, MCPU-`9261` `2dd78d`, `91C1` `21df8f`, `9259` = `04`, `v12` 12,32 V, `evc3302` = `00`. 06:41:09: `9279` = `1e`, SCPU `2dd9fb`, `9259` = `02` (Laden), `v12` 14,76 V, `evc3302` = `00`.
+- **Gerechnet:** MCPU-`9261` (`2dd78d`) = Einschlafen um ca. 20:19 UTC (SCPU 20:16:03 = `2dd78a` + 3 min); SCPU `2dd9f9` minus `2dd78d` = 620 min = 10 h 20 min Schlaf. MCPU-`9261` und `91C1` stiegen beide um 63 gegen die Zeile 20:16 (Schnappschuss beim Einschlafen, Differenz `2dd78d`-`21df8f` = `2dd74e`-`21df50` = `0xBF7FE`).
+- **Gemessen:** Zwischen 20:19 UTC und 06:39 UTC steht **keine** Zeile mit `auto`. Die Regel "482 min ab Zuendung aus" (Zuendung aus ca. 18:00:42 UTC, also ca. 02:02 UTC) oder ab Einschlafen (20:19 UTC, also ca. 04:21 UTC) hat in dieser Nacht keinen natuerlichen Aufwacher ergeben (sofern das OVMS in der Nacht nichts verpasst hat).
+- **Offen:** Warum diesmal kein natuerlicher Aufwacher (kein Plan in `912B`? andere Bedingung?); `evc3302` = `00` ist hier ein Wecken durch den Stecker (Kundenwecker), kein Vergleichswert fuer ein technisches Wecken.
