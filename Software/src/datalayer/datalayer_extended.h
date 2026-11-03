@@ -231,12 +231,17 @@ struct DATALAYER_INFO_TWINGO_GEN1 {
   /** Minute factor of the vehicle age (Bau 9): 1 = real time, N = the age (0x350/0x436/0x523/0x376) counts +1 only
    *  every N minutes. Persisted to NVM (TWAGEFAC). */
   uint16_t age_minute_factor;
-  /** Daily sleep (Bau 9): time of day (minutes after local midnight, 0..1439), duration of the sleep in minutes
-   *  (1..1440, default 5) and the kilometres added to the 0x426 odometer at that time. Persisted to NVM. */
+  /** Daily balance (03.11.2026, replaces the daily sleep of Bau 9/10; the names and NVM keys of the first three fields stay):
+   *  time of day (minutes after local midnight, 0..1439), duration of each cycle in minutes (1..1440, default 5, recommended
+   *  65), number of cycles (1..5), test cycle in minutes (0 = no test, default 10) and the wait of the plan check in seconds
+   *  (10..3600, default 120). The kilometres of the daily sleep are gone. Persisted to NVM. */
   uint16_t daily_sleep_time_min;
   uint16_t daily_sleep_duration_min;
-  uint16_t daily_sleep_km;
-  bool daily_sleep_enabled;  // the checkbox "enable" of the daily sleep (Bau 10), persisted, default off
+  uint16_t daily_balance_test_min;
+  uint16_t daily_balance_check_s;
+  uint8_t daily_balance_cycles;
+  uint8_t daily_balance_mode;  // 1 = "Sleep" (default), 2 = "Sleep 0x9281=1": the run mode of the sleep of the cycles
+  bool daily_sleep_enabled;  // the checkbox "enable" of the daily balance (Bau 10), persisted, default off
   /** Hardware push button "Sleep" (Bau 12, GPIO15): a long press starts "Sleep 0x9281=1" on the long way; the
    *  silence lasts the "Sleep failsafe manual" time. Checkbox on the Advanced page, persisted (TWSLPBTN), default off. */
   bool sleep_button_enabled;
@@ -1154,6 +1159,10 @@ class DataLayerExtended {
     twingoGen1.sleep_failsafe_minutes = 30;
     twingoGen1.age_minute_factor = 1;         // Bau 9: real time
     twingoGen1.daily_sleep_duration_min = 5;  // Bau 10: default duration of the automatic sleep
+    twingoGen1.daily_balance_mode = 1;        // plain "Sleep"
+    twingoGen1.daily_balance_cycles = 1;      // Daily balance: one cycle, test of 10 minutes, plan check up to 120 s
+    twingoGen1.daily_balance_test_min = 10;
+    twingoGen1.daily_balance_check_s = 120;
     twingoGen1.cellwatch_cell = 1;
     twingoGen1.bus_state = 1;  // awake (door open)
     twingoGen1.simulator_enabled_mask =

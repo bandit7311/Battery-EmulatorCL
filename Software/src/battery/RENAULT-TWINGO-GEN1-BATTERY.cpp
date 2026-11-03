@@ -127,7 +127,7 @@ void RenaultTwingoGen1Battery::
   // "neither charge nor discharge" instead of computing from a stale, possibly non-zero current. The CAN
   // frames towards the inverter keep going at their normal rate throughout (see PylonInverter::transmit_can(),
   // which reads these fields unconditionally) - only their content changes here.
-  if (UserRequestNVROLReset) {
+  if (UserRequestNVROLReset || db_hold_zero) {  // db_hold_zero: the whole run of the daily balance, also between the cycles
     datalayer_battery->status.current_dA = 0;
     datalayer_battery->status.max_discharge_power_W = 0;
     datalayer_battery->status.max_charge_power_W = 0;
@@ -160,11 +160,8 @@ uint16_t RenaultTwingoGen1Battery::handle_pid(uint16_t pid, uint32_t value, cons
         }
       }
       break;
-    case GROUP3_METRICS:  // 0x61, mileage + alltime energy
-      if (length >= 17) {
-        battery_mileage_in_km = (data[11] << 8) | data[12];
-        kWh_from_beginning_of_battery_life = (data[15] << 8) | data[16];
-      }
+    case GROUP3_METRICS:  // 0x61, mileage + alltime energy: not answered by this pack and not asked any more; the two
+                          // values of the page come from 0x91CF and 0x9243 (Bau 29a), so nothing is written here
       break;
     case GROUP6_BALANCING: {  // 0x07, one bit per cell, LSB first within each byte
       bool any_balancing = false;
@@ -332,6 +329,9 @@ void RenaultTwingoGen1Battery::handle_extended_single_frame(uint16_t pid, const 
         for (uint8_t i = 0; i < length; i++) {
           v = (v << 8) | data[i];
         }
+        if (pid == EXT_POLL_MILEAGE_PACK && length >= 4) {
+          battery_mileage_in_km = (v ^ 0x80000000u) / 32;  // Bau 29a: like the line "Pack Mileage (0x91CF)"
+        }
         ExtValue* target;
         switch (pid) {
           case EXT_POLL_MILEAGE_PACK:
@@ -400,8 +400,10 @@ void RenaultTwingoGen1Battery::handle_extended_single_frame(uint16_t pid, const 
       break;
     case EXT_POLL_ENERGY_CHARGED:  // 0x9243, 32-bit, x0.001 kWh
       if (length >= 4) {
-        battery_energy_charged_kWh =
-            (((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16) | ((uint32_t)data[2] << 8) | data[3]) * 0.001f;
+        const uint32_t raw_charged =
+            ((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16) | ((uint32_t)data[2] << 8) | data[3];
+        battery_energy_charged_kWh = raw_charged * 0.001f;
+        kWh_from_beginning_of_battery_life = raw_charged / 1000;  // Bau 29a: "Lifetime Energy" = 0x9243 (OVMS: charged total)
       }
       break;
     case EXT_POLL_ENERGY_DISCHARGED:  // 0x9245, 32-bit, x0.001 kWh
@@ -526,6 +528,9 @@ void RenaultTwingoGen1Battery::handle_extended_multiframe_complete() {
   memcpy(bal_bits_raw, &ext_isotp_buffer[23], sizeof(bal_bits_raw));
   bal_bits_ms = millis();
   bal_bits_valid = true;
+  if (bal_answers_since_wake < 0xFFFF) {
+    bal_answers_since_wake++;
+  }
 
   bool any_balancing = false;
   // Scan positions 0-31: last 4 bytes of the 3rd continuation frame -> buffer[23..26].
@@ -730,44 +735,208 @@ unsigned long RenaultTwingoGen1Battery::sleep_manual_failsafe_ms(void) {
   return (unsigned long)configured_min * 60UL * 1000UL;
 }
 
-// Length of the true silence: the duration of the daily sleep if this run was started by it, otherwise the manual
+// Length of the true silence: the minutes of the cycle if this run belongs to the daily balance, otherwise the manual
 // failsafe window.
 unsigned long RenaultTwingoGen1Battery::silence_limit_ms(void) {
-  if (daily_sleep_run && datalayer_extended.twingoGen1.daily_sleep_duration_min > 0) {
-    return (unsigned long)datalayer_extended.twingoGen1.daily_sleep_duration_min * 60UL * 1000UL;
+  const unsigned long cycle_ms = db_cycle_silence_ms();
+  if (cycle_ms > 0) {
+    return cycle_ms;
   }
   return sleep_manual_failsafe_ms();
 }
 
-// Once per second: at the configured local time of day (Bau 9) raise the kilometres of 0x426 and start a
-// "Sleep 0x9281=1" run on the long way. Needs the checkbox "enable", a set clock and a duration of at least 1 minute. Fires once per minute of
-// the day; a run that is still going at that time skips the day.
-void RenaultTwingoGen1Battery::daily_sleep_service(void) {
+unsigned long RenaultTwingoGen1Battery::db_cycle_silence_ms(void) const {
+  if (db_phase != DB_SLEEPING) {
+    return 0;
+  }
+  return (unsigned long)twingo::db_cycle_min(db_cycle, db_dur_min, db_test_min) * 60UL * 1000UL;
+}
+
+void RenaultTwingoGen1Battery::db_set_status(const char* text) {
+  snprintf(db_status, sizeof(db_status), "%s", text);
+}
+
+// The run is over (all cycles done, aborted or refused): the sleep path is as before, a held "awake" goes back to the normal
+// wake-up walk, and the limits towards the inverter are released only once the state is as before (DB_RELEASE).
+void RenaultTwingoGen1Battery::db_end(const char* text) {
+  datalayer_extended.twingoGen1.bus_sleep_path = db_prev_path;
+  if (db_hold_awake) {
+    db_hold_awake = false;
+    bus_restart_sessions();  // the normal wake-up walk to driving starts again
+  }
+  db_set_status(text);
+  db_state_ms = 0;
+  db_phase = DB_RELEASE;
+  db_phase_ms = millis();
+}
+
+// Starts the sleep run of the current cycle: way "short" of the car log, run mode as selected (1 = the plain "Sleep": nothing
+// is written to the pack, straight into the shutdown walk; 2 = "Sleep 0x9281=1").
+void RenaultTwingoGen1Battery::db_start_sleep(void) {
+  db_hold_awake = false;
+  db_booked = false;
+  db_run_seen = false;
+  datalayer_extended.twingoGen1.bus_sleep_path = twingo_bus::SLEEP_KURZ;
+  start_nvrol_run(db_run_mode);
+  if (!UserRequestNVROLReset) {
+    db_end("aborted: the sleep run did not start");
+    return;
+  }
+  char b[64];
+  if (db_cycle == 0) {
+    snprintf(b, sizeof(b), "test cycle %u min: sleeping", (unsigned)db_test_min);
+  } else {
+    snprintf(b, sizeof(b), "cycle %u of %u: sleeping", (unsigned)db_cycle, (unsigned)db_total);
+  }
+  db_set_status(b);
+  db_phase = DB_SLEEPING;
+  db_phase_ms = millis();
+}
+
+// Once per second (also in the silence): the run of the daily balance. At the configured local time of day (checkbox "enable",
+// clock set, bus state driving, typed time of 0x436 active, no other sleep run) the limits towards the inverter go to zero,
+// 5 s later the cycles start: way "short", the time of 0x436 is raised by the minutes of the cycle 30 s after the last
+// frame of the BMS, silence, wake-up to "awake"; after every wake-up but the last the plan of 0x912B is checked (no plan =
+// abort), after 10 s awake the next cycle sleeps. After the last wake-up the normal walk goes to driving and the limits are
+// released once the state is as before. Fires once per minute of the day.
+void RenaultTwingoGen1Battery::daily_balance_service(void) {
   auto& t = datalayer_extended.twingoGen1;
-  uint32_t secs = 0;
-  if (!t.daily_sleep_enabled || t.daily_sleep_duration_min == 0 || !get_wall_clock_seconds_of_day(secs)) {
-    daily_sleep_fired = false;
-    return;
+  const unsigned long now = millis();
+  switch (db_phase) {
+    case DB_IDLE: {
+      if (!t.daily_sleep_enabled || t.daily_sleep_duration_min == 0) {
+        db_fired = false;  // switched off: nothing to do, the clock is not even asked
+        return;
+      }
+      uint32_t secs = 0;
+      const bool clock_ok = get_wall_clock_seconds_of_day(secs);
+      const bool due =
+          clock_ok && twingo::daily_sleep_due(t.daily_sleep_enabled, t.daily_sleep_time_min, t.daily_sleep_duration_min, secs);
+      if (!due) {
+        db_fired = false;  // the minute is over: the next day may fire again
+        return;
+      }
+      if (db_fired) {
+        return;
+      }
+      db_fired = true;
+      const bool busy = UserRequestNVROLReset || NVROLstateMachine != 0;
+      switch (twingo::db_start_check(t.daily_sleep_enabled, clock_ok, due, busy, bus_state_shown == twingo_bus::BUS_FAHRT,
+                                     time_436_active)) {
+        case twingo::DBS_OK:
+          break;
+        case twingo::DBS_BUSY:
+          db_set_status("not started: another sleep run is going");
+          return;
+        case twingo::DBS_NOT_DRIVE:
+          db_set_status("not started: not in Drive");
+          return;
+        case twingo::DBS_NO_TYPED_TIME:
+          db_set_status("not started: time in 0x436 not active");
+          return;
+        default:
+          return;
+      }
+      db_total = twingo::db_cycles_sane(t.daily_balance_cycles);
+      db_dur_min = t.daily_sleep_duration_min;
+      db_test_min = t.daily_balance_test_min > twingo::DB_DUR_MAX_MIN ? 0 : t.daily_balance_test_min;
+      db_check_s = twingo::db_check_sane(t.daily_balance_check_s);
+      db_run_mode = twingo::db_mode_sane(t.daily_balance_mode);
+      db_cycle = twingo::db_first_cycle(db_test_min);
+      db_prev_path = t.bus_sleep_path;
+      db_hold_zero = true;
+      db_hold_awake = false;
+      db_first_bit_ms = -1;
+      db_bit_log[0] = '\0';
+      db_set_status("current set to zero");
+      db_phase = DB_ZERO_WAIT;
+      db_phase_ms = now;
+      note_action("daily balance");
+      return;
+    }
+    case DB_ZERO_WAIT:
+      if (now - db_phase_ms >= twingo::DB_ZERO_WAIT_MS) {
+        db_start_sleep();
+      }
+      return;
+    case DB_SLEEPING: {
+      if (UserRequestNVROLReset) {
+        db_run_seen = true;
+      }
+      if (!db_run_seen) {
+        if (now - db_phase_ms > 5000) {
+          db_end("aborted: the sleep run did not start");
+        }
+        return;
+      }
+      if (NVROLstateMachine == 5 && !db_booked && now - nvrol_silence_last_rx_ms >= twingo::DB_BMS_QUIET_MS) {
+        // the BMS sleeps for sure: the typed time of 0x436 goes up by the minutes of the cycle (it is sent after the wake-up)
+        time_436_set(twingo::db_booked_time(time_436_value, twingo::db_cycle_min(db_cycle, db_dur_min, db_test_min),
+                                            AGE_MANUAL_MAX));
+        db_booked = true;
+      }
+      if (!UserRequestNVROLReset && NVROLstateMachine == 0) {
+        // the wake-up burst is over (finish_nvrol_silence() ran)
+        if (!twingo::db_check_plan_after(db_cycle, db_total)) {
+          db_end("done: all cycles");
+          return;
+        }
+        db_hold_awake = true;  // stay "awake" while the plan is checked
+        db_first_bit_ms = -1;
+        db_set_status(db_cycle == 0 ? "test cycle done: checking the plan" : "cycle done: checking the plan");
+        db_phase = DB_AWAKE;
+        db_phase_ms = now;
+        return;
+      }
+      if (now - db_phase_ms > db_cycle_silence_ms() + 600000UL) {
+        db_end("aborted: time limit of the cycle");
+      }
+      return;
+    }
+    case DB_AWAKE: {
+      const unsigned long since = now - db_wake_ms;
+      const uint8_t bits =
+          (bal_bits_valid && bal_answers_since_wake > 0) ? twingo::plan_bits_count(bal_bits_raw, sizeof(bal_bits_raw)) : 0;
+      if (db_first_bit_ms < 0 && bits > 0) {
+        db_first_bit_ms = (long)since;
+      }
+      const twingo::PlanVerdict v = twingo::plan_verdict(bal_answers_since_wake, bits, since, (unsigned long)db_check_s * 1000UL);
+      if (v == twingo::PLAN_NO || (v == twingo::PLAN_WAIT && since >= (unsigned long)db_check_s * 1000UL + 60000UL)) {
+        db_end(v == twingo::PLAN_NO ? "aborted: no plan" : "aborted: no answer of 0x912B");
+        return;
+      }
+      if (v == twingo::PLAN_YES && since >= twingo::DB_AWAKE_HOLD_MS) {
+        size_t n = strlen(db_bit_log);
+        if (n < sizeof(db_bit_log) - 1) {
+          snprintf(db_bit_log + n, sizeof(db_bit_log) - n, "%s%s %ld s", n ? ", " : "", db_cycle == 0 ? "test" : "cycle",
+                   db_first_bit_ms / 1000L);
+        }
+        db_cycle++;
+        db_start_sleep();
+      }
+      return;
+    }
+    case DB_RELEASE: {
+      const bool reached = bus_state_shown == twingo_bus::BUS_FAHRT;
+      if (reached && db_state_ms == 0) {
+        db_state_ms = now;
+      } else if (!reached) {
+        db_state_ms = 0;
+      }
+      const bool answered = ext_priority_pending_mask == 0 && bms_state_valid;
+      if (twingo::db_release_ready(reached, answered, db_state_ms == 0 ? 0 : now - db_state_ms, now - db_phase_ms)) {
+        db_hold_zero = false;
+        db_phase = DB_IDLE;
+        db_fired = true;  // not again in the same minute
+      }
+      return;
+    }
+    default:
+      db_hold_zero = false;
+      db_hold_awake = false;
+      db_phase = DB_IDLE;
+      return;
   }
-  if (!twingo::daily_sleep_due(t.daily_sleep_enabled, t.daily_sleep_time_min, t.daily_sleep_duration_min, secs)) {
-    daily_sleep_fired = false;  // the minute is over: the next day may fire again
-    return;
-  }
-  if (daily_sleep_fired || UserRequestNVROLReset || NVROLstateMachine != 0) {
-    return;
-  }
-  daily_sleep_fired = true;
-  uint64_t km = (uint64_t)odo_426_km + t.daily_sleep_km;
-  odo_426_km = km > ODO_426_BUS_MAX_KM ? ODO_426_BUS_MAX_KM : (uint32_t)km;
-  sim_settings_save();
-  daily_sleep_prev_path = t.bus_sleep_path;
-  t.bus_sleep_path = twingo_bus::SLEEP_LANG;
-  start_nvrol_run(2);
-  daily_sleep_run = UserRequestNVROLReset;  // false if the start was refused
-  if (!daily_sleep_run) {
-    t.bus_sleep_path = daily_sleep_prev_path;
-  }
-  note_action("daily sleep");
 }
 
 void RenaultTwingoGen1Battery::effective_vehicle_id(uint8_t out[4]) {
@@ -787,9 +956,8 @@ void RenaultTwingoGen1Battery::apply_vehicle_id() {
 }
 
 void RenaultTwingoGen1Battery::restore_sleep_path_after_run() {
-  if (daily_sleep_run || button_sleep_run) {
+  if (button_sleep_run) {
     datalayer_extended.twingoGen1.bus_sleep_path = daily_sleep_prev_path;  // the run used the long way
-    daily_sleep_run = false;
     button_sleep_run = false;
   }
 }
@@ -1121,6 +1289,8 @@ void RenaultTwingoGen1Battery::finish_nvrol_silence(void) {
   // acknowledged like the "clear all events" button of the events page does, as soon as the polling resumes.
   reset_all_events();
   restore_sleep_path_after_run();
+  db_wake_ms = millis();  // the daily balance counts the answers of 0x912B and the time from here
+  bal_answers_since_wake = 0;
   nvrol_silence_done = true;
   nvrol_last_mode = nvrol_mode;
   nvrol_mode = 0;
@@ -2150,7 +2320,15 @@ void RenaultTwingoGen1Battery::append_refresh_script_html(String& s, bool busy) 
        // has only the placeholder "-" there. Keep the text that stands now and put it back, so the block does not blink.
        "var keep={};['twingoTxStat','twingoRx155'].forEach(function(i){var e=document.getElementById(i);"
        "if(e){keep[i]=e.textContent;}});"
+       // A field that has the focus (the user is typing) is not touched: its value, state and cursor are put back after the
+       // box has been replaced; all other fields are reloaded as before.
+       "var fa=document.activeElement;var fk=null;"
+       "if(fa&&cur.contains(fa)&&fa.id&&(fa.tagName==='INPUT'||fa.tagName==='SELECT'||fa.tagName==='TEXTAREA')){"
+       "fk={id:fa.id,v:fa.value,c:fa.checked,s:null,e:null};"
+       "try{fk.s=fa.selectionStart;fk.e=fa.selectionEnd;}catch(z){}}"
        "cur.innerHTML=nb.innerHTML;"
+       "if(fk){var n=document.getElementById(fk.id);if(n){n.value=fk.v;if(n.type==='checkbox'||n.type==='radio'){n.checked=fk.c;}n.focus();"
+       "try{if(fk.s!==null){n.setSelectionRange(fk.s,fk.e);}}catch(z){}}}"
        "for(var i in keep){var e=document.getElementById(i);"
        "if(e&&(e.textContent==='-'||e.textContent==='')){e.textContent=keep[i];}}"
        "var a=nb.getAttribute('data-active');cur.setAttribute('data-active',a);"
@@ -2396,7 +2574,7 @@ void RenaultTwingoGen1Battery::time_service(unsigned long currentMillis) {
     return;
   }
   previousMillis_time_service = currentMillis;
-  daily_sleep_service();
+  daily_balance_service();
   if (!ntp_started && network_ready()) {
     start_ntp();
     ntp_started = true;
@@ -3008,6 +3186,12 @@ uint8_t RenaultTwingoGen1Battery::bus_state_now(unsigned long now, int32_t& o426
       }
     }
   }
+#ifdef TWINGO_EXTENDED_CELL_POLLING
+  if (db_hold_awake && !tg.bus_state_manual && NVROLstateMachine == 0) {
+    state = twingo_bus::BUS_WACH;  // daily balance: awake between two cycles while the plan is checked
+    o426 = -1;
+  }
+#endif
   if (state >= twingo_bus::BUS_STATE_COUNT) {
     state = twingo_bus::BUS_WACH;
   }
@@ -3486,7 +3670,7 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
 #ifdef TWINGO_EXTENDED_CELL_POLLING
   // Everything below sits in one box that refreshes itself while an NVROL reset is running (countdown of
   // the quiet phase) and until the priority PIDs have answered afterwards.
-  const bool nvrol_busy = UserRequestNVROLReset || (ext_priority_pending_mask != 0);
+  const bool nvrol_busy = UserRequestNVROLReset || (ext_priority_pending_mask != 0) || db_phase != DB_IDLE;
   // clang-format off
   content << "<div id='nvrolBox' data-active='" << (nvrol_busy ? "1" : "0") << "'>"
              "Charge Cycles: " << battery_charge_cycles << "<br>"
@@ -3559,20 +3743,40 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += " push button Sleep (IO15, button to GND): long press 2 s = Sleep 0x9281=1, long way</h4>";
 
     {
-      // Bau 9: daily sleep (time of day, duration, kilometres) in one line, and the minute factor of the age
+      // Daily balance (03.11.2026, replaces the daily sleep): time of day, duration of a cycle, number of cycles, test and
+      // check in two lines, the status below; then the minute factor of the age
       const uint16_t tmin = datalayer_extended.twingoGen1.daily_sleep_time_min;
       char hhmm[8];
       snprintf(hhmm, sizeof(hhmm), "%02u:%02u", (unsigned)(tmin / 60) % 24, (unsigned)(tmin % 60));
-      content += "<h4>Daily sleep</h4><h4><input type='checkbox' id='twingoDsEn' ";
+      content += "<h4>Daily balance</h4><h4><input type='checkbox' id='twingoDsEn' ";
       content += datalayer_extended.twingoGen1.daily_sleep_enabled ? "checked" : "";
       content += "> enable Time <input type='time' id='twingoDsTime' value='";
       content += hhmm;
       content += "'> Duration <input type='number' id='twingoDsDur' min='1' max='1440' value='";
       content += String(datalayer_extended.twingoGen1.daily_sleep_duration_min);
-      content += "'> min Km <input type='number' id='twingoDsKm' min='0' max='65535' value='";
-      content += String(datalayer_extended.twingoGen1.daily_sleep_km);
+      content += "'> min Cycles <input type='number' id='twingoDsCyc' min='1' max='5' value='";
+      content += String((unsigned)datalayer_extended.twingoGen1.daily_balance_cycles);
+      content += "'></h4><h4>Test <input type='number' id='twingoDsTst' min='0' max='1440' value='";
+      content += String(datalayer_extended.twingoGen1.daily_balance_test_min);
+      content += "'> min (0 = no test) Check <input type='number' id='twingoDsChk' min='10' max='3600' value='";
+      content += String(datalayer_extended.twingoGen1.daily_balance_check_s);
       content +=
-          "'> <button onclick='twingoSetDailySleep()'>Set</button></h4>"
+          "'> s <button onclick='twingoSetDailyBalance()'>Set</button> (recommended duration 65 min)</h4>"
+          "<h4>Sleep mode: <input type='radio' name='twingoDsMode' id='twingoDsMode1' value='1' ";
+      content += datalayer_extended.twingoGen1.daily_balance_mode == 2 ? "" : "checked";
+      content += "> Sleep <input type='radio' name='twingoDsMode' id='twingoDsMode2' value='2' ";
+      content += datalayer_extended.twingoGen1.daily_balance_mode == 2 ? "checked" : "";
+      content +=
+          "> Sleep 0x9281=1</h4>"
+          "<h4>Daily balance status: <span id='twingoDbStatus'>";
+      content += db_status[0] != '\0' ? db_status : "idle";
+      content += "</span>";
+      if (db_bit_log[0] != '\0') {
+        content += " (first plan bit after: ";
+        content += db_bit_log;
+        content += ")";
+      }
+      content += "</h4>"
           "<h4>Age minute factor: <input type='number' id='twingoAgeFactor' min='1' max='1440' value='";
       content += String(datalayer_extended.twingoGen1.age_minute_factor);
       content +=
@@ -3659,13 +3863,17 @@ String RenaultTwingoGen1Battery::get_uds_info_html() {
     content += "function twingoSetSleepMinutes(){";
     content += "var m=document.getElementById('twingoSleepMinutes').value;";
     content += "var x=new XMLHttpRequest();x.open('GET','/editTwingoSleepMinutes?value='+m,true);x.send();}";
-    content += "function twingoSetDailySleep(){";
+    content += "function twingoSetDailyBalance(){";
     content += "var t=document.getElementById('twingoDsTime').value;";
     content += "var d=document.getElementById('twingoDsDur').value;";
-    content += "var k=document.getElementById('twingoDsKm').value;";
+    content += "var c=document.getElementById('twingoDsCyc').value;";
+    content += "var s=document.getElementById('twingoDsTst').value;";
+    content += "var k=document.getElementById('twingoDsChk').value;";
     content += "var e=document.getElementById('twingoDsEn').checked?1:0;";
+    content += "var m=document.getElementById('twingoDsMode2').checked?2:1;";
     content +=
-        "var x=new XMLHttpRequest();x.open('GET','/editTwingoDailySleep?time='+t+'&dur='+d+'&km='+k+'&en='+e,true);"
+        "var x=new XMLHttpRequest();x.open('GET','/editTwingoDailyBalance?time='+t+'&dur='+d+'&cyc='+c+'&tst='+s+'&chk='+k"
+        "+'&mod='+m+'&en='+e,true);"
         "x.send();}";
     content += "function twingoSetAgeFactor(){";
     content += "var f=document.getElementById('twingoAgeFactor').value;";

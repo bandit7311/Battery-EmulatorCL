@@ -12,12 +12,14 @@
 // ---------------------------------------------------------------------------
 // PARAMETER BLOCK (Bau 17, 14.10.)
 // ---------------------------------------------------------------------------
-// 1. The page of the row switches /simulator. Take the two slashes away to build it (or add -DTWINGO_SIM_PAGE to the build
-//    flags). WITHOUT the page (default) the page, its routes and the Open-page button are not built and the frames that
+// 1. The page of the row switches /simulator. Built by default since Bau 29e (03.11.2026); put the two slashes back to build
+//    without it. WITHOUT the page the page, its routes and the Open-page button are not built and the frames that
 //    the emulator sends are given by SIM_ON_* below, always (a mask stored in the flash by an earlier version with the
 //    page is ignored and stays in the flash). WITH the page SIM_ON_* are only the start values: a mask the page has stored
 //    in the flash wins at every start.
-// #define TWINGO_SIM_PAGE
+#ifndef TWINGO_SIM_PAGE  // the build flags (-DTWINGO_SIM_PAGE, the unit tests) may define it already
+#define TWINGO_SIM_PAGE
+#endif
 
 // 1b. Cellwatch (Bau 20): the fast poll of ONE cell with its own page /cellwatch and the row on the Advanced page. Take the two
 //    slashes away to build it (or add -DTWINGO_CELLWATCH). WITHOUT it (default) the row, the page, its routes and the extra
@@ -487,6 +489,36 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
 
  public:
   static uint8_t bus_state_shown;  // state of the last frames, for the page (JSON "bs")
+#if defined(UNIT_TEST) && defined(TWINGO_EXTENDED_CELL_POLLING)
+  // Access of the unit tests to the daily balance (not built into the firmware).
+  uint8_t test_db_phase() const { return db_phase; }
+  uint8_t test_db_cycle() const { return db_cycle; }
+  bool test_db_hold_zero() const { return db_hold_zero; }
+  bool test_db_hold_awake() const { return db_hold_awake; }
+  const char* test_db_status() const { return db_status; }
+  const char* test_db_bit_log() const { return db_bit_log; }
+  uint32_t test_time_436() const { return time_436_value; }
+  bool test_time_436_active() const { return time_436_active; }
+  void test_time_436_set(uint32_t v) { time_436_set(v); }
+  uint8_t test_nvrol_state() const { return NVROLstateMachine; }
+  bool test_nvrol_request() const { return UserRequestNVROLReset; }
+  uint8_t test_nvrol_mode() const { return nvrol_mode; }
+  void test_silence_frame() {  // a frame of the BMS arrives in the silence
+    nvrol_silence_last_rx_ms = millis();
+  }
+  void test_bal_answer(const uint8_t raw[12]) {  // an answer of 0x912B arrives
+    memcpy(bal_bits_raw, raw, sizeof(bal_bits_raw));
+    bal_bits_ms = millis();
+    bal_bits_valid = true;
+    if (bal_answers_since_wake < 0xFFFF) {
+      bal_answers_since_wake++;
+    }
+  }
+  void test_pack_answered() {  // the priority readings are in
+    ext_priority_pending_mask = 0;
+    bms_state_valid = true;
+  }
+#endif
 
  private:
   void send_simulator_signals(unsigned long currentMillis);
@@ -563,8 +595,8 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   uint8_t LB_HVBOV = 0;
   uint8_t LB_COV = 0;
   uint32_t calculated_total_pack_voltage_mV = 370000;
-  uint16_t battery_mileage_in_km = 0;
-  uint16_t kWh_from_beginning_of_battery_life = 0;
+  uint32_t battery_mileage_in_km = 0;  // Bau 29a: from 0x91CF ((raw ^ 0x80000000) / 32), 32 bit (a pack reaches > 65,535 km)
+  uint32_t kWh_from_beginning_of_battery_life = 0;  // Bau 29a: from 0x9243 (charged total), whole kWh
 
 #ifdef TWINGO_EXTENDED_CELL_POLLING
   // -------------------------------------------------------------------------
@@ -800,18 +832,51 @@ class RenaultTwingoGen1Battery : public UdsCanBattery {
   // settable via "More Battery Info") is ever 0 or otherwise implausible.
   static const unsigned long SLEEP_MANUAL_FAILSAFE_DEFAULT_MIN = 30;
   unsigned long sleep_manual_failsafe_ms(void);  // reads the configured minutes, clamped, *60000
-  // Daily sleep (Bau 9): at the configured time of day (local time) the kilometres of 0x426 are raised and a
-  // "Sleep 0x9281=1" run on the long way starts; its silence lasts the configured duration instead of the failsafe.
   twingo_sleepbutton::LongPress sleep_button;
   bool sleep_button_pin_ready = false;
   bool sleep_button_init_failed = false;
   bool button_sleep_run = false;         // the running sleep run was started by the push button
-  void restore_sleep_path_after_run();   // the daily sleep and the push button run on the long way, then it is restored
-  bool daily_sleep_run = false;          // the running sleep run was started by the daily sleep
-  bool daily_sleep_fired = false;        // already fired in the current minute of the day
-  uint8_t daily_sleep_prev_path = 0;     // the sleep path before the run (restored when the run is over)
-  void daily_sleep_service(void);        // once per second (time_service)
-  unsigned long silence_limit_ms(void);  // duration of the daily sleep, otherwise the sleep failsafe
+  void restore_sleep_path_after_run();   // the push button runs on the long way, then the path is restored
+  uint8_t daily_sleep_prev_path = 0;     // the sleep path before the run of the push button (restored when it is over)
+  unsigned long silence_limit_ms(void);  // duration of the cycle of the daily balance, otherwise the sleep failsafe
+
+  // Daily balance (03.11.2026, replaces the daily sleep): at the configured time of day (local time) the pack sleeps in
+  // cycles on the way "short" of the car log (cycle 0 = test of a few minutes, then N cycles of the configured duration);
+  // in the silence the typed time of 0x436 is raised by the minutes of the cycle (the clock of the pack follows the bus
+  // time), after every wake-up but the last the balancing plan (0x912B) is checked: no plan = the run is aborted. While the
+  // run goes the current and power limits towards the inverter stay at zero (db_hold_zero) until the state is as before.
+  enum DbPhase : uint8_t {
+    DB_IDLE = 0,
+    DB_ZERO_WAIT,  // current set to zero, waiting DB_ZERO_WAIT_MS before the first sleep
+    DB_SLEEPING,   // a sleep run of one cycle goes (shutdown walk, silence, wake-up burst)
+    DB_AWAKE,      // woken, the bus is held "awake", the plan is checked, after DB_AWAKE_HOLD_MS the next cycle sleeps
+    DB_RELEASE     // last wake-up done: the walk goes to driving, then the limits are released
+  };
+  uint8_t db_phase = DB_IDLE;
+  bool db_fired = false;       // already fired in the current minute of the day
+  bool db_hold_zero = false;   // current and power limits towards the inverter are held at zero (update_values())
+  bool db_hold_awake = false;  // the bus state is held at "awake" (bus_state_now())
+  bool db_run_seen = false;    // the sleep run of this cycle has really started
+  bool db_booked = false;      // the time of 0x436 is raised in this cycle
+  uint8_t db_cycle = 0;        // 0 = test, 1..db_total
+  uint8_t db_total = 1;        // snapshot of the settings at the start of the run
+  uint16_t db_dur_min = 5;
+  uint16_t db_test_min = 0;
+  uint16_t db_check_s = 120;
+  uint8_t db_run_mode = 1;     // 1 = "Sleep", 2 = "Sleep 0x9281=1" (snapshot of the setting)
+  uint8_t db_prev_path = 0;    // the sleep path before the run (restored when the run is over)
+  unsigned long db_phase_ms = 0;
+  unsigned long db_wake_ms = 0;        // end of the wake-up burst of the latest wake-up
+  unsigned long db_state_ms = 0;       // since when the bus is in the state of before (driving), 0 = not yet
+  long db_first_bit_ms = -1;           // time from the wake-up to the first answer with a plan bit, -1 = none yet
+  uint16_t bal_answers_since_wake = 0; // answers of 0x912B since the end of the last wake-up burst
+  char db_status[64] = "";
+  char db_bit_log[80] = "";            // time from the wake-up to the first plan bit of every checked cycle
+  void daily_balance_service(void);    // once per second (time_service)
+  void db_start_sleep(void);
+  void db_end(const char* text);       // the run is over: path back, limits released, status text
+  void db_set_status(const char* text);
+  unsigned long db_cycle_silence_ms(void) const;  // the silence of the running cycle, 0 = no daily balance run
   void start_nvrol_run(uint8_t mode) {
     if (!UserRequestNVROLReset) {
       nvrol_mode = mode;

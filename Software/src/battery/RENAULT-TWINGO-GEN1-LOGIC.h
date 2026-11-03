@@ -191,6 +191,117 @@ inline bool daily_sleep_due(bool enabled, uint16_t time_min, uint16_t duration_m
   return enabled && duration_min > 0 && time_min < 1440 && (secs_of_day / 60) == time_min;
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// Daily balance (03.11.2026, replaces the daily sleep): at the configured time of day the pack sleeps in cycles so that it
+// makes (and works off) its balancing plan. Cycle 0 is the test cycle (short, `test_min` minutes, 0 = no test): afterwards the
+// plan in 0x912B is checked, no plan = the whole run is aborted. Cycles 1..N sleep `dur_min` minutes each.
+inline constexpr uint8_t DB_CYCLES_MIN = 1;
+inline constexpr uint8_t DB_CYCLES_MAX = 5;
+inline constexpr uint16_t DB_DUR_MAX_MIN = 1440;
+inline constexpr uint16_t DB_TEST_DEFAULT_MIN = 10;
+inline constexpr uint16_t DB_CHECK_DEFAULT_S = 120;
+inline constexpr uint16_t DB_CHECK_MIN_S = 10;
+inline constexpr uint16_t DB_CHECK_MAX_S = 3600;
+inline constexpr unsigned long DB_ZERO_WAIT_MS = 5000;     // after the current is set to zero, before the sleep starts
+inline constexpr unsigned long DB_AWAKE_HOLD_MS = 10000;   // awake after a wake-up, before the next sleep
+inline constexpr unsigned long DB_BMS_QUIET_MS = 30000;    // no frame of the BMS for this long = the BMS sleeps for sure
+inline constexpr unsigned long DB_RELEASE_AFTER_DRIVE_MS = 10000;  // after the wake-up walk reached driving: release anyway
+inline constexpr unsigned long DB_RELEASE_HARD_CAP_MS = 180000;    // after the wake-up: release in any case
+inline constexpr uint8_t DB_PLAN_MIN_ANSWERS = 3;          // "no plan" needs at least this many answers after the wake-up
+
+inline uint8_t db_cycles_sane(uint16_t v) {
+  return v < DB_CYCLES_MIN ? DB_CYCLES_MIN : (v > DB_CYCLES_MAX ? DB_CYCLES_MAX : (uint8_t)v);
+}
+// Run mode of the sleep of the cycles: 1 = "Sleep" (nothing is written to the pack, default), 2 = "Sleep 0x9281=1".
+inline uint8_t db_mode_sane(uint32_t v) {
+  return v == 2 ? 2 : 1;
+}
+inline uint16_t db_check_sane(uint32_t v) {
+  return v < DB_CHECK_MIN_S ? DB_CHECK_MIN_S : (v > DB_CHECK_MAX_S ? DB_CHECK_MAX_S : (uint16_t)v);
+}
+
+// The first cycle: 0 (the test) if a test time is set, else 1.
+inline uint8_t db_first_cycle(uint16_t test_min) {
+  return test_min > 0 ? 0 : 1;
+}
+// Minutes of the sleep in this cycle.
+inline uint16_t db_cycle_min(uint8_t cycle, uint16_t dur_min, uint16_t test_min) {
+  return cycle == 0 ? test_min : dur_min;
+}
+// After the wake-up of this cycle the plan is checked unless it was the last cycle.
+inline bool db_check_plan_after(uint8_t cycle, uint8_t total) {
+  return cycle < total;
+}
+
+// Why the run does or does not start.
+enum DbStart : uint8_t {
+  DBS_NOT_DUE = 0,   // switched off, no clock or not the minute: nothing happens, no message
+  DBS_OK,
+  DBS_BUSY,          // another sleep run is going
+  DBS_NOT_DRIVE,     // the bus state is not driving
+  DBS_NO_TYPED_TIME  // the typed time of 0x436 is not active
+};
+inline DbStart db_start_check(bool enabled, bool clock_ok, bool due, bool busy, bool in_drive, bool typed_time_active) {
+  if (!enabled || !clock_ok || !due) {
+    return DBS_NOT_DUE;
+  }
+  if (busy) {
+    return DBS_BUSY;
+  }
+  if (!in_drive) {
+    return DBS_NOT_DRIVE;
+  }
+  if (!typed_time_active) {
+    return DBS_NO_TYPED_TIME;
+  }
+  return DBS_OK;
+}
+
+// Number of balancing bits set in the 96 bits of 0x912B (data bytes 21 to 32).
+inline uint8_t plan_bits_count(const uint8_t* raw, uint8_t len) {
+  uint8_t n = 0;
+  for (uint8_t i = 0; i < len; i++) {
+    for (uint8_t b = raw[i]; b != 0; b >>= 1) {
+      n += (uint8_t)(b & 1);
+    }
+  }
+  return n;
+}
+
+enum PlanVerdict : uint8_t { PLAN_WAIT = 0, PLAN_YES, PLAN_NO };
+// Verdict of the plan check after a wake-up: `answers` = answers of 0x912B since the wake-up, `bits` = bits of the latest one,
+// `elapsed_ms` = time since the wake-up. At once "plan" with one answer that has at least one bit; "no plan" only after
+// `check_ms` and at least DB_PLAN_MIN_ANSWERS answers.
+inline PlanVerdict plan_verdict(uint16_t answers, uint8_t bits, unsigned long elapsed_ms, unsigned long check_ms) {
+  if (answers >= 1 && bits >= 1) {
+    return PLAN_YES;
+  }
+  if (answers >= DB_PLAN_MIN_ANSWERS && elapsed_ms >= check_ms) {
+    return PLAN_NO;
+  }
+  return PLAN_WAIT;
+}
+
+// The time of 0x436 after the booking: the value that is sent now plus the minutes of the cycle, capped.
+inline uint32_t db_booked_time(uint32_t current, uint16_t add_min, uint32_t max_value) {
+  const uint64_t v = (uint64_t)current + add_min;
+  return v > max_value ? max_value : (uint32_t)v;
+}
+
+// After the last wake-up the current limits towards the inverter stay at zero until the state is as before (the wake-up walk
+// has reached driving) and the pack has answered (the priority readings are in), at the latest DB_RELEASE_AFTER_DRIVE_MS
+// after reaching driving, in any case after DB_RELEASE_HARD_CAP_MS since the wake-up.
+inline bool db_release_ready(bool state_reached, bool pack_answered, unsigned long since_state_ms,
+                             unsigned long since_wake_ms) {
+  if (since_wake_ms >= DB_RELEASE_HARD_CAP_MS) {
+    return true;
+  }
+  if (!state_reached) {
+    return false;
+  }
+  return pack_answered || since_state_ms >= DB_RELEASE_AFTER_DRIVE_MS;
+}
+
 // Value read from the pack: 9261 (vehicle time) if it is not 0, otherwise 91C1 (pack time), 24 bit. 0 = nothing usable.
 inline uint32_t age_pack_candidate(uint32_t raw_9261, uint8_t len_9261, uint32_t raw_91c1, uint8_t len_91c1) {
   const uint32_t a = len_9261 ? (raw_9261 & AGE_MAX_24) : 0;

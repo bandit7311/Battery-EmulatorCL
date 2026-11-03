@@ -230,8 +230,18 @@ void init_webserver() {
           (uint16_t)prefs.getUInt("TWDSTIME", datalayer_extended.twingoGen1.daily_sleep_time_min);
       datalayer_extended.twingoGen1.daily_sleep_duration_min =
           (uint16_t)prefs.getUInt("TWDSDUR", datalayer_extended.twingoGen1.daily_sleep_duration_min);
-      datalayer_extended.twingoGen1.daily_sleep_km =
-          (uint16_t)prefs.getUInt("TWDSKM", datalayer_extended.twingoGen1.daily_sleep_km);
+      // Daily balance (03.11.2026): cycles, test minutes, wait of the plan check; the old key TWDSKM is not read any more
+      datalayer_extended.twingoGen1.daily_balance_cycles =
+          twingo::db_cycles_sane((uint16_t)prefs.getUInt("TWDSCYC", datalayer_extended.twingoGen1.daily_balance_cycles));
+      datalayer_extended.twingoGen1.daily_balance_mode =
+          twingo::db_mode_sane(prefs.getUInt("TWDSMOD", datalayer_extended.twingoGen1.daily_balance_mode));
+      datalayer_extended.twingoGen1.daily_balance_test_min =
+          (uint16_t)prefs.getUInt("TWDSTST", datalayer_extended.twingoGen1.daily_balance_test_min);
+      if (datalayer_extended.twingoGen1.daily_balance_test_min > twingo::DB_DUR_MAX_MIN) {
+        datalayer_extended.twingoGen1.daily_balance_test_min = twingo::DB_TEST_DEFAULT_MIN;
+      }
+      datalayer_extended.twingoGen1.daily_balance_check_s =
+          twingo::db_check_sane(prefs.getUInt("TWDSCHK", datalayer_extended.twingoGen1.daily_balance_check_s));
       datalayer_extended.twingoGen1.daily_sleep_enabled =
           prefs.getBool("TWDSEN", datalayer_extended.twingoGen1.daily_sleep_enabled);
       datalayer_extended.twingoGen1.sleep_button_enabled =
@@ -910,27 +920,40 @@ void init_webserver() {
     request->send(200, "text/plain", "OK");
   });
 
-  // Bau 9/10: daily sleep - time=HH:MM (local), dur=minutes (1..1440), km=kilometres added to 0x426 at that time,
-  // en=1/0 the checkbox "enable"
-  def_route_with_auth("/editTwingoDailySleep", server, HTTP_GET, [](AsyncWebServerRequest* request) {
-    if (request->hasParam("time") && request->hasParam("dur") && request->hasParam("km") && request->hasParam("en")) {
+  // Daily balance (03.11.2026, replaces the daily sleep of Bau 9/10): time=HH:MM (local), dur=minutes of each cycle (1..1440),
+  // cyc=number of cycles (1..5), tst=minutes of the test cycle (0..1440, 0 = no test), chk=wait of the plan check in seconds
+  // (10..3600), mod=run mode of the sleep (1 = Sleep, 2 = Sleep 0x9281=1), en=1/0 the checkbox "enable"
+  def_route_with_auth("/editTwingoDailyBalance", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("time") && request->hasParam("dur") && request->hasParam("cyc") &&
+        request->hasParam("tst") && request->hasParam("chk") && request->hasParam("mod") && request->hasParam("en")) {
       String tm = request->getParam("time")->value();
       int hh = tm.substring(0, 2).toInt();
       int mm = tm.substring(3, 5).toInt();
       int dur = request->getParam("dur")->value().toInt();
-      int km = request->getParam("km")->value().toInt();
+      int cyc = request->getParam("cyc")->value().toInt();
+      int tst = request->getParam("tst")->value().toInt();
+      int chk = request->getParam("chk")->value().toInt();
+      int mod = request->getParam("mod")->value().toInt();
       const bool en = request->getParam("en")->value().toInt() != 0;
       if (tm.length() == 5 && tm.charAt(2) == ':' && hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59 && dur >= 1 &&
-          dur <= 1440 && km >= 0 && km <= 65535) {
+          dur <= twingo::DB_DUR_MAX_MIN && cyc >= twingo::DB_CYCLES_MIN && cyc <= twingo::DB_CYCLES_MAX && tst >= 0 &&
+          tst <= twingo::DB_DUR_MAX_MIN && chk >= twingo::DB_CHECK_MIN_S && chk <= twingo::DB_CHECK_MAX_S &&
+          (mod == 1 || mod == 2)) {
         datalayer_extended.twingoGen1.daily_sleep_time_min = (uint16_t)(hh * 60 + mm);
         datalayer_extended.twingoGen1.daily_sleep_duration_min = (uint16_t)dur;
-        datalayer_extended.twingoGen1.daily_sleep_km = (uint16_t)km;
+        datalayer_extended.twingoGen1.daily_balance_cycles = (uint8_t)cyc;
+        datalayer_extended.twingoGen1.daily_balance_test_min = (uint16_t)tst;
+        datalayer_extended.twingoGen1.daily_balance_check_s = (uint16_t)chk;
+        datalayer_extended.twingoGen1.daily_balance_mode = (uint8_t)mod;
         datalayer_extended.twingoGen1.daily_sleep_enabled = en;
         Preferences prefs;
         prefs.begin("batterySettings", false);
         prefs.putUInt("TWDSTIME", (uint16_t)(hh * 60 + mm));
         prefs.putUInt("TWDSDUR", (uint16_t)dur);
-        prefs.putUInt("TWDSKM", (uint16_t)km);
+        prefs.putUInt("TWDSCYC", (uint32_t)cyc);
+        prefs.putUInt("TWDSTST", (uint32_t)tst);
+        prefs.putUInt("TWDSCHK", (uint32_t)chk);
+        prefs.putUInt("TWDSMOD", (uint32_t)mod);
         prefs.putBool("TWDSEN", en);
         prefs.end();
         request->send(200, "text/plain", "OK");
