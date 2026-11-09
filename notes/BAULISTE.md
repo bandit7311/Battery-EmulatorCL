@@ -780,3 +780,19 @@ Kennzeichnung: **Bericht** = Aussage des Nutzers, **gelesen** = aus dem Code (St
 
 ## GEBAUT am 03.11. (Abbruch-Knopf Daily balance; Branch kangoo-parallel, lokaler Commit auf 44b09ec, **nicht gepusht**; 522 Tests gruen; Golden-Lauf unveraendert; ESP-Build und Bench-Test offen)
 - Wie oben vorgemerkt (Variante A: "enable" bleibt). Route `/twingoDailyBalanceAbort`, Feld `daily_balance_abort`, Methode `db_take_abort_request()`; 5 neue Tests (`TwingoDailyBalanceAbort.*`), die ohne die Funktion rot werden (Gegenprobe gemacht).
+
+## Zum Bauen vorgemerkt (Beschriftungen Fahrzeugalter und "Time in 0x436", Wunsch Nutzer, 09.11.2026; nur Text, wartet auf "bauen")
+Anlass: Bench-Seite (Simulator/Advanced) zeigt "Vehicle age (0x436, bytes 1-3): none yet" und "Manual vehicle age ... ACTIVE" und gleichzeitig "Time in 0x436 ... 75286 ACTIVE". Nur Codestellen und Bildinhalt, keine Annahmen.
+- **Befund (Bild, Modus "echter Bus"):** Alter manuell 1.380.368 min (ACTIVE), "Time in 0x436" 75.286 min (ACTIVE), oberste Zeile "none yet".
+- **Wo das Alter im Code verwendet wird** (alle Aufrufer von `vehicle_age_available`, `BATTERY.cpp`): (1) `0x436` B1-B3 im Format des echten Busses, `:3103`, nur wenn "Time in 0x436" AUS ist; (2) `0x436` B1-B3 der Zoe-Form, `:3500`, nur mit Haken "0x436 carries the vehicle age" und "Time in 0x436" aus; (3) "Set time now", `write_time_now()` `:4291`, schreibt `2E 92 61` mit dem Alter; (4) `age_note_pack_read` `:1720` tut seit 10.10. nichts (`AGE_RAISE_FROM_PACK = false`).
+- **0x350, 0x523, 0x376 nutzen das Alter nicht mehr** ("no 0x350 frame since Bau 13", `:1229`, `:1280`). Veraltete Kommentare: `BATTERY.h:200` ("Vehicle age (0x350 bytes 1-3, 0x523, 0x376 ...)"), `BATTERY.cpp:1353`, `BATTERY.cpp:1674` ("Age as 0x350 bytes 1-3 carry it"), `BATTERY.h:300` ("(0x350 bytes 1-3)").
+- **"ACTIVE" bei "Manual vehicle age"** heisst nur: manueller Modus an (`age_manual_active`, `age_source = 3`). Es heisst nicht, dass ein Frame den Wert sendet. Solange "Time in 0x436" aktiv ist, geht `0x436` mit dessen Wert (`:3101`), das Alter wird dann nur von "Set time now" benutzt.
+- **Falsche oder irrefuehrende Texte** (`simulator_html.cpp`): (a) `:195` "Vehicle age (0x436, bytes 1-3)" nennt nur 0x436, obwohl 0x436 bei aktivem "Time in 0x436" das Alter nicht traegt; (b) `:201` "none yet (nothing is sent without an age)" bedeutet nur "noch kein Alters-Frame gesendet" (`age_source == 0`), steht auch bei aktivem manuellem Alter; (c) `:218` "used in all age frames" stimmt nicht mehr; (d) die Zoe-Form sendet ohne Haken `14 00 xx` in B1-B3 (`BATTERY.h:427-431`), nicht das Alter.
+- **Textvorschlag (nicht gebaut):**
+  1. Zeile 1: "Vehicle age: <min> (<automatic|manual>) - used in 0x436 bytes 1-3 while 'Time in 0x436' is off, and by 'Set time now'"; ohne Wert: "no vehicle age yet (no clock and no manual age)".
+  2. Neue Zeile: "0x436 bytes 1-3 carry now: <Wert> min (<Time in 0x436 | vehicle age | 14 00 xx>)".
+  3. Hinweis bei "Manual vehicle age" und "Time in 0x436" aktiv: "not sent in 0x436 while 'Time in 0x436' is active".
+  4. Satz "used in all age frames" ersetzen durch "used in 0x436 bytes 1-3 (if 'Time in 0x436' is off) and by 'Set time now'".
+  5. Die vier veralteten Kommentare (siehe oben) bereinigen.
+- **Offen beim Nutzer:** ob 75.286 bei "Time in 0x436" Absicht ist (Test). Notiz `QUELLE_Zoe_Gen2_und_ljames28_ZE50_03-11.md`: die Zeit in 0x436 nie rueckwaerts setzen; der Bench-Pack haelt nach den Notizen mehr (Packzeit ca. 1,0 Mio. min).
+- **Tests bei "bauen":** Seite im Modus "echter Bus" mit "Time in 0x436" an/aus und manuellem Alter an/aus (vier Faelle): die neue Zeile "0x436 bytes 1-3 carry now" muss dem gesendeten Frame entsprechen; Golden-Lauf unveraendert (nur Text).
