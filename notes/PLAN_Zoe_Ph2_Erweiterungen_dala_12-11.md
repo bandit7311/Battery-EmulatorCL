@@ -29,6 +29,8 @@ Alles direkt **unter der Zeile "Temporisation"** der Advanced-Seite (in `get_uds
 - `0x376` ist in `main` noch das **alte** Verfahren (Ziffern zur Basis 255, fester Start). Die bessere Fassung (binaer, Zeit aus `$9261` + 2 min, Strecke aus `$91CF`, volle 32 Bit in der Anzeige) steckt im PR-Zweig `#3242` (`de81065f`) und ist nicht in `main`. Der Patch aendert dieselben Zeilen: Konflikte moeglich.
 - Hauptrelais bei dala: `datalayer.system.status.contactors_engaged` (`datalayer.h:444`): 0 Start, 1 angezogen, 2 von Battery-Emulator geoeffnet. Wird von anderen Dateien gelesen; keine Aenderung an dalas Dateien noetig.
 - NVROL-Ablauf bei dala (`transmit_reset_nvrol_frames`): Session `10 03`, Routine `B009` (`04 31 01 B0 09 00`), 1 s, Session `10 03`, `04 2E 92 81 01`, dann 30 s mit `0x373` B0 `01`. Fuer "Sleep 0x9281=1" die beiden letzten Schritte wiederverwenden.
+- **Entscheidung/Klarstellung Nutzer 12.11.: "Sleep 0x9281=1" macht KEINEN NVROL-Reset** (keine Routine `B009`). Wie am Twingo (`BATTERY.cpp:1135-1145`, gemessen im Code): Session `10 03`, dann direkt `04 2E 92 81 <Wert>`, danach Stille. "Sleep" (ohne 9281) sendet nur nichts mehr.
+- **Offen:** Welcher Wert wird geschrieben? Am Twingo ist der Standard `0x00` ("temporisation activated" laut ECU-Dump vom 28.09., Knopfname "=1" ist historisch), waehlbar `0x00`/`0x01`/`0x80`; dalas NVROL-Ablauf schreibt `0x01`, und die Zoe-Seite zeigt `0` als "Activated!" und `1` als "Disabled!". Entscheidung des Nutzers steht aus.
 
 ## 3. Frame-Inhalte (Beispielskript ljames28 und 11 Logs, gemessen)
 Prueffsumme: CRC-8, Polynom `0x1D`, Start 0, XOR je Frame, CRC-Byte nicht eingerechnet. Takt laut Skript: `0x133` 10 ms, `0x440`/`0x4CE`/`0x4FB` 100 ms (in den Logs nicht nachgemessen).
