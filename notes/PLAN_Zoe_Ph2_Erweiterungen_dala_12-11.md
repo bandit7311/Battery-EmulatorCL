@@ -40,6 +40,13 @@ Alles direkt **unter der Zeile "Temporisation"** der Advanced-Seite (in `get_uds
 - **Folge (Schluss, nicht am Aufbau getestet):** Der Wechselrichter bekommt in der Stille die letzten bekannten Werte bei geschlossenen Schuetzen; ein echter Fehler im Pack waere in dieser Zeit nicht sichtbar. Eine allgemeine Pruefung auf eingefrorene Werte gibt es bei dala nicht (`EVENT_STALE_VALUE` nur in zwei BMW-Treibern). Nach Ende oder "Wake up" laeuft die normale Pruefung wieder.
 - Offen: Wie lange der Pack nach Beginn der Stille noch selbst sendet, ist nicht gemessen.
 
+### Sleep: "Schuetze aus" gegenueber dem Pack (Entscheidung Nutzer 12.11.)
+- Nur **gegenueber dem Akku**: Bei "Go sleep" sendet der Treiber **3 Sekunden Vorlauf** lang `0x4FB` mit B2 = `02` ("Relais aus"), auch wenn die Schuetze real zu sind; danach beginnt die Stille. Gilt fuer **beide** Sleep-Arten ("Sleep" und "Sleep 0x9281=1").
+- Dalas Schuetzsteuerung und `contactors_engaged` bleiben unberuehrt; dem Wechselrichter wird nichts gemeldet (Variante B verworfen: `contactors_engaged` wird von dala alle 10 ms geschrieben und von anderen Dateien gelesen).
+- Der Vorlauf wirkt nur, wenn die Radiobox fuer `0x4FB` auf **on** steht (sonst wird der Frame nicht gesendet).
+- **Annahme (nicht bestaetigt):** Reihenfolge bei "Sleep 0x9281=1": Vorlauf 3 s, dann Session `10 03` und `2E 92 81 01`, dann Stille.
+- `0x440` (Relais/12 V, B1 `32`, B4 `9F`) ist **nicht** Teil des Plans.
+
 ## 3. Frame-Inhalte (Beispielskript ljames28 und 11 Logs, gemessen)
 Prueffsumme: CRC-8, Polynom `0x1D`, Start 0, XOR je Frame, CRC-Byte nicht eingerechnet. Takt laut Skript: `0x133` 10 ms, `0x440`/`0x4CE`/`0x4FB` 100 ms (in den Logs nicht nachgemessen).
 
