@@ -18,8 +18,8 @@ Alles direkt **unter der Zeile "Temporisation"** der Advanced-Seite (in `get_uds
 | Anzeige | `Time`, `Pack time`, `Mileage` mit allen Bits, Strecke in km umgerechnet |
 | Technik | Route in neuen Dateien (Variante 2: `...-ROUTES.h` und `.cpp`), zwei Zeilen in dalas `webserver.cpp` (`#include` und Aufruf, Muster `register_dump_can_route`, `webserver.cpp:1133`). **Kein Auto-Refresh** der Felder. Speichern mit `Preferences` in eigenem Namensraum, `#ifndef UNIT_TEST` |
 
-### Noch nicht bestaetigt (Annahme: Vorschlaege des Assistenten gelten, wenn der Nutzer nichts anderes sagt)
-1. Pruefgrenzen: Zeit nicht `0xFFFFFF`, nicht 0, nicht unter der Pack-Zeit `$91C1` (falls gelesen); **Baudatum ist keine Grenze (entschieden, Nutzer 12.11.)**; Strecke: Rohwert beginnt mit `0x80`, unter 1 Mio. km.
+### Pruefgrenzen und Set-Felder (Punkt 1 bestaetigt, Punkt 3 entschieden; Punkt 2 ist noch Annahme des Assistenten)
+1. Pruefgrenzen: Zeit nicht `0xFFFFFF`, nicht 0, nicht unter der Pack-Zeit `$91C1` (falls gelesen); **Baudatum ist keine Grenze (entschieden, Nutzer 12.11.)**; Strecke: Rohwert beginnt mit `0x80`, unter 1 Mio. km (**1 Mio. km bestaetigt, Nutzer 12.11.**).
 2. Eingetragene Zeit gilt nur im laufenden Betrieb und wird nicht im Flash gespeichert (sonst Ruecksprung nach jedem Neustart, wie bei "Time in 0x436"); die Strecke wird im Flash gespeichert.
 3. ~~Eingabe der Zeit als Datum mit Uhrzeit~~ **entschieden (Nutzer, 12.11.): Eingabe der Zeit nur in Minuten** (24-Bit-Zahl), kein Datum.
 
