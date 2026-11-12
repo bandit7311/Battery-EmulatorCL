@@ -88,3 +88,9 @@ Seite zeigt in der alten Fassung nur die unteren 16 Bit.
 - Core 6.2.0 liegt in `C:\Users\nb\.platformio620` (Python-Umgebung und PlatformIO-Daten im selben Ordner). Die Erweiterung von VS Code benutzt den alten Core 6.1.19 und scheitert an der Plattform `55.03.312-1`.
 - Vor jedem Build im selben Fenster setzen: `PLATFORMIO_CORE_DIR`, `PIP_CONSTRAINT` und `UV_CONSTRAINT` (Datei `C:\Users\nb\pio-constraints.txt` mit `platformio==6.2.0` und `pioarduino==6.2.0`, wie in dalas Workflow). Ohne die Pin-Datei holt die innere Umgebung `6.2.0-post.1` und die Plattform lehnt ab.
 - Build: `C:\Users\nb\.platformio620\Scripts\pio.exe run -e stark_330`. Erster Lauf erfolgreich nach Aufraeumen des Ordners (Stand `191de3594`). Versionsnummer wird `v13.5.0dev-191de35 (main)`, wenn die Tags geholt sind (`git fetch upstream --tags`).
+
+## 8. Merkliste (nur gemerkt, **nichts bauen**, Nutzer 12.11.)
+- **`0x440` (HEVC -> LBC, "Relay/12V Voltage" laut Beispielskript):** nicht Teil des Patches. Dalas Zoe sendet ihn nicht. Aufbau aus den 11 Logs (37.122 Frames, gemessen): B0 `00`; B1 `31` (eingerastet, 35.790) / `32` (ausgerastet fuer Schlafuebergang und Balancing, 510), selten `33`/`39`; B2 CRC (XOR `0xAB`); B3 Zaehler im oberen Halbbyte; B4 `1F` (Relais an, 36.275) / `9F` (Relais aus, 847); B5/B6 `FE FF`; **B7 wechselt** (`7C`, `82`, `94`, `81`, `7D`, ueber 49 weitere). Takt laut Skript 100 ms.
+  - **Offen:** Bedeutung von B7 (Vermutung 12-V-Wert, nicht belegt); ob B1 `32` und B4 `9F` beim Einschlafen zusammen mit `0x4FB` B2 `02` noetig sind; Abhaengigkeit vom Zustand (Schlafen, Laden, Fahren) nicht Zeitpunkt fuer Zeitpunkt zugeordnet.
+  - Zusammenhang: Beim echten Auto gehoeren `0x440` und `0x4FB` zum Zustand "Relais". Der 3-Sekunden-Vorlauf des Sleep sendet nur `0x4FB` mit `02`.
+- **`0x133` (Geschwindigkeit):** in dalas `main` nur auskommentiert (`.cpp:454`), nicht im Patch (siehe Abschnitt 3 fuer die Inhalte).
