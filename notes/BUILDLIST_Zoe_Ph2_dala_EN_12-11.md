@@ -130,3 +130,17 @@ Precedent in dala (measured): the Atto3 routes use `Preferences prefs; prefs.beg
 3. Reload after Set (assumption). Route names are proposals.
 4. Behaviour of the pack with `0x4FB` `02`, with `0x01` written to `0x9281`, and with a 600 s silence is **not tested**.
 5. Distance unit 0.1 km in `0x376` (dala's convention) is not verified.
+
+## 11. Built (12.11.2026, after "freigeben")
+Patch `zoe_ph2_extras.patch` against dala `main` `191de3594` (applies cleanly, checked with `git apply --check` on a fresh checkout). **6 files, +869 / -33**:
+- changed: `RENAULT-ZOE-GEN2-BATTERY.h` (+81), `RENAULT-ZOE-GEN2-BATTERY.cpp` (+351), `webserver.cpp` (**2 lines**: the include and `register_zoe_gen2_routes(server);` next to `register_dump_can_route(server);`)
+- new: `webserver_zoe_gen2.h/.cpp` (routes), `test/battery/RenaultZoeGen2Test.cpp` (18 tests)
+- Checks done (measured): `clang-format` 18 with dala's `.clang-format` reports no difference on all six files; the complete dala unit test suite (built with cmake/gtest in a scratch folder) ran **629 tests, 628 passed, 1 skipped** (the skip, `OtaConfirmPlacement...`, is not ours). The generated page HTML was rendered and looks as in the mockup.
+- **Not done:** no ESP32 firmware build (no toolchain in this environment), no test on hardware. `webserver_zoe_gen2.cpp` is not part of the unit test build, so it has only been read, not compiled.
+- Deviations from the plan above:
+  - Flash access is wrapped in `#ifndef UNIT_TEST` (the emulated `Preferences` in `test/emul` has declarations only, linking failed without it). Keys in namespace `batterySettings`: `ZOE4CE`, `ZOE4FB`, `ZOESLPMODE`, `ZOESLPSEC`, `ZOEDISTDKM` (manual distance in 0.1 km).
+  - The sleep state machine has an extra state `WaitIdle` (waits up to 500 ms for a running UDS request) before the optional session/write frames.
+  - After the silence (or Wake up) `startup_counter` is reset to 0 so the existing start-up filter for `0x0F8` runs again.
+  - The old `ZOE_376_time_now_s` / `kProductionTimestamp_s` members and their 1 s increment are removed (`0x376` is now binary).
+  - Plausibility of the time re-checks when `$91C1` arrives later; a time seeded from the pack that turns out lower than the pack time is dropped.
+- Assumptions that were built in as planned and are still unconfirmed: manual time not stored, manual distance stored; Go sleep ignored while the NVROL reset runs; page reloads once after a change.
