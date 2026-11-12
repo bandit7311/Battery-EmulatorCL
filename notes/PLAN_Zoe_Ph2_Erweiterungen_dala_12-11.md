@@ -33,6 +33,13 @@ Alles direkt **unter der Zeile "Temporisation"** der Advanced-Seite (in `get_uds
 - **Entschieden (Nutzer 12.11., Option a): "Sleep 0x9281=1" schreibt `0x01`**, wie der Name sagt und wie dalas NVROL-Ablauf und die README von ljames28 (`042E928101AAAAAA`). Kein waehlbarer Wert.
   - **Vorbehalt:** Dalas Anzeige liest `1` als "Disabled!" und `0` als "Activated!" (`.cpp:162-166`). Nach dem Schreiben kann die Zeile "Temporisation" also "1 Disabled!" zeigen. Den Widerspruch in dalas Text haben wir nicht aufgeloest. Am Twingo ist der Standard `0x00` (ECU-Dump vom 28.09.: `0x00` = activated); das wurde bei der Zoe nicht geprueft.
 
+### Sleep: Verhalten von dala waehrend der Stille und die 600 Sekunden (Nutzer 12.11., gelesen im Code von `191de3594`)
+- **Kette ohne Gegenmassnahme (gemessen im Code):** Der Zaehler `CAN_battery_still_alive` (`uint8_t`, Start `CAN_STILL_ALIVE` = 60, `types.h:78`) wird von jedem Frame des Packs auf 60 gesetzt und einmal pro Sekunde um 1 verringert (`safety.cpp:47-61`, Aufruf `:480`, Takt `Software.cpp:583`). Bei 0 wird `EVENT_CAN_BATTERY_MISSING` (Stufe ERROR, `events.cpp:178`) gesetzt, ca. **61 s nach dem letzten Frame**. ERROR setzt `system_status = FAULT` (`events.cpp:855`). Bei aktiver Schuetzsteuerung (`CNTCTRL`, am Stark vom Nutzer aktiv) oeffnen die Schuetze **10 s spaeter** (`comm_contactorcontrol.cpp:221-241`) und bleiben bis zum Neustart gesperrt.
+- **Entscheidung Nutzer: Stille bis 600 Sekunden, ohne dass dala einen Fehler setzt.** `CAN_STILL_ALIVE` kann nicht auf 600 gestellt werden (`uint8_t`, max. 255; Konstante gilt auch fuer Wechselrichter und Lader; liegt in dalas Datei). Umsetzung ohne Eingriff in dalas Dateien: waehrend der Stille setzt der Zoe-Treiber `datalayer_battery->status.CAN_battery_still_alive = CAN_STILL_ALIVE;` einmal pro Sekunde (Muster: dalas BMS-Reset, `comm_contactorcontrol.cpp:495`, und der Zoe-Treiber selbst beim Empfang, `.cpp:154-177`).
+- Eingabefeld "auto wake after": bis **600 s** erlaubt, Standard 10 s; kein Schutz.
+- **Folge (Schluss, nicht am Aufbau getestet):** Der Wechselrichter bekommt in der Stille die letzten bekannten Werte bei geschlossenen Schuetzen; ein echter Fehler im Pack waere in dieser Zeit nicht sichtbar. Eine allgemeine Pruefung auf eingefrorene Werte gibt es bei dala nicht (`EVENT_STALE_VALUE` nur in zwei BMW-Treibern). Nach Ende oder "Wake up" laeuft die normale Pruefung wieder.
+- Offen: Wie lange der Pack nach Beginn der Stille noch selbst sendet, ist nicht gemessen.
+
 ## 3. Frame-Inhalte (Beispielskript ljames28 und 11 Logs, gemessen)
 Prueffsumme: CRC-8, Polynom `0x1D`, Start 0, XOR je Frame, CRC-Byte nicht eingerechnet. Takt laut Skript: `0x133` 10 ms, `0x440`/`0x4CE`/`0x4FB` 100 ms (in den Logs nicht nachgemessen).
 
