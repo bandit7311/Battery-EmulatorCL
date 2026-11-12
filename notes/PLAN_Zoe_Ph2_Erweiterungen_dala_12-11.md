@@ -9,7 +9,7 @@ Alles direkt **unter der Zeile "Temporisation"** der Advanced-Seite (in `get_uds
 
 | Teil | Inhalt |
 |---|---|
-| Frames | Radiobox fuer `0x4CE` (fest "Fahren", B0 `7F`) und `0x4FB` (`04` Relais an, `02` aus, B0 = `0x80` + Zaehler). Standard beim Erststart **aus**, danach im Flash gespeichert |
+| Frames | **Zwei getrennte Radioboxen**, jeder Frame **einzeln** abschaltbar (Entscheidung Nutzer 12.11.): `0x4CE` (fest "Fahren", B0 `7F`) und `0x4FB` (`04` Relais an, `02` aus, B0 = `0x80` + Zaehler). Standard beim Erststart jeweils **aus**, danach je ein eigener Schluessel im Flash gespeichert |
 | Sleep | Auswahl "Sleep" / "Sleep 0x9281=1", Eingabe "auto wake after" in **Sekunden** (Standard **10 s**), Knopf Set, Knopf **Go sleep** (danach kein Frame mehr, auch keine UDS-Abfragen), Knopf **Wake up**. **Kein Schutz** gegen angezogene Schuetze, keine Rueckfrage angenommen |
 | Zeit | `0x376` binaer, Startwert aus `$9261` plus 2 Minuten, danach mit `millis()` weiter (nur waehrend der Emulator laeuft) |
 | Strecke | `0x376` binaer in 0,1 km, aus `$91CF` |
