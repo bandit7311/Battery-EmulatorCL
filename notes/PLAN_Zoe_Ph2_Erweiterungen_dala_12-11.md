@@ -21,7 +21,7 @@ Alles direkt **unter der Zeile "Temporisation"** der Advanced-Seite (in `get_uds
 ### Noch nicht bestaetigt (Annahme: Vorschlaege des Assistenten gelten, wenn der Nutzer nichts anderes sagt)
 1. Pruefgrenzen: Zeit nicht `0xFFFFFF`, nicht 0, nicht spaeter als Baudatum plus 1 Jahr, nicht unter der Pack-Zeit `$91C1` (falls gelesen); Strecke: Rohwert beginnt mit `0x80`, unter 1 Mio. km.
 2. Eingetragene Zeit gilt nur im laufenden Betrieb und wird nicht im Flash gespeichert (sonst Ruecksprung nach jedem Neustart, wie bei "Time in 0x436"); die Strecke wird im Flash gespeichert.
-3. Eingabe der Zeit als Datum mit Uhrzeit, daneben die Minuten.
+3. ~~Eingabe der Zeit als Datum mit Uhrzeit~~ **entschieden (Nutzer, 12.11.): Eingabe der Zeit nur in Minuten** (24-Bit-Zahl), kein Datum.
 
 ## 2. Stand in dala (gemessen, `origin/main` = `191de3594`)
 - `0x0F5` ist in `main` (Commit `ebb020c76`, 08.11.2026, "Add sending of 0x0F5 to reduce DTC amount"). `0x133` ist nur auskommentiert (`.cpp:454`), `0x4CE`, `0x440`, `0x4FB` fehlen.
