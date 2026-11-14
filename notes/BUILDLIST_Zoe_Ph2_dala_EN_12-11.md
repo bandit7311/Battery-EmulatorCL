@@ -200,7 +200,7 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 
 **What to read (new, read only, nothing is sent to the pack except the UDS requests):**
 - `22 92 61` to `0x18DADCF1` (reply from `0x18DAF1DC`): 3 bytes, minutes. Show `LBC2 time ($9261): 2972386 min (raw 2D 5A E2)`.
-- `22 92 62` to `0x18DADCF1`: 4 bytes, offset binary, (raw - 0x80000000) / 100 km. Show `LBC2 distance ($9262): 92785.00 km (raw 2156631076)`.
+- `22 92 62` to `0x18DADCF1`: 4 bytes, offset binary, (raw - 0x80000000) / 100 km. Show `LBC2 distance ($9262): 92785.00 km (raw 2156762148)`.
 - Candidate to read as well, because a Twingo bench pack answered it in the SCPU: `22 92 5F` (MERKLISTE_Test.md, "925F MCPU 6852 km, SCPU 6854 km"). Format in the SCPU not known (the Twingo code comment says raw - 0x80000000, 0.01 km). Show only if it answers, raw always in brackets.
 - If the SCPU does not answer: show `LBC2 time ($9261): no answer`.
 
@@ -217,7 +217,7 @@ Pack time: 2628957                                     (LBC1, $91C1, no counterp
 ...
 Mileage: 20360111 km (raw 2799007215)                  (LBC1, $91CF, no counterpart in the LBC2 list)
 Vehicle distance (0x925F): 31021.02 km (raw 4963364)   (LBC1)
-LBC2 distance ($9262): 92785.00 km (raw 2156631076)    <- new, next line
+LBC2 distance ($9262): 92785.00 km (raw 2156762148)    <- new, next line
 ```
 - Naming: "LBC2" is the second controller (SCPU, `0x18DADCF1`), the same name as the second DTC section on the page. The existing LBC1 lines keep their labels.
 - The LBC2 distance sits under "Vehicle distance" because `$9262` of the SCPU is the vehicle distance totalizer, the counterpart of `$925F`. The Twingo SCPU list has no counterpart for `$91CF` (Mileage) and `$91C1` (Pack time). Open: if the owner wants the LBC2 distance under "Mileage" instead, say so.
