@@ -206,7 +206,7 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 
 **How (design, based on the DTC code of PR #3242 that is already in the combined patch):**
 - A small sequence in the Zoe class, the same way as the DTC read: set the UDS target to `LBC2_UDS_REQUEST_ID` / `LBC2_UDS_RESPONSE_ID` (`set_uds_target()`), send the requests one after the other with `send_sequence_message(... ReadDataByIdentifier ...)`, take the answers in `on_uds_sequence_step()`, and **always switch the target back to the LBC at the end** so that the PID scan never runs against the SCPU.
-- When it runs: not in every scan round. Proposal: when the page loads is not possible (no auto refresh, no state change), so every 60 s between two PID scan rounds, and never while the emulator is silent (sleep) because then nothing may be sent.
+- When it runs: once per PID scan round, after the last entry of the list has been answered, and never while the emulator is silent (sleep).
 - New members only in `RENAULT-ZOE-GEN2-BATTERY.h/.cpp` (`uint32_t scpu_time`, `uint32_t scpu_distance_raw`, flags "answered"), no change to the rest of dala.
 
 **Page (owner, 14.11.):** the SCPU values stand **directly one line below the matching LBC value**, same style, ECU in the label, raw value always in brackets:
@@ -222,11 +222,15 @@ SCPU distance ($9262): 92785.00 km (raw 2156631076)    <- new, directly below Ve
 - The SCPU distance sits under "Vehicle distance" because `$9262` of the SCPU is the vehicle distance totalizer. Open: if the owner wants it under "Mileage ($91CF)" instead, say so.
 - The page itself has **no auto refresh** (owner rule), a reload shows the latest values.
 
-**Refresh of the values (data, not the page):** the LBC values refresh with every PID scan round (136 entries, 100 ms each, about 13.6 s). The SCPU values are read **every 60 s** (decision of this list, owner asked on 14.11. whether all values refresh every 60 s; the LBC rate is not changed). Open: owner may want 60 s for everything or the SCPU every scan round (about 14 s).
+**Refresh of the values (data, not the page) - decided by the owner on 14.11.:** the SCPU values are read **together with the LBC values, once per PID scan round** (136 entries, 100 ms each, about 13.6 s). The page itself has no auto refresh, a reload shows the latest values.
+- How: the SCPU sequence is started with `start_sequence()` when the **last entry of the scan list has been answered** (inside `handle_pid()`, the same way the DTC code starts its read-back). The base class starts a waiting sequence before the next PID step (`UdsCanBattery.cpp:64-73`) and the scan continues where it stopped.
+- Cost: two or three extra requests per round, a few tens of milliseconds. If the SCPU does not answer, each round would lose up to about 2 s by the timeout, therefore: **after three failed rounds in a row the SCPU is not asked again until the next start** and the page shows `no answer`.
+- Never while the emulator is silent (sleep): nothing is sent then.
+- The LBC rate is not changed. (An earlier version of this list had a fixed 60 s interval, replaced by this.)
 
-**Tests:** fake replies from the Twingo dump (`2D 5A E2` -> 2972386; `80 8D 94 24` -> 92785.00 km), no answer -> "no answer", the target is back on the LBC after the sequence (also after a timeout), the sequence is not started while the emulator is silent.
+**Tests:** fake replies from the Twingo dump (`2D 5A E2` -> 2972386; `80 8D 94 24` -> 92785.00 km), no answer -> "no answer", the target is back on the LBC after the sequence (also after a timeout), the sequence is not started while the emulator is silent, it starts once per scan round (after the last list entry), and after three failed rounds in a row the SCPU is not asked again.
 
 **Open points:**
 1. Does the Zoe SCPU answer these DIDs at all, and with which length and format? Unknown, the lists come from a Twingo pack.
-2. Interval of 60 s: owner to decide, it adds a few CAN frames per minute.
+2. Number of failed rounds before the SCPU is dropped (proposal: 3): owner to confirm.
 3. Do the requests disturb the pack? The DTC read on the SCPU works (seen on the bench), so reading DIDs there should be similar. Not tested.
