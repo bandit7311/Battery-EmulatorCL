@@ -169,9 +169,9 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 **Stay 16 bit (the reply has 1 or 2 bytes):** SoC, usable SoC, SoH, voltages, temperatures, 12 V, BMS mode (1 byte), fan values (1 byte), temporisation, SoC min/max.
 
 **Display:**
-- Every changed value shows the raw number in brackets, as for Mileage: `Balance time total: 44.38 h (raw 2147529216)`.
+- **Every converted value always shows the raw number in brackets behind it** (owner, 14.11.), as Mileage and Vehicle distance already do: `Balance time total: 44.38 h (raw 2147529216)`, `Balance capacity sleep: 281.42 Ah (raw 2147837360)`, `kWh: 19.38 (raw 19380)`. Values that are shown as the raw number only (Energy complete / partial, Time, Pack time) stay as they are.
 - Balancing capacity in Ah and balancing time in h: `(int32_t)(raw - 0x80000000) / 1024`, two decimals, sign kept.
-- `kWh` shows the raw value and kWh with two decimals (raw / 1000).
+- `kWh` shows kWh with two decimals (raw / 1000) and the raw value in brackets.
 - Use `uint32_t` arithmetic only, no floating point (same style as the existing Mileage line).
 
 **Tests (extend `RenaultZoeGen2Test.cpp`):**
