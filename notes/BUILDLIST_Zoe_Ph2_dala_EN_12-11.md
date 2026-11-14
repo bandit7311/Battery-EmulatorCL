@@ -192,3 +192,28 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 - Lines for `$F194` / `$F195` (software number and version) and `$F187` (part number). Open: no dump of the two Zoe packs exists.
 - Lines for `$9243` / `$9245` (cumulated energy in charge and discharge, 0.001 kWh per count). Started and **reverted** on 14.11. because the owner said not to build.
 - Version v7 of the unit question for `$925F` (miles or km): waits for the real odometer unit of the car.
+
+### Item 2 - show the time and the distance as they stand in the SCPU (LBC2) (planned, **NOT built**, 14.11.2026)
+**Why:** the page reads every value from the LBC `0x18DADBF1` (MCPU) only. In the Twingo auto-pack dumps the SCPU `0x18DADCF1` has its own time and its own distance: `$9261` "Abs time since first ignition" = `2D 5A E2` = 2972386 min, and `$9262` "Vehicle distance totalizer" = `80 8D 94 24` = 92785.00 km (`DID_Liste_SCPU_Dump_11-10.md:50-51`). The SCPU `$9261` is a running clock (+91 min in 90 min of real time), the MCPU `$9261` is a snapshot taken when the pack falls asleep (`BEFUND_Auto-Pack_Dump_Balancing_24-10.md:83`). The owner says the SCPU also holds kilometer information. Nobody has ever read these two values from a Zoe pack.
+
+**Careful:** the same DID number means something else in the other ECU. MCPU `$9262` = "Total balancing quantity, wake up mode", SCPU `$9262` = vehicle distance. The page must say which ECU a line comes from.
+
+**What to read (new, read only, nothing is sent to the pack except the UDS requests):**
+- `22 92 61` to `0x18DADCF1` (reply from `0x18DAF1DC`): 3 bytes, minutes. Show `SCPU time ($9261): 2972386 min (raw 2D 5A E2)`.
+- `22 92 62` to `0x18DADCF1`: 4 bytes, offset binary, (raw - 0x80000000) / 100 km. Show `SCPU distance ($9262): 92785.00 km (raw 2156631076)`.
+- Candidate to read as well, because a Twingo bench pack answered it in the SCPU: `22 92 5F` (MERKLISTE_Test.md, "925F MCPU 6852 km, SCPU 6854 km"). Format in the SCPU not known (the Twingo code comment says raw - 0x80000000, 0.01 km). Show only if it answers, raw always in brackets.
+- If the SCPU does not answer: show `SCPU time ($9261): no answer`.
+
+**How (design, based on the DTC code of PR #3242 that is already in the combined patch):**
+- A small sequence in the Zoe class, the same way as the DTC read: set the UDS target to `LBC2_UDS_REQUEST_ID` / `LBC2_UDS_RESPONSE_ID` (`set_uds_target()`), send the requests one after the other with `send_sequence_message(... ReadDataByIdentifier ...)`, take the answers in `on_uds_sequence_step()`, and **always switch the target back to the LBC at the end** so that the PID scan never runs against the SCPU.
+- When it runs: not in every scan round. Proposal: when the page loads is not possible (no auto refresh, no state change), so every 60 s between two PID scan rounds, and never while the emulator is silent (sleep) because then nothing may be sent.
+- New members only in `RENAULT-ZOE-GEN2-BATTERY.h/.cpp` (`uint32_t scpu_time`, `uint32_t scpu_distance_raw`, flags "answered"), no change to the rest of dala.
+
+**Page:** two or three new lines below the existing "Time" and "Pack time" lines, each with the ECU in the label and the raw value in brackets (same rule as item 1). In the table of the series the source header already names the controller.
+
+**Tests:** fake replies from the Twingo dump (`2D 5A E2` -> 2972386; `80 8D 94 24` -> 92785.00 km), no answer -> "no answer", the target is back on the LBC after the sequence (also after a timeout), the sequence is not started while the emulator is silent.
+
+**Open points:**
+1. Does the Zoe SCPU answer these DIDs at all, and with which length and format? Unknown, the lists come from a Twingo pack.
+2. Interval of 60 s: owner to decide, it adds a few CAN frames per minute.
+3. Do the requests disturb the pack? The DTC read on the SCPU works (seen on the bench), so reading DIDs there should be similar. Not tested.
