@@ -148,8 +148,8 @@ Patch `zoe_ph2_extras.patch` against dala `main` `191de3594` (applies cleanly, c
 ## 12. Build list 2 (planned, **NOT built**, 14.11.2026): counters and times that are still 16 bit
 Nothing is built until the owner says so. Same rules as in section 0 (dala coding style, only the two Zoe files, no change to the rest of dala).
 
-### Item 1 - make every counter and time 32 bit that is really longer than 16 bit
-**Why (measured):** `handle_pid()` gets the reply as one number of up to 4 bytes (`UdsCanBattery.cpp:299`), but the Zoe driver cuts several values to `(uint16_t)(value)`. The page then shows the raw value **modulo 65536**. For the balancing counters that means the display repeats every 64 h or 64 Ah (1/1024 per count). Example from the Original-Pack dump: `$9252` = `80 07 7E 47` = 479.57 h, a 16 bit display would show 32327 (31.6 h).
+### Item 1 - make every counter and time 32 bit that is really longer than 16 bit (**built 14.11.2026**, patch v7)
+**Why (measured):** `handle_pid()` gets the reply as one number of up to 4 bytes (`UdsCanBattery.cpp:299`), but the Zoe driver cuts several values to `(uint16_t)(value)`. The page then shows the raw value **modulo 65536**. For the balancing counters that means the display repeats every 64 h or 64 Ah (1/1024 per count). Example from the Original-Pack dump: `$9252` = `80 07 7E 47` = 479.5693 h (the page shows 479.56, the decimals are cut, not rounded), a 16 bit display would show 32327 (31.6 h).
 
 **Variables to change from `uint16_t` to `uint32_t`** (file `RENAULT-ZOE-GEN2-BATTERY.h`, `handle_pid()` and `get_uds_info_html()` in the `.cpp`):
 
@@ -158,7 +158,7 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 | `battery_balance_capacity_total` | `$924F` | 4 (not in the dump, per BMS description) | balanced charge, (raw - 0x80000000) / 1024 Ah | `BEFUND_Balancing_Zaehler_17-10.md:6` |
 | `battery_balance_time_total` | `$9250` | 4 (not in the dump, per BMS description) | balancing time, (raw - 0x80000000) / 1024 h | same |
 | `battery_balance_capacity_sleep` | `$9251` | 4 | `80 04 65 B0` = 281.42 Ah | `DID_Liste_Original-Pack_Dump_24-07-2025.md:335` |
-| `battery_balance_time_sleep` | `$9252` | 4 | `80 07 7E 47` = 479.57 h | same, `:336` |
+| `battery_balance_time_sleep` | `$9252` | 4 | `80 07 7E 47` = 479.5693 h (the page shows 479.56, the decimals are cut, not rounded) | same, `:336` |
 | `battery_balance_capacity_wake` | `$9262` | 4 | `80 00 00 00` = 0 | same dump |
 | `battery_balance_time_wake` | `$9263` | 4 | `80 00 00 00` = 0 | same dump |
 | `battery_kwh` | `$91C8` | 3 | "Available Energy", `00 4B B4` = 19380 = 19.38 kWh (0.001 kWh per count) | same dump, `:211` |
@@ -169,13 +169,13 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 **Stay 16 bit (the reply has 1 or 2 bytes):** SoC, usable SoC, SoH, voltages, temperatures, 12 V, BMS mode (1 byte), fan values (1 byte), temporisation, SoC min/max.
 
 **Display:**
-- **Every converted value always shows the raw number in brackets behind it** (owner, 14.11.), as Mileage and Vehicle distance already do: `Balance time total: 44.38 h (raw 2147529216)`, `Balance capacity sleep: 281.42 Ah (raw 2147837360)`, `kWh: 19.38 (raw 19380)`. Values that are shown as the raw number only (Energy complete / partial, Time, Pack time) stay as they are.
+- **Every converted value always shows the raw number in brackets behind it** (owner, 14.11.), as Mileage and Vehicle distance already do: `Balance time total: 44.37 h (raw 2147529216)`, `Balance capacity sleep: 281.42 Ah (raw 2147837360)`, `kWh: 19.38 (raw 19380)`. Values that are shown as the raw number only (Energy complete / partial, Time, Pack time) stay as they are.
 - Balancing capacity in Ah and balancing time in h: `(int32_t)(raw - 0x80000000) / 1024`, two decimals, sign kept.
 - `kWh` shows kWh with two decimals (raw / 1000) and the raw value in brackets.
 - Use `uint32_t` arithmetic only, no floating point (same style as the existing Mileage line).
 
 **Tests (extend `RenaultZoeGen2Test.cpp`):**
-- `0x80077E47` gives `479.57 h`, `0x800465B0` gives `281.42 Ah`, `0x80000000` gives `0`, a value above 65535 counts is not cut, a value below `0x80000000` shows a minus sign.
+- `0x80077E47` gives `479.56 h`, `0x800465B0` gives `281.42 Ah`, `0x80000000` gives `0`, a value above 65535 counts is not cut, a value below `0x80000000` shows a minus sign.
 - `kWh` `0x004BB4` gives `19.38`.
 - Full dala suite and `clang-format` must stay clean.
 
@@ -186,7 +186,7 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 
 **Effect on the rest:** these variables are only used on the advanced page (checked: `battery_kwh` appears in `handle_pid()` and the page only). No frame content changes.
 
-### Item 2 - show the time and the distance as they stand in the SCPU (LBC2) (planned, **NOT built**, 14.11.2026)
+### Item 2 - show the time and the distance as they stand in the SCPU (LBC2) (**built 14.11.2026**, patch v7)
 **Why:** the page reads every value from the LBC `0x18DADBF1` (MCPU) only. In the Twingo auto-pack dumps the SCPU `0x18DADCF1` has its own time and its own distance: `$9261` "Abs time since first ignition" = `2D 5A E2` = 2972386 min, and `$9262` "Vehicle distance totalizer" = `80 8D 94 24` = 92785.00 km (`DID_Liste_SCPU_Dump_11-10.md:50-51`). The SCPU `$9261` is a running clock (+91 min in 90 min of real time), the MCPU `$9261` is a snapshot taken when the pack falls asleep (`BEFUND_Auto-Pack_Dump_Balancing_24-10.md:83`). The owner says the SCPU also holds kilometer information. Nobody has ever read these two values from a Zoe pack.
 
 **Careful:** the same DID number means something else in the other ECU. MCPU `$9262` = "Total balancing quantity, wake up mode", SCPU `$9262` = vehicle distance. The page must say which ECU a line comes from.
@@ -229,7 +229,7 @@ LBC2 distance ($9262): 92785.00 km (raw 2156762148)    <- new, next line
 2. Number of failed rounds before the SCPU is dropped (proposal: 3): owner to confirm.
 3. Do the requests disturb the pack? The DTC read on the SCPU works (seen on the bench), so reading DIDs there should be similar. Not tested.
 
-### Item 3 - switch "HEVC frame 0x376: off / on" (planned, **NOT built**, 14.11.2026)
+### Item 3 - switch "HEVC frame 0x376: off / on" (**built 14.11.2026**, patch v7)
 **Why (owner):** with `0x376` switched off nothing about time and distance is taken over by the pack, so the pack values can be seen without manipulation (together with the 32 bit display of item 1 and the LBC2 lines of item 2).
 
 **Decided by the owner on 14.11.:**
@@ -259,3 +259,10 @@ LBC2 distance ($9262): 92785.00 km (raw 2156762148)    <- new, next line
 - Lines for `$F194` / `$F195` (software number and version) and `$F187` (part number). Open: no dump of the two Zoe packs exists.
 - Lines for `$9243` / `$9245` (cumulated energy in charge and discharge, 0.001 kWh per count). Started and **reverted** on 14.11. because the owner said not to build.
 - Version v7 of the unit question for `$925F` (miles or km): waits for the real odometer unit of the car.
+
+### Built 14.11.2026 (after "bauen", patch `zoe_komplett_v7.patch` = v6 plus items 1, 2 and 3)
+- Item 1: the six balancing counters, `kWh`, `Energy complete` and `Energy partial` are `uint32_t`. Balancing lines show Ah or h with two decimals (cut, not rounded) and `(raw ...)`; `0` is shown as `Not read yet`; `kWh` shows kWh and `(raw ...)`.
+- Item 2: after the last entry of the scan list (`POLL_CELL_95`) a sequence `ZOE_LBC2_VALUES_START` -> `ZOE_LBC2_TIME` -> `ZOE_LBC2_DISTANCE` reads `22 92 61` and `22 92 62` from `0x18DADCF1` (timeout 0.5 s, no retry, the second request is skipped if the first one is not answered), the target goes back to `0x18DADBF1` at the end. After three rounds without a value `lbc2_given_up` is set and the lines show `no answer`. The lines `LBC2 time ($9261)` and `LBC2 distance ($9262)` stand directly below `Time` and `Vehicle distance (0x925F)`. The `22 92 5F` candidate was **not** built.
+- Item 3: radio box `HEVC frame 0x376` first of the five, default off, NVM key `ZOE376`, route `/editZoeGen2Frame376`; off: nothing is sent, the clock keeps running, the page says `0x376 is switched off, not sent.`
+- Checks: `clang-format` (dala `.clang-format`) clean on all files, complete dala unit test suite 658 tests, 657 passed, 1 skipped. **Not done:** no ESP32 firmware build here, no test on a pack.
+- Test fixture: the existing tests set `frame_376_enabled = true` because the default is now off.
