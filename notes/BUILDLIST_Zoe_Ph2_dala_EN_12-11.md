@@ -186,8 +186,32 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 
 **Effect on the rest:** these variables are only used on the advanced page (checked: `battery_kwh` appears in `handle_pid()` and the page only). No frame content changes.
 
+### Item 3 - switch "HEVC frame 0x376: off / on" (planned, **NOT built**, 14.11.2026)
+**Why (owner):** with `0x376` switched off nothing about time and distance is taken over by the pack, so the pack values can be seen without manipulation (together with the 32 bit display of item 1 and the LBC2 lines of item 2).
+
+**Decided by the owner on 14.11.:**
+- A radio box `HEVC frame 0x376: ( ) off ( ) on` in the same group as `0x4CE`, `0x4FB`, `0x133` and `0x440` (below `0x440`, above "Sleep mode").
+- **Default off** (first start, no stored value). The state is **stored in the NVM**: key `ZOE376` in the namespace `batterySettings` (`getBool` / `putBool`, inside `#ifndef UNIT_TEST`, same as the other four).
+- Route `/editZoeGen2Frame376?value=0|1` in `webserver_zoe_gen2.cpp`, same handler style as the other frame routes.
+- Static member `RenaultZoeGen2Battery::frame_376_enabled` (default `false`), loaded in `load_settings()`, saved in `save_settings()`.
+
+**Behaviour when off:**
+- `transmit_can_frame_376()` returns before it sends anything. All other frames stay as they are.
+- The time and distance logic keeps working: the clock (`zoe_376_base_minutes` / `millis()`) keeps running, the pack values are still read, the typed values (time not stored, distance stored) are still accepted. When the switch goes on, the frame continues with the correct time, no new seeding. (Proposal of this list, owner to confirm.)
+- The lines under "Vehicle time (0x376)" and "Vehicle distance (0x376)" say `0x376 is switched off, not sent` instead of the plausibility text.
+- The TX frame counter (item "frame rate") shows the lower rate; nothing else changes.
+- During the sleep nothing is sent anyway.
+
+**Consequences the owner has accepted by choosing default off:**
+- After flashing, a device that sends `0x376` today **stops sending it** until the radio box is set to on once.
+- The real car sends `0x376` all the time. Without it the pack may set a fault such as "missing message" (`U214x87`). Not measured. Check the DTC list after the first run with the switch off.
+- The last value that the pack took from `0x376` (time, `$925F`) stays in the pack. Switching off does not undo what was already taken over.
+
+**Tests (`RenaultZoeGen2Test.cpp`):** default is off and nothing is sent; on sends `0x376` with the checked content (time, distance, byte 6 and 7); off again stops it; the clock keeps running while off (switch on later, the time is behind the start by the elapsed minutes); the page shows the radio box and the route; typed values stay accepted while off; the sleep sequence is unchanged.
+
+**Open points:** (1) does the clock keep running while off (proposal: yes)? (2) the text for the off state (wording above is a proposal).
+
 ### Discussed, **not decided and not built** (kept here so they are not lost)
-- Switch "HEVC frame 0x376: off / on" (default on, stored in the NVM). Open: does the driver clock keep running while it is off?
 - Optional switches for `0x5F8` (Vehicle ID) and `0x6BF` (Total boost time), so that really nothing from the emulator reaches the pack.
 - Lines for `$F194` / `$F195` (software number and version) and `$F187` (part number). Open: no dump of the two Zoe packs exists.
 - Lines for `$9243` / `$9245` (cumulated energy in charge and discharge, 0.001 kWh per count). Started and **reverted** on 14.11. because the owner said not to build.
