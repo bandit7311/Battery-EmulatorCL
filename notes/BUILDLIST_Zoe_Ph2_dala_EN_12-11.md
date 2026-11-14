@@ -199,27 +199,28 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 **Careful:** the same DID number means something else in the other ECU. MCPU `$9262` = "Total balancing quantity, wake up mode", SCPU `$9262` = vehicle distance. The page must say which ECU a line comes from.
 
 **What to read (new, read only, nothing is sent to the pack except the UDS requests):**
-- `22 92 61` to `0x18DADCF1` (reply from `0x18DAF1DC`): 3 bytes, minutes. Show `SCPU time ($9261): 2972386 min (raw 2D 5A E2)`.
-- `22 92 62` to `0x18DADCF1`: 4 bytes, offset binary, (raw - 0x80000000) / 100 km. Show `SCPU distance ($9262): 92785.00 km (raw 2156631076)`.
+- `22 92 61` to `0x18DADCF1` (reply from `0x18DAF1DC`): 3 bytes, minutes. Show `LBC2 time ($9261): 2972386 min (raw 2D 5A E2)`.
+- `22 92 62` to `0x18DADCF1`: 4 bytes, offset binary, (raw - 0x80000000) / 100 km. Show `LBC2 distance ($9262): 92785.00 km (raw 2156631076)`.
 - Candidate to read as well, because a Twingo bench pack answered it in the SCPU: `22 92 5F` (MERKLISTE_Test.md, "925F MCPU 6852 km, SCPU 6854 km"). Format in the SCPU not known (the Twingo code comment says raw - 0x80000000, 0.01 km). Show only if it answers, raw always in brackets.
-- If the SCPU does not answer: show `SCPU time ($9261): no answer`.
+- If the SCPU does not answer: show `LBC2 time ($9261): no answer`.
 
 **How (design, based on the DTC code of PR #3242 that is already in the combined patch):**
 - A small sequence in the Zoe class, the same way as the DTC read: set the UDS target to `LBC2_UDS_REQUEST_ID` / `LBC2_UDS_RESPONSE_ID` (`set_uds_target()`), send the requests one after the other with `send_sequence_message(... ReadDataByIdentifier ...)`, take the answers in `on_uds_sequence_step()`, and **always switch the target back to the LBC at the end** so that the PID scan never runs against the SCPU.
 - When it runs: once per PID scan round, after the last entry of the list has been answered, and never while the emulator is silent (sleep).
 - New members only in `RENAULT-ZOE-GEN2-BATTERY.h/.cpp` (`uint32_t scpu_time`, `uint32_t scpu_distance_raw`, flags "answered"), no change to the rest of dala.
 
-**Page (owner, 14.11.):** the SCPU values stand **directly one line below the matching LBC value**, same style, ECU in the label, raw value always in brackets:
+**Page (owner, 14.11.):** each LBC2 (SCPU) value stands **directly in the line below its matching LBC1 value**: kilometer to kilometer, time to time. LBC1 first, then the next line LBC2. Same style, raw value always in brackets:
 ```
-Time: 2200548                              (LBC $9261)
-SCPU time ($9261): 2972386 min (raw 2D 5A E2)        <- new, directly below Time
-Pack time: 2628957                         (LBC $91C1)
+Time: 2200548                                          (LBC1, $9261)
+LBC2 time ($9261): 2972386 min (raw 2D 5A E2)          <- new, next line
+Pack time: 2628957                                     (LBC1, $91C1, no counterpart in the LBC2 list)
 ...
-Mileage: 20360111 km (raw 2799007215)      (LBC $91CF)
-Vehicle distance (0x925F): 31021.02 km (raw 4963364)  (LBC)
-SCPU distance ($9262): 92785.00 km (raw 2156631076)    <- new, directly below Vehicle distance
+Mileage: 20360111 km (raw 2799007215)                  (LBC1, $91CF, no counterpart in the LBC2 list)
+Vehicle distance (0x925F): 31021.02 km (raw 4963364)   (LBC1)
+LBC2 distance ($9262): 92785.00 km (raw 2156631076)    <- new, next line
 ```
-- The SCPU distance sits under "Vehicle distance" because `$9262` of the SCPU is the vehicle distance totalizer. Open: if the owner wants it under "Mileage ($91CF)" instead, say so.
+- Naming: "LBC2" is the second controller (SCPU, `0x18DADCF1`), the same name as the second DTC section on the page. The existing LBC1 lines keep their labels.
+- The LBC2 distance sits under "Vehicle distance" because `$9262` of the SCPU is the vehicle distance totalizer, the counterpart of `$925F`. The Twingo SCPU list has no counterpart for `$91CF` (Mileage) and `$91C1` (Pack time). Open: if the owner wants the LBC2 distance under "Mileage" instead, say so.
 - The page itself has **no auto refresh** (owner rule), a reload shows the latest values.
 
 **Refresh of the values (data, not the page) - decided by the owner on 14.11.:** the SCPU values are read **together with the LBC values, once per PID scan round** (136 entries, 100 ms each, about 13.6 s). The page itself has no auto refresh, a reload shows the latest values.
