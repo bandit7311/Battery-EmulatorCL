@@ -144,3 +144,51 @@ Patch `zoe_ph2_extras.patch` against dala `main` `191de3594` (applies cleanly, c
   - The old `ZOE_376_time_now_s` / `kProductionTimestamp_s` members and their 1 s increment are removed (`0x376` is now binary).
   - Plausibility of the time re-checks when `$91C1` arrives later; a time seeded from the pack that turns out lower than the pack time is dropped.
 - Assumptions that were built in as planned and are still unconfirmed: manual time not stored, manual distance stored; Go sleep ignored while the NVROL reset runs; page reloads once after a change.
+
+## 12. Build list 2 (planned, **NOT built**, 14.11.2026): counters and times that are still 16 bit
+Nothing is built until the owner says so. Same rules as in section 0 (dala coding style, only the two Zoe files, no change to the rest of dala).
+
+### Item 1 - make every counter and time 32 bit that is really longer than 16 bit
+**Why (measured):** `handle_pid()` gets the reply as one number of up to 4 bytes (`UdsCanBattery.cpp:299`), but the Zoe driver cuts several values to `(uint16_t)(value)`. The page then shows the raw value **modulo 65536**. For the balancing counters that means the display repeats every 64 h or 64 Ah (1/1024 per count). Example from the Original-Pack dump: `$9252` = `80 07 7E 47` = 479.57 h, a 16 bit display would show 32327 (31.6 h).
+
+**Variables to change from `uint16_t` to `uint32_t`** (file `RENAULT-ZOE-GEN2-BATTERY.h`, `handle_pid()` and `get_uds_info_html()` in the `.cpp`):
+
+| Variable | DID | Bytes in the reply | Meaning and scale | Source |
+|---|---|---|---|---|
+| `battery_balance_capacity_total` | `$924F` | 4 (not in the dump, per BMS description) | balanced charge, (raw - 0x80000000) / 1024 Ah | `BEFUND_Balancing_Zaehler_17-10.md:6` |
+| `battery_balance_time_total` | `$9250` | 4 (not in the dump, per BMS description) | balancing time, (raw - 0x80000000) / 1024 h | same |
+| `battery_balance_capacity_sleep` | `$9251` | 4 | `80 04 65 B0` = 281.42 Ah | `DID_Liste_Original-Pack_Dump_24-07-2025.md:335` |
+| `battery_balance_time_sleep` | `$9252` | 4 | `80 07 7E 47` = 479.57 h | same, `:336` |
+| `battery_balance_capacity_wake` | `$9262` | 4 | `80 00 00 00` = 0 | same dump |
+| `battery_balance_time_wake` | `$9263` | 4 | `80 00 00 00` = 0 | same dump |
+| `battery_kwh` | `$91C8` | 3 | "Available Energy", `00 4B B4` = 19380 = 19.38 kWh (0.001 kWh per count) | same dump, `:211` |
+| `battery_energy_complete` | `$9210` | unknown (notes say 16 bit) | number of complete charges | `BAULISTE.md` |
+| `battery_energy_partial` | `$9215` | unknown | number of partial charges | not in the dump |
+
+**Already 32 bit, no change:** `battery_time` (`$9261`), `battery_pack_time` (`$91C1`), `battery_mileage` (`$91CF`), `battery_vehicle_distance` (`$925F`), `battery_slave_failures`.
+**Stay 16 bit (the reply has 1 or 2 bytes):** SoC, usable SoC, SoH, voltages, temperatures, 12 V, BMS mode (1 byte), fan values (1 byte), temporisation, SoC min/max.
+
+**Display:**
+- Every changed value shows the raw number in brackets, as for Mileage: `Balance time total: 44.38 h (raw 2147529216)`.
+- Balancing capacity in Ah and balancing time in h: `(int32_t)(raw - 0x80000000) / 1024`, two decimals, sign kept.
+- `kWh` shows the raw value and kWh with two decimals (raw / 1000).
+- Use `uint32_t` arithmetic only, no floating point (same style as the existing Mileage line).
+
+**Tests (extend `RenaultZoeGen2Test.cpp`):**
+- `0x80077E47` gives `479.57 h`, `0x800465B0` gives `281.42 Ah`, `0x80000000` gives `0`, a value above 65535 counts is not cut, a value below `0x80000000` shows a minus sign.
+- `kWh` `0x004BB4` gives `19.38`.
+- Full dala suite and `clang-format` must stay clean.
+
+**Open points before building:**
+1. The reply lengths above come from dumps of other packs (Original-Pack, Auto-Pack). For the Zoe LBC they are **assumed**. Reading is safe either way, because `handle_pid()` takes up to 4 bytes.
+2. `$9210` and `$9215`: length unknown, made 32 bit because it costs nothing.
+3. Whether the page should also show hours for `Balance time` only, or the raw value only (owner to decide).
+
+**Effect on the rest:** these variables are only used on the advanced page (checked: `battery_kwh` appears in `handle_pid()` and the page only). No frame content changes.
+
+### Discussed, **not decided and not built** (kept here so they are not lost)
+- Switch "HEVC frame 0x376: off / on" (default on, stored in the NVM). Open: does the driver clock keep running while it is off?
+- Optional switches for `0x5F8` (Vehicle ID) and `0x6BF` (Total boost time), so that really nothing from the emulator reaches the pack.
+- Lines for `$F194` / `$F195` (software number and version) and `$F187` (part number). Open: no dump of the two Zoe packs exists.
+- Lines for `$9243` / `$9245` (cumulated energy in charge and discharge, 0.001 kWh per count). Started and **reverted** on 14.11. because the owner said not to build.
+- Version v7 of the unit question for `$925F` (miles or km): waits for the real odometer unit of the car.
