@@ -190,7 +190,7 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 **Why (owner):** with `0x376` switched off nothing about time and distance is taken over by the pack, so the pack values can be seen without manipulation (together with the 32 bit display of item 1 and the LBC2 lines of item 2).
 
 **Decided by the owner on 14.11.:**
-- A radio box `HEVC frame 0x376: ( ) off ( ) on` in the same group as `0x4CE`, `0x4FB`, `0x133` and `0x440` (below `0x440`, above "Sleep mode").
+- A radio box `HEVC frame 0x376: ( ) off ( ) on` in the same group as `0x4CE`, `0x4FB`, `0x133` and `0x440`, as the **first one of the five, above `0x4CE`** (owner, 14.11.). Order on the page: `0x376`, `0x4CE`, `0x4FB`, `0x133`, `0x440`, then "Sleep mode". It gets its own short description line like the others, for example `Time and distance, see the two fields below. Stored.`
 - **Default off** (first start, no stored value). The state is **stored in the NVM**: key `ZOE376` in the namespace `batterySettings` (`getBool` / `putBool`, inside `#ifndef UNIT_TEST`, same as the other four).
 - Route `/editZoeGen2Frame376?value=0|1` in `webserver_zoe_gen2.cpp`, same handler style as the other frame routes.
 - Static member `RenaultZoeGen2Battery::frame_376_enabled` (default `false`), loaded in `load_settings()`, saved in `save_settings()`.
