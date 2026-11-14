@@ -209,7 +209,20 @@ Nothing is built until the owner says so. Same rules as in section 0 (dala codin
 - When it runs: not in every scan round. Proposal: when the page loads is not possible (no auto refresh, no state change), so every 60 s between two PID scan rounds, and never while the emulator is silent (sleep) because then nothing may be sent.
 - New members only in `RENAULT-ZOE-GEN2-BATTERY.h/.cpp` (`uint32_t scpu_time`, `uint32_t scpu_distance_raw`, flags "answered"), no change to the rest of dala.
 
-**Page:** two or three new lines below the existing "Time" and "Pack time" lines, each with the ECU in the label and the raw value in brackets (same rule as item 1). In the table of the series the source header already names the controller.
+**Page (owner, 14.11.):** the SCPU values stand **directly one line below the matching LBC value**, same style, ECU in the label, raw value always in brackets:
+```
+Time: 2200548                              (LBC $9261)
+SCPU time ($9261): 2972386 min (raw 2D 5A E2)        <- new, directly below Time
+Pack time: 2628957                         (LBC $91C1)
+...
+Mileage: 20360111 km (raw 2799007215)      (LBC $91CF)
+Vehicle distance (0x925F): 31021.02 km (raw 4963364)  (LBC)
+SCPU distance ($9262): 92785.00 km (raw 2156631076)    <- new, directly below Vehicle distance
+```
+- The SCPU distance sits under "Vehicle distance" because `$9262` of the SCPU is the vehicle distance totalizer. Open: if the owner wants it under "Mileage ($91CF)" instead, say so.
+- The page itself has **no auto refresh** (owner rule), a reload shows the latest values.
+
+**Refresh of the values (data, not the page):** the LBC values refresh with every PID scan round (136 entries, 100 ms each, about 13.6 s). The SCPU values are read **every 60 s** (decision of this list, owner asked on 14.11. whether all values refresh every 60 s; the LBC rate is not changed). Open: owner may want 60 s for everything or the SCPU every scan round (about 14 s).
 
 **Tests:** fake replies from the Twingo dump (`2D 5A E2` -> 2972386; `80 8D 94 24` -> 92785.00 km), no answer -> "no answer", the target is back on the LBC after the sequence (also after a timeout), the sequence is not started while the emulator is silent.
 
