@@ -115,6 +115,12 @@ New order, one group:
 ## Open (owner to decide)
 None at the moment. All questions are answered (18.11.2026). Details of wording may still change.
 
+## Facts from the Renault DDT file of the Zoe Ph2 MCPU (18.11.2026, `QUELLE_DDT_MCPU_Zoe_Ph2_Auszug_18-11.md`, read, not tested on a device)
+- `$925F` "Distance Totalizer (vehicle)" is **km, step 0.01** (32 bit signed). So the register holds **360160.04 km** for Pack 3 (raw 36016004); our "225100.02 mi" in the LBC1 line is **raw / 160**, a conversion (km / 1.6). The frame 0x376 value 225100 became exactly 360160 km (factor 1.6).
+- `$91CF` "Battery mileage": km, step 1/32, offset 0x80000000 (formula confirmed). `$9261` = absolute time of vehicle **saved** (min), `$91C1` = pack time **since 1st power-up** (min).
+- Open for the owner: the LBC1 distance line shows `mi` (a conversion). The register unit is km. Keep the `mi` line as decided, or show `km` with the raw value and the `mi` in brackets? Not changed.
+- The Ph2 has a reset for Safety Mode 1: `31 01 B0 04 00` ("ResetSM1") after `10 03`; the reason is in `$9216`. Not part of this build list.
+
 ## Not verified
 - Compiles on the ESP32 (`-Werror`) and passes the tests on `v13.6.0`.
 - Whether the pack takes a time or distance that is lower than its own (never tested).

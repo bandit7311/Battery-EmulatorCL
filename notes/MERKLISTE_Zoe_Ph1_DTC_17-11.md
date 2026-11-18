@@ -90,3 +90,5 @@ Die Datei `X10_X61_X62_L38_EV_BMS_v6.3.1_LR` (Projekte x10, x38, x61, x61Ph2, x6
 6. **Zusatz:** Routine `31 02 00` heisst "stop cell balancing" (Wirkung nicht gelesen).
 
 **Moegliche Folgen fuer den Treiber (nichts entschieden, nichts gebaut):** `21 03` lesen und das Safety-Mode-Flag anzeigen, eine Taste "Erase safety mode" (`10 C0`, `31 05 00`) neben "Erase DTC".
+
+**Vergleich 18.11.:** Die Ph2 hat eine eigene Reset-Routine fuer Safety Mode 1, `31 01 B0 04 00` ("ResetSM1"), siehe `QUELLE_DDT_MCPU_Zoe_Ph2_Auszug_18-11.md`. Ph1: `31 05 00`.
