@@ -62,3 +62,11 @@ Abgelesen von Claude.
 - Alle aktiven Fehler (U214381 LBC, P1B2081, U214387 LBC2, U214381 LBC2) sind weg bzw. nur noch gespeichert. Die Speicherfehler (P1B0D47, P1B0D41, P1B0E41) sind nicht mehr in der Liste.
 - TX-Frames pro Sekunde **372** (vorher 232 mit allen Zusatzframes aus), RX **168** (unveraendert). Status awake, Sleep mode "Sleep", Auto wake 10 s.
 - Offen: ob die zwei letzten Fehler mit "Erase DTC" verschwinden und nach einem Sleep nicht zurueckkommen.
+
+## Schritt 4 (v10/v11, Raul 21:41 und 21:58): Knopf "Erase Safety Mode 1"
+Abgelesen von Claude.
+- **v10, 21:41:** `31 01 B0 04 00` (Laenge 5) -> Antwort `03 7F 31 31` = NRC 0x31 (requestOutOfRange nach UDS-Norm).
+- **v11, 21:58:** erster Versuch `31 01 B0 04 00` wieder `03 7F 31 31`; zweiter Versuch `31 01 B0 04` (Laenge 4) ebenfalls `03 7F 31 31`. **Beide Formen abgelehnt mit 0x31.** Sitzung `10 03` und Adresse funktionieren (das Pack antwortet), die Routine B004 geht in diesem Zustand nicht.
+- Moegliche Gruende, mit dieser Messung nicht zu trennen: (a) B004 gibt es in der Software von Pack 4 nicht (die DDT ist "SW5XX V1.5", Stand 25.05.2022; B009/NVROL steht dort auch nicht und geht trotzdem), (b) die Routine laeuft nur, wenn ein Safety Mode 1 aktiv ist (`$9216` ist hier 0), (c) es fehlt eine andere Sitzung oder ein Freischalten.
+- **Boot-Zaehler:** nach v11-Flash Tage 1552 (+1), Strecke 15 mi (+5), Minuten 5. Zeit LBC1/LBC2 2234885 min, gleich. Pack time weiter 2232002, Pack distance weiter 0 km (kein Sleep seit 21:26). **Gelbe Warnung weg** (v11-Korrektur wirkt).
+- Boot 21:54: LBC 1 Code P1B2081 Confirmed (Relay 4, `0x4FB`), LBC2 keine Codes.
