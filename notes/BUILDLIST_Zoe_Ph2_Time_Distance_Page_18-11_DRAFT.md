@@ -99,6 +99,7 @@ New order, one group:
 ## Next patch (v9), owner 18.11.2026, not built
 - The **minutes field** in the box "Time since first installation" gets a **light grey background** (`background:#c8c8c8`) so that it is clear that it cannot be changed. It is already `readonly` (`RENAULT-ZOE-GEN2-BATTERY.cpp`, field `zoeMinutes`). One style attribute plus a small test. The mock-up shows it.
 - Facts about the minutes (checked in the code): they start at 0 at every start of the emulator (`count_boot()`), at every Set of the days and after every 1440 minutes. As long as no days were set they show 0 and nothing counts. The page does not refresh itself, the field shows the value of the moment the page was loaded.
+- The **bold NVROL sentence** under the 0x376 hint changes (owner, 18.11.) from `After NVROL Reset, this frame will be initially turned off again and has to be restarted!` to **`After NVROL Reset, this frame will be initially turned off again and has to be checked and restarted again!`** (read as: the ending is replaced; tell if it should be a separate line). In the code it is in `get_uds_info_html()` after the 0x376 hint, and in the test `The_hints_stand_where_the_owner_wanted_them`. Not built.
 
 ## Decided 18.11.2026 (answers to the former open questions)
 1. N for LBC1/LBC2 time in the check rule: **60 minutes**.
