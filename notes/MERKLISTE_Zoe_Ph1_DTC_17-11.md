@@ -79,3 +79,14 @@ Gelesen in der Datei (nicht am Geraet geprueft). Die Datei gehoert zu **x07 und 
 5. **`21 07`** ist in dieser Datei "Actual Data" (Spannungen, Strom, Schuetz), nicht das Balancing-Bitfeld, das Treiber und Quelle `21 07` zuschreiben. Abweichung, Ursache offen.
 6. **`21 09` / `3B 09`:** "Mileage HV Battery At Installation / At Removal" lesen und schreiben. Das ist nicht `$91CF` der Zoe Ph2, aber der Begriff "Installation" passt zu unserem Feld "Time since first installation".
 7. **`addressing.xml` (Projekt X10):** LBC = Adresse 147, Sende-ID 1947 = **0x79B**, Antwort-ID 1979 = **0x7BB**. Stimmt mit dem Ph1-Treiber ueberein. Die BMS453-Datei nennt aber Projekt **x07**, nicht x10; fuer die genaue Ph1-LBC die Datei suchen, die in `<Projects>` **`<x10/>`** hat (Details in `QUELLE_DDT_LBC_BMS453_Auszug_18-11.md`).
+
+## Nachtrag 18.11.2026: DDT-Datei der Zoe Ph1 gefunden (`<x10/>`), Auszug in `QUELLE_DDT_LBC_X10_Zoe_Ph1_Auszug_18-11.md`
+Die Datei `X10_X61_X62_L38_EV_BMS_v6.3.1_LR` (Projekte x10, x38, x61, x61Ph2, x62, LBC Adresse 147) beantwortet die offenen Fragen **aus der Datei**, nicht am Geraet geprueft:
+1. **`31 05 00` gibt es** (`71 05`): "erase safety mode". Die Taste "Eraze safety mode" sendet **`10 C0` und danach `31 05 00`**. Es loescht das **Safety Mode 1 Flag** (`21 03` Byte 17, Wert 1 = "SAFETY MODE FLAG 1 PRESENT"). Das stuetzt die Quelle des Nutzers in diesem Punkt.
+2. **Loeschen `14 FF FF FF` (`54`)** ist die Anfrage "ClearDiagnosticInformation.All". Sie steht in der Datei in keinem Tastenablauf, daher ist ungeklaert, ob die DDT eine Sitzung davor sendet.
+3. **`10 C0`** = "ExtendedDiagSession" (die Sitzung, die auch fuer `31 05 00` benutzt wird). Das stuetzt Weg 1 (Loeschen mit `10 C0`).
+4. **DTC lesen** `19 02 0F`: Antwort `59 02 <Maske> <hi> <lo> <Fehlerart> <Status>`. Das stuetzt die Vermutung, dass bei `4F33D2` das `4F` die **Maske** ist (der Treiber liest ab Byte 2).
+5. **Nicht in der Datei:** DTC-Klassen 1, 2, 4, "14 FF FF FF ueberspringt geschuetzte Fehler", "das Flag sperrt das Balancing". Das bleibt Behauptung der Quelle.
+6. **Zusatz:** Routine `31 02 00` heisst "stop cell balancing" (Wirkung nicht gelesen).
+
+**Moegliche Folgen fuer den Treiber (nichts entschieden, nichts gebaut):** `21 03` lesen und das Safety-Mode-Flag anzeigen, eine Taste "Erase safety mode" (`10 C0`, `31 05 00`) neben "Erase DTC".
