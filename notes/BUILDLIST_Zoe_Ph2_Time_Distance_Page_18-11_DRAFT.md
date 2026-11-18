@@ -63,7 +63,7 @@ New order, all in one group:
 - Remark: with today's scaling the bold "mi" shows for Pack 2 and Pack 3 every time. The "same number" case appears only for a pack whose LBC1 counter differs from the LBC2 counter. Bold is a plausibility sign, not a measurement of the car's unit.
 
 ## Proposed by Claude, not decided
-- Show the LBC2 raw with its offset: `(raw 2183499652 = 0x80000000 + 36016004)`.
+- ~~Show the LBC2 raw with its offset~~ **decided yes (owner, 18.11.)**: `(raw 2183499652 = 0x80000000 + 36016004)`.
 - SET of days below `ceil(LBC1 minutes / 1440)`: warn or reject (open).
 - Name "Time since first installation": the 0x376 time counts minutes from 02.09.2021 11:32:44 UTC, not from the installation of the pack. Maybe add the reference date in the label (open).
 - Tolerance for "LBC1 and LBC2 time nearly identical": Pack 3 showed LBC2 4 min behind LBC1 after a 240 s sleep, so zero tolerance would warn.
