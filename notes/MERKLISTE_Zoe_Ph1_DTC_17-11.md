@@ -36,3 +36,24 @@ Nicht in `UdsCanBattery.cpp` die Session von `\x03` auf `\xC0` ändern. Die Zeil
 - **12 Zeilen, Weg 1: nicht eingebaut, nur gemerkt** (Nutzer, 17.11.2026).
 - Alternative (nicht gewählt): einstellbare Session in der Superklasse, Standard `0x03`, Gen1 setzt `0xC0`. Berührt die gemeinsame Datei `UdsCanBattery.cpp/.h`.
 - Test, sobald eine Ph1-Zoe verfügbar ist: Fehler lesen, **Erase** drücken, nochmal lesen.
+
+## Nachtrag 18.11.2026: geschuetzte DTCs und Balancing (Quelle vom Nutzer, **nicht geprueft**)
+Quelle: `QUELLE_Zoe_Ph1_geschuetzte_DTCs_18-11.md` (Herkunft unbekannt; Nutzer: soll Ph1 sein). Nur gemerkt, nichts gebaut, nichts geaendert.
+
+**Was die Quelle behauptet:**
+1. Ein gespeicherter DTC der **Klasse 1** (Beispiel P3090-11) setzt ein Flag, das die Schwere (2,1) auf 3 haelt, **auch wenn der Fehler nicht mehr aktiv ist**.
+2. Das Balancing-Tor erlaubt Entladen nur bei Schwere 0. Sonst wird die Balancing-Maske geloescht: `21 07` liefert nur Nullen.
+3. **`14 FF FF FF` ueberspringt Slots der Klassen 1, 2 und 4** und setzt das Flag nie zurueck. Nur die Routine **`31 05 00`** loescht die geschuetzten DTCs und das Flag.
+4. Offen laut Quelle: ob gespeicherte Klasse-2- und Klasse-4-DTCs das Balancing auch beeinflussen.
+
+**Was das fuer unseren Code bedeuten wuerde (Schluss, nicht belegt):**
+- "Erase DTC" bei der Ph1 sendet `10 03` und `14 FF FF FF` (`UdsCanBattery.cpp:429-439`, geerbt). Er koennte genau die Fehler **nicht** loeschen, die das Balancing sperren. `31 05 00` kennen weder dala noch wir.
+- Ein Loeschversuch mit `31 05 00` waere ein Test an einer echten Ph1. Ob die Sitzung `10 C0` (Lesen) oder `10 03` noetig ist, ist offen.
+
+**Dazu passende Beobachtungen vom 18.11. (Screenshot Ph1, nicht unser Pack):**
+- Angezeigt wurde `4F33D2`, Status "Confirmed", Beschreibung "Unknown", "0/1 DTCs matched". In `renault_zoe_gen1_dtc.json` steht `P33D2` = "Temperature Sensor 11 out of range" (110 Eintraege, nur Textschluessel `dtc`, kein `code`).
+- Vermutung: das fuehrende `4F` gehoert nicht zum Code (vermutlich die Statusmaske, Lesen ab Byte 2: `UdsCanBattery.cpp:458-466`). Dann waere auch der Status aus dem falschen Byte. Pruefung nur mit den Rohbytes der Antwort.
+- "Unknown" auch ohne das `4F`: der Gen1-Treiber sucht ueber die Dezimalzahl (`get_dtc_standard_code_string()` = false), die Datei hat nur Textschluessel.
+- In der Quelle hat ein gespeicherter DTC 3 Bytes (`30 90 11` = P3090 mit Fehlerart 11). Das passt zur Vermutung mit dem Versatz, beweist sie nicht.
+
+**Offen:** Herkunft der Quelle; welcher Klasse `P33D2` angehoert; ob `31 05 00` bei der Ph1 loescht; ob "Time/Balancing" der Ph1 am Bench dadurch wieder laeuft.
