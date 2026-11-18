@@ -92,3 +92,9 @@ Die Datei `X10_X61_X62_L38_EV_BMS_v6.3.1_LR` (Projekte x10, x38, x61, x61Ph2, x6
 **Moegliche Folgen fuer den Treiber (nichts entschieden, nichts gebaut):** `21 03` lesen und das Safety-Mode-Flag anzeigen, eine Taste "Erase safety mode" (`10 C0`, `31 05 00`) neben "Erase DTC".
 
 **Vergleich 18.11.:** Die Ph2 hat eine eigene Reset-Routine fuer Safety Mode 1, `31 01 B0 04 00` ("ResetSM1"), siehe `QUELLE_DDT_MCPU_Zoe_Ph2_Auszug_18-11.md`. Ph1: `31 05 00`.
+
+## PR #3280 (dala, 18.11. 21:29, Autor "Jonny"): "Add a Protected-DTC-Reset to Renault Zoe1" (gelesen im Code, nicht gebaut)
+- Neuer allgemeiner Knopf **"Erase protected DTC"** (`advanced_battery_html.cpp`, direkt nach "Erase DTC") mit zwei neuen Methoden in `Battery.h` (`supports_reset_protected_DTC`, `reset_protected_DTC`). Zoe Ph1 setzt sie in `RENAULT-ZOE-GEN1-BATTERY.cpp/.h`.
+- Ablauf: `10 C0` -> bei positiver Antwort `31 05 00` -> bei positiver Antwort Neulesen `19 02 09`. Abbruch mit Log bei Ablehnung (NRC) oder Zeitueberschreitung (3 Versuche je Schritt). Das ist genau der Ph1-Weg aus der DDT (`10 C0`, `31 05 00`).
+- Nicht enthalten: das Safety-Flag lesen (`21 03` Byte 17), `31 02 00` (Balancing stoppen). Tests: 187 Zeilen in `RenaultZoeGen1Test.cpp`.
+- Stand: Commit `49adb64b0` liegt auf Master `5191d79` (#3279), er ist **nicht** in Master `2621aaf` enthalten (Clone vom 18.11.). Keine Ueberschneidung mit unseren Zoe-Gen2-Dateien (wir aendern weder `Battery.h` noch `advanced_battery_html.cpp`).
