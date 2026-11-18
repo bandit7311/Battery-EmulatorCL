@@ -37,3 +37,9 @@ Datei: `X10_X61_X62_L38_EV_BMS_v6.3.1_LR_20180301T144850.xml` (DDT2000-Export, 0
 - **Nicht in der Datei:** die Klassen 1, 2, 4 der DTCs, dass `14 FF FF FF` diese Klassen ueberspringt, und dass das Flag das Balancing sperrt. Das steht nur in der Quelle des Nutzers.
 - **`31 02 00` "stop cell balancing"** gibt es als Routine (Wirkung nicht gelesen, nur der Name).
 - Der Zoe-Ph1-Treiber liest `21 03` nicht (nur `0x41`, `0x42`, `0x61`, `0x07`, `RENAULT-ZOE-GEN1-BATTERY.h:55-58`).
+
+## Dazu: aeltere DDT-Datei "R_L38_X61_EV_LBC_v4.4" (vom Nutzer, 18.11.2026)
+Datei: `R_L38_X61_EV_LBC_v4.4_20140407T155120.xml` (DDT2000-Export 07.04.2014, 720 KB). Gruppe LBC, Adresse 147, Projekte **x38 und x61** (nicht x10; im Kopf "NISSAN XX4"). Nach den Projektnamen Fluence ZE und Kangoo ZE (Hintergrundwissen, nicht aus der Datei). Nur gelesen, nichts am Geraet geprueft.
+- Gleiche Grundbefehle wie bei der Zoe Ph1: **`10 C0`** (ExtendedDiagSession), **`19 02 0F`** (ReadDTC), **`14 FF FF FF` -> `54`** (ClearDiagnosticInformation.All), `10 81`, `10 85`, `10 F2`.
+- Routinen: nur allgemein **`31 00 00`** (RoutineStart.SRBLID 01-04), `31 00 01` (Status). **Kein `31 05 00`, kein "safety mode", keine Taste zum Loeschen des Flags.**
+- Schluss: `31 05 00` und das "Safety Mode 1 Flag" (`21 03` Byte 17) kamen laut Dateikopf der Zoe-Datei erst mit spaeteren Softwareaenderungen (Eintrag vom 27.06.2013, Vdiag-Wechsel). Ob ein Kangoo- oder Fluence-Pack mit neuerer Software `31 05 00` trotzdem kennt, ist nicht belegt.
