@@ -45,3 +45,12 @@ Boxen: Tage leer, Minuten 0 (grau), Strecke leer, Einheit `mi`. Schalter: `0x376
 4. **Zaehler alle null** (Balancing, Energie, Pack-Kilometer 0, SoH 100 %) und **"External NV memory checksum failure" bestaetigt**: passt zu einem frisch geloeschten Speicher (zum Beispiel nach einem NVROL-Reset). Ob das hier so war, ist nicht bekannt.
 5. **`$9216` = 0**, in den beiden Dumps (Original-Pack 24.07.2025, Auto-Pack 11.10.) steht 10. Die Bedeutung bleibt offen.
 6. Die neue Seite (v9) laeuft auf einem fremden Geraet wie im Mock-up: Haken und Kreuz, Tage/Monat/Jahre (2203012 gleich 9 days 2 month 4 years, 2222387 gleich 23 days 2 month 4 years), fette Einheit bei LBC1 und LBC2 (LBC2 gleich 1,6 mal LBC1).
+
+## Schritt 2 (Screenshot 20:42 Portugal): Tage 1530 und Strecke 5 mi gesetzt, `0x376` an, die vier unteren Frames schon vorher an
+Abgelesen von Claude. Die Fehlerliste ist auf diesem Bild nicht zu sehen. **Laut Notizblock (Raul, nicht von Claude gesehen): "as soon we have set days and kilometer both left over faults went away".**
+- Tage **1530**, Strecke **5 mi**, Minuten 0 (grau), `0x376` **on**, `0x4CE` und `0x4FB` on.
+- **LBC1 time jetzt 2203200 min** (raw 21 9E 40) = 1530 x 1440 genau, also **hat der Pack unsere Zeit uebernommen** (vorher 2203012). Haken ok.
+- **LBC2 time noch 2203012** (188 min dahinter), **rotes X** durch die 60-min-Regel (Regel greift wie geplant, vermutlich nur zeitweise).
+- **Pack time 2222387 weiter rotes X** (groesser als die Fahrzeugzeit). Um es gruen zu bekommen, muessten die Tage mindestens 1544 sein (ceil(2222387 / 1440)).
+- **LBC1 distance weiter 220301,20 mi (raw 35248192)**, LBC2 distance 352481,92 km, **Pack distance 0 km**, `$9216` = 0. Die Strecke 5 mi ist (noch) **nicht** im Pack angekommen. Moegliche Ursache (nicht belegt): der Pack uebernimmt keinen kleineren Wert als den gespeicherten. Oder die Strecke wurde nur noch nicht neu gelesen (Minutenfeld 0, die Seite ist weniger als eine Minute alt).
+- Notizblock: Der NVROL-Reset war vermutlich **9 Tage vorher** (Raul: "most likely nvroled at 9 days ago"). Pack aus einem verunglueckten franzoesischen Auto, gekauft in Portugal. Raul rechnete eine Idee "ein Jahr dazu" ab 14.09.2025, Entscheidung: bei **1530 Tagen** bleiben ("should be the age of the pack"; Claude: das ist nicht das Alter des Packs, die Packzeit entspricht 1543 Tagen).
