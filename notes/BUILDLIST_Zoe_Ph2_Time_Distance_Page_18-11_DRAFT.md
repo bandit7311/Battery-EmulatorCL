@@ -1,6 +1,10 @@
 # Build list draft: Zoe Ph2 "More Battery/Cell Info" time and distance block (18.11.2026)
 
-**DRAFT. Nothing is built.** Build only after the owner says "bauen" / "freigeben". Dala style (.clang-format). Show the raw value in brackets behind every converted value. No auto-refresh on pages. Only Zoe Gen2 files are touched (`RENAULT-ZOE-GEN2-BATTERY.cpp/.h`, `webserver_zoe_gen2.cpp/.h`, tests).
+**BUILT 18.11.2026 as patch v8** (owner: "ja los bauen"). The draft below is what was built. Result: dala test suite on `v13.6.0` plus patch v8: 706 tests, 705 passed, 1 skipped (`OtaConfirmPlacement...`, was skipped before), clang-format clean, no warnings with `-Wall -Wextra` in the two Zoe files. **Not built for the ESP32** (`-Werror`) yet, the owner does that on the PC.
+
+Build notes (what Claude decided without asking): new routes `/editZoeGen2Days` (1 to 11650) and `/editZoeGen2Distance` (1 to 1000000, unit of LBC1), the old `/editZoeGen2TimeMinutes` and `/editZoeGen2DistanceKm` are gone. NVM keys: `ZOEDAYS` (new), `ZOEDISTDKM` (kept, 0.1 of the LBC1 unit). The frame 0x376 is only sent when days and distance are set (before: from the pack). The distance from the pack (`$91CF`) is no longer used as a fallback, it is only shown. Not set means: no boot counting.
+
+(Former header:) **DRAFT.** Build only after the owner says "bauen" / "freigeben". Dala style (.clang-format). Show the raw value in brackets behind every converted value. No auto-refresh on pages. Only Zoe Gen2 files are touched (`RENAULT-ZOE-GEN2-BATTERY.cpp/.h`, `webserver_zoe_gen2.cpp/.h`, tests).
 
 Base: dala `v13.6.0` plus patch v7 (applies without conflict, checked 17.11.). Source: owner sketch (handwritten page), explanations of 18.11.2026, and the mock-up (artifact "Zoe Ph2 Zeitblock", PNG sent 18.11.).
 
