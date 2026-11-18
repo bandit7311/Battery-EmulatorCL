@@ -27,13 +27,9 @@ New order, one group:
 - Heading above the six lines: **`✓ valid / ✗ invalid`** (no word "Valid?" any more, owner 18.11.). Green check = plausible, red cross = not plausible. A grey dash for "not read yet" (proposal).
 - LBC2 raw shows its offset: `(raw 2183499652 = 0x80000000 + 36016004)` (owner: yes).
 
-### 3b. NVROL hint
-- Hint text under the six checked lines (owner text, "loose" corrected to "lose"): `(if you see an invalid mark on one position, consider NVROL, but you will lose all usage values!)`.
-- Background (measured on Twingo packs): NVROL reset zeroes pack mileage `$91CF` and also the balancing counters, cycles and times (`BEFUND_Echter_Bus_LBC_EVC_09-10.md:265`). It cannot be undone.
-
 ### 3a. Frame switches
 - The other frames (`0x4CE`, `0x4FB`, `0x133`, `0x440`), Sleep mode, Auto wake, Go sleep, Wake up and the TX/RX counters **stay where they are now, further down**.
-- The `HEVC frame 0x376` switch (off/on) sits right below the six checked lines. The hint under it (owner text, "alreay" corrected): `(after setting a valid days above (days are already rounded up by 1 day) and a valid distance --> turn on frame, not before!)`. It replaces today's hint "Time and distance, see the two fields below. Stored.".
+- The `HEVC frame 0x376` switch (off/on) sits right below the six checked lines. The hint under it (owner text, "alreay" corrected): `(after setting a valid days above (days are already rounded up by 1 day) and a valid distance --> turn on frame, not before! If you see an invalid mark on one position, consider NVROL, but you will lose all usage values!)`. The NVROL sentence is **inside the same brackets** (owner, 18.11.; "loose" corrected to "lose", capital I after the exclamation mark). Background (measured on Twingo packs, not on a Zoe pack): NVROL reset zeroes pack mileage `$91CF` and also the balancing counters, cycles and times (`BEFUND_Echter_Bus_LBC_EVC_09-10.md:265`). It cannot be undone. It replaces today's hint "Time and distance, see the two fields below. Stored.".
 - The old input fields "Vehicle time (0x376)" and "Vehicle distance (0x376)" are replaced by the two new boxes.
 
 ### 4. Time lines
