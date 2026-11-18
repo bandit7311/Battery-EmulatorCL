@@ -87,3 +87,4 @@ Abgelesen von Claude. BMS state laut Nutzer: 5 (Pack 4 steht mit unseren Frames 
 - **Pack distance 16 km:** rechnerisch 10 mi x 1,6 = 16 km. Das passt zur gesendeten Aenderung 5 mi (erster Wert) bis 15 mi (aktuell), bleibt aber eine Rechnung, das Pack nennt seinen Ausgangswert nicht. Das Pack hat Zeit und Strecke beim Sleep uebernommen wie bei den anderen Packs.
 - Beide Erase-Versuche (v11) weiter `refused (7F), code 31`.
 - SoC min/max 6000/6263, Temporisation 0 Activated. Die DTC-Listen waren im Foto nicht zu sehen.
+- **Nachtrag Nutzer (22:20):** nach dem Sleep **keine DTC** mehr (P1B2081 weg), BMS state weiter **5**, alle Balancing-Zeiten leer (0). Dazu nur die ungeprueften Hypothesen aus `BEFUND_Fremdanalyse_Zoe_Balancing_22-10.md` (Totband 2 % SOC, Neuberechnung nur beim Aufwachen und Fahrtbeginn nach vollem Laden); Pack 4 steht bei SoC 60,00 bis 62,63 %.
