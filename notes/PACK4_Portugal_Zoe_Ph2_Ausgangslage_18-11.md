@@ -54,3 +54,11 @@ Abgelesen von Claude. Die Fehlerliste ist auf diesem Bild nicht zu sehen. **Laut
 - **Pack time 2222387 weiter rotes X** (groesser als die Fahrzeugzeit). Um es gruen zu bekommen, muessten die Tage mindestens 1544 sein (ceil(2222387 / 1440)).
 - **LBC1 distance weiter 220301,20 mi (raw 35248192)**, LBC2 distance 352481,92 km, **Pack distance 0 km**, `$9216` = 0. Die Strecke 5 mi ist (noch) **nicht** im Pack angekommen. Moegliche Ursache (nicht belegt): der Pack uebernimmt keinen kleineren Wert als den gespeicherten. Oder die Strecke wurde nur noch nicht neu gelesen (Minutenfeld 0, die Seite ist weniger als eine Minute alt).
 - Notizblock: Der NVROL-Reset war vermutlich **9 Tage vorher** (Raul: "most likely nvroled at 9 days ago"). Pack aus einem verunglueckten franzoesischen Auto, gekauft in Portugal. Raul rechnete eine Idee "ein Jahr dazu" ab 14.09.2025, Entscheidung: bei **1530 Tagen** bleiben ("should be the age of the pack"; Claude: das ist nicht das Alter des Packs, die Packzeit entspricht 1543 Tagen).
+
+## Schritt 3 (Screenshot 20:42 Portugal, gleiche Minute): Fehlerlisten nach den vier unteren Frames und `0x376`
+Abgelesen von Claude.
+- **LBC: 1 Code** (vorher 7): **U214381 Confirmed** (CAN from EVC/HEVC, Invalid serial data received), **nicht mehr Active**. "1/1 DTCs matched".
+- **LBC2: 1 Code** (vorher 9): **U214387 Confirmed** (Beschreibung "Unknown" in der LBC2-Tabelle, in der LBC-Tabelle heisst derselbe Code "CAN from Inverter - Missing message").
+- Alle aktiven Fehler (U214381 LBC, P1B2081, U214387 LBC2, U214381 LBC2) sind weg bzw. nur noch gespeichert. Die Speicherfehler (P1B0D47, P1B0D41, P1B0E41) sind nicht mehr in der Liste.
+- TX-Frames pro Sekunde **372** (vorher 232 mit allen Zusatzframes aus), RX **168** (unveraendert). Status awake, Sleep mode "Sleep", Auto wake 10 s.
+- Offen: ob die zwei letzten Fehler mit "Erase DTC" verschwinden und nach einem Sleep nicht zurueckkommen.
