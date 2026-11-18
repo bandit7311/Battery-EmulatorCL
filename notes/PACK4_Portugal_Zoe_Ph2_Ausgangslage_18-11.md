@@ -70,3 +70,20 @@ Abgelesen von Claude.
 - Moegliche Gruende, mit dieser Messung nicht zu trennen: (a) B004 gibt es in der Software von Pack 4 nicht (die DDT ist "SW5XX V1.5", Stand 25.05.2022; B009/NVROL steht dort auch nicht und geht trotzdem), (b) die Routine laeuft nur, wenn ein Safety Mode 1 aktiv ist (`$9216` ist hier 0), (c) es fehlt eine andere Sitzung oder ein Freischalten.
 - **Boot-Zaehler:** nach v11-Flash Tage 1552 (+1), Strecke 15 mi (+5), Minuten 5. Zeit LBC1/LBC2 2234885 min, gleich. Pack time weiter 2232002, Pack distance weiter 0 km (kein Sleep seit 21:26). **Gelbe Warnung weg** (v11-Korrektur wirkt).
 - Boot 21:54: LBC 1 Code P1B2081 Confirmed (Relay 4, `0x4FB`), LBC2 keine Codes.
+
+## Schritt 5 (Sleep 6 min mit v11, Raul 22:10 vorher, 22:20 nachher)
+Abgelesen von Claude. BMS state laut Nutzer: 5 (Pack 4 steht mit unseren Frames in 5; die Bench-Notiz "05 nie erreicht" galt fuer einen anderen Aufbau).
+| | vorher 22:10 | nachher 22:20 |
+|---|---|---|
+| Tage / Minuten | 1552 / 17 | 1552 / 27 |
+| LBC1 time | 2234896 | 2234906 |
+| LBC2 time | 2234896 | 2234906 (gleich, kein Nachhinken) |
+| **Pack time** | 2232002 | **2234899** (+2897 min, 7 min unter LBC1, gueltig) |
+| LBC1 distance | 15,02 mi (2404) | 15,02 mi |
+| LBC2 distance | 24,04 km | 24,04 km |
+| **Pack distance** | 0 km | **16 km** (raw 2147484160 = 0x80000000 + 512, 512/32 = 16) |
+| `$9216` | 0 | 0 |
+| Fan duty | 3 | **213** (Bedeutung offen) |
+- **Pack distance 16 km:** rechnerisch 10 mi x 1,6 = 16 km. Das passt zur gesendeten Aenderung 5 mi (erster Wert) bis 15 mi (aktuell), bleibt aber eine Rechnung, das Pack nennt seinen Ausgangswert nicht. Das Pack hat Zeit und Strecke beim Sleep uebernommen wie bei den anderen Packs.
+- Beide Erase-Versuche (v11) weiter `refused (7F), code 31`.
+- SoC min/max 6000/6263, Temporisation 0 Activated. Die DTC-Listen waren im Foto nicht zu sehen.
