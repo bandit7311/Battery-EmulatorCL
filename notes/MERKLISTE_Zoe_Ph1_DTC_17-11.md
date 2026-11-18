@@ -57,3 +57,15 @@ Quelle: `QUELLE_Zoe_Ph1_geschuetzte_DTCs_18-11.md` (Herkunft unbekannt; Nutzer: 
 - In der Quelle hat ein gespeicherter DTC 3 Bytes (`30 90 11` = P3090 mit Fehlerart 11). Das passt zur Vermutung mit dem Versatz, beweist sie nicht.
 
 **Offen:** Herkunft der Quelle; welcher Klasse `P33D2` angehoert; ob `31 05 00` bei der Ph1 loescht; ob "Time/Balancing" der Ph1 am Bench dadurch wieder laeuft.
+
+## Nachtrag 18.11.2026: Suche im Internet nach Referenzen (nichts gebaut)
+**Gefunden:**
+- **PyRen** (Spiegelkopie `emtee40/pyren-OBD2`, `pyren/mod_ecu.py`, Auszug eines Abrufs, die Datei wurde nicht vollstaendig gelesen): Standard fuer den Start der Diagnosesitzung ist **`startDiagReq = '10C0'`** (`find_real_ecuid`). Das stuetzt, dass Renault-Steuergeraete mit KWP2000 `10 C0` nehmen, also das Lesen bei der Ph1 (`RENAULT-ZOE-GEN1-BATTERY.cpp:271`).
+- Die **Bytes zum Loeschen stehen nicht im PyRen-Programm**, sie kommen aus den Renault-Steuergeraetedateien (XML) der Datenbank. Dasselbe bei **DDT4ALL**: Die ECU-Datenbank ist ein getrennter Download (`ecu.zip`), nicht im Repository.
+- Allgemeines UDS: `0x14` = ClearDiagnosticInformation (`uds.readthedocs.io`). Nicht Ph1-spezifisch.
+
+**Nicht gefunden (vier Suchen):** `14 FF 00` fuer die Ph1-LBC, `31 05 00`, geschuetzte DTC-Klassen, `P33D2`. Alles dazu bleibt **ungeprueft**.
+
+**Naechster Schritt (offen, beim Nutzer):** die Steuergeraetedatei des Zoe-Ph1-LBC aus der Datenbank von PyRen oder DDT4ALL oeffnen und nachlesen, was unter "Clear DTC" steht. Die Datenbank muss auf dem PC des Nutzers vorhanden sein.
+
+**Quellen:** https://raw.githubusercontent.com/emtee40/pyren-OBD2/master/pyren/mod_ecu.py, https://github.com/cedricp/ddt4all, https://github.com/cedricp/ddt4all/discussions/1683, https://uds.readthedocs.io/en/latest/pages/knowledge_base/service.html
