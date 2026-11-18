@@ -805,3 +805,35 @@ Anlass: Frage "koennten wir auch eine alte Zeit bei 0x436 haben" - Antwort aus d
 - **Loesungsvorschlag (nicht entschieden):** wie beim manuellen Alter (`TWAGEMV`/`TWAGEMT`, `vehicle_age_available`) Startwert **und** Unix-Zeit des Setzens speichern (`TW436VAL` + neuer Schluessel, z. B. `TW436T`) und nach dem Neustart `Wert + (jetzt - gespeicherte Zeit) / 60 / Minutenfaktor` rechnen. Ohne gueltige Uhr (kein NTP) mit `millis()` ab dem Start weiterzaehlen und das im Seitentext sagen. Kein Speichern jede Minute (Flash-Verschleiss), nur beim Setzen. Alternative (schlechter): alle N Minuten speichern; dann bleibt ein Fehler bis zu N Minuten.
 - **Offen beim Nutzer:** (a) ob zusaetzlich der Standard `14 00 xx` der Zoe-Form so fortgesetzt werden soll (Zaehler auch ueber die Uhr rechnen); (b) was ohne NTP passieren soll.
 - **Tests bei "bauen":** Zeit setzen, "Neustart" im Test simulieren (Werte neu laden, 90 Minuten Uhrzeit weiter): `0x436` B1-B3 = Startwert + 90; ohne Uhr: Startwert plus Zeit seit dem Start; Minutenfaktor > 1 beruecksichtigen; Wert nie kleiner als der zuletzt gesendete; Golden-Lauf unveraendert (nur bei gesetztem "Time in 0x436").
+
+### Ergaenzung zu "Time in 0x436 geht nach dem Neustart auf einen alten Wert zurueck": Vorgehen vom Zoe Ph2 (Nutzer, 18.11.2026; **nichts gebaut, wartet auf "bauen"**)
+Anlass: Beim Zoe Ph2 gab es dasselbe Problem (Zeit nach dem Neustart wieder niedriger) und es ist dort als **Patch v8** geloest (Bauliste `BUILDLIST_Zoe_Ph2_Time_Distance_Page_18-11_DRAFT.md`). Stand v8: dala-Tests gruen (706, 705 bestanden, 1 uebersprungen), ESP32-Bau `stark_330` erfolgreich, **am Geraet noch nicht geprueft**. Der Nutzer will diese Erkenntnisse und das Vorgehen in den Twingo-Fix uebernehmen.
+
+**Vorgehen beim Zoe (v8), uebertragbar:**
+1. **Tage im NVM** statt Startwert plus Unix-Zeit. Die Zeit des Frames = `Tage * 1440 + Minuten des laufenden Tages`. Die Minuten werden nicht gespeichert, sie zaehlen mit der Uhr des ESP32 ab dem Start.
+2. **Bei jedem Start +1 Tag** (und +5 auf die km), im NVM gespeichert, **bevor** der Frame gesendet wird. Ein Start verliert hoechstens die Minuten des laufenden Tages (unter 1440), der aufgeschlagene Tag ist groesser, also **geht die Zeit nie rueckwaerts**. Dafuer ist **keine Uhr und kein NTP** noetig. Das beantwortet die offene Frage (b) oben.
+3. **Alle 1440 Minuten** zaehlt der Tag +1 und wird gespeichert, die Minuten fangen wieder bei 0 an.
+4. **Jedes Set speichert sofort** in den NVM, die Minuten des Tages starten wieder bei 0.
+5. **Nichts gesetzt, nichts gezaehlt:** solange die Tage nie gesetzt wurden, zaehlt der Start nichts und der Frame wird nicht gesendet.
+6. **Obergrenze:** 24 Bit, hoechstens 0xFFFFFE Minuten (11 650 Tage), 0xFFFFFF ist ungueltig.
+7. **Warnung, nicht sperren:** liegen die getippten Tage unter dem Wert des Packs (`ceil(Minuten / 1440)`), zeigt die Seite eine Warnung, gespeichert wird trotzdem.
+8. **Seite:** Haken (gruen) oder Kreuz (rot) vor jedem Wert, Rohwert in Klammern, Zeit in Tage/Monat/Jahre (365 und 30 Tage), "full days total" aufgerundet, Minutenfeld hellgrau (nicht aenderbar).
+9. **NVROL:** der Frame wird beim NVROL ausgeschaltet und als aus gespeichert (damit der alte Wert nicht in den frisch zurueckgesetzten Pack geht). Tage und Strecke bleiben im NVM.
+10. **Tests (Zoe):** Boot zaehlt +1 Tag, Tageswechsel, Set startet die Minuten neu, nie rueckwaerts nach einem Start mit 1439 Minuten Verlust, Grenzen, NVROL schaltet den Frame aus.
+
+**Was beim Twingo anders ist (aus Code und Notizen, nicht entschieden):**
+- **Nur `0x436` wirkt** auf den Pack (die SCPU nimmt ihr `$9261` aus `0x436`, `BAULISTE.md:804`, `BEFUND_SCPU_0436_Bench_08-10.md:36`). `0x350`, `0x523`, `0x376` hatten bei der Messung vom 08.10. keinen Einfluss.
+- **Minutenfaktor** (`time_436_phase`): "Time in 0x436" zaehlt je nach Faktor nur alle N Minuten +1. Bei Faktor 1 passt das Schema der Tage direkt. Bei N groesser 1 muss festgelegt werden, ob ein "Tag" 1440 Minuten oder 1440 Zaehlschritte hat.
+- **Stille:** Die getippte Zeit zaehlt nur beim Senden und steht in der Stille (`BAULISTE.md:703`). Beim Zoe laeuft die Uhr durch den Sleep.
+- **Gueltigkeitsregel LBC1/LBC2:** Beim Twingo liegen MCPU-`$9261` (Schnappschuss) und SCPU-`$9261` (laufende Uhr) in den Dumps **78 bis 149 min** auseinander (`BEFUND_Auto-Pack_Dump_Balancing_24-10.md:11`, `:83`). Die Zoe-Grenze von 60 min darf dort nicht uebernommen werden.
+- **Einheit:** Twingo in km (`0x426` Bytes 3 bis 5, 24 Bit), kein Faktor 1,6, keine Meilen-Regel.
+- **Zusatz `14 00 xx`** (Zoe-Form ohne "Time in 0x436") beginnt nach jedem Neustart bei `14 00 00`. Mit dem Tage-Schema kaeme derselbe Weg in Frage (offene Frage (a) oben).
+
+**Nur beim Zoe gemessen, nicht auf den Twingo uebertragen ohne eigene Messung:** Die Pack-Kilometer `$91CF` bekommen beim Sleep die gesendete Differenz mal 1,6 dazu, aber nur mit eingeschalteten `0x4CE` und `0x4FB`. Die Pack time `$91C1` springt beim Sleep (+4 min bei 240 s Sleep, andere Spruenge nicht erklaert).
+
+**Neue offene Fragen fuer den Twingo (beim Nutzer):**
+1. Gilt fuer "Time in 0x436" das Schema "Tage im NVM + 1 Tag pro Start" statt "Startwert + Unix-Zeit" (Loesungsvorschlag oben)? Der Vorteil ist, dass keine Uhr noetig ist.
+2. Wie wird der Minutenfaktor beruecksichtigt (siehe oben)?
+3. Soll die Zeit in der Stille mitlaufen (wie beim Zoe) oder stehen bleiben (wie heute)?
+4. Soll der Schalter "Time in 0x436" bei einem NVROL ausgeschaltet werden (wie beim Zoe der Frame `0x376`)?
+5. Km in `0x426`: auch +5 pro Start?
