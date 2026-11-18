@@ -28,10 +28,13 @@ New order, one group:
 - **Weight (owner, 18.11.): everything on these lines is normal weight, only the numbers and the units are bold.** In the six checked lines the main value and its unit are bold (`2201920 min`, `1530`, `9 days 2 month 4 years`, `225100.02 mi`, `360160.04 km`); labels, `full days total:`, the arrows and the `(raw ...)` part stay normal. The unit of the LBC1 distance is bold only when the rule of item 9 decides it. Headings, hints and box titles are normal weight, except the bold NVROL sentence under the 0x376 hint.
 - LBC2 raw shows its offset: `(raw 2183499652 = 0x80000000 + 36016004)` (owner: yes).
 
+### 3b. NVROL hint (owner, 18.11.)
+- Directly **under the Pack distance line**, inside the box with the six checked lines, in brackets: `(If you see an invalid mark on one position, consider NVROL, but you will lose all usage values!)` ("loose" corrected to "lose"). Normal weight.
+
 ### 3a. Frame switches
 - **Second hint line, bold, below the bracket hint of 0x376** (owner, 18.11.): **After NVROL Reset, this frame will be initially turned off again and has to be restarted!** (written "NVROL" in capitals). It belongs to item 10 (the switch is set back to off at an NVROL).
 - The other frames (`0x4CE`, `0x4FB`, `0x133`, `0x440`), Sleep mode, Auto wake, Go sleep, Wake up and the TX/RX counters **stay where they are now, further down**.
-- The `HEVC frame 0x376` switch (off/on) sits right below the six checked lines. The hint under it (owner text, "alreay" corrected): `(after setting valid days above (days are already rounded up by 1 day) and a valid distance --> turn on frame, not before! If you see an invalid mark on one position, consider NVROL, but you will lose all usage values!)`. The NVROL sentence is **inside the same brackets** (owner, 18.11.; "loose" corrected to "lose", capital I after the exclamation mark). Background (measured on Twingo packs, not on a Zoe pack): NVROL reset zeroes pack mileage `$91CF` and also the balancing counters, cycles and times (`BEFUND_Echter_Bus_LBC_EVC_09-10.md:265`). It cannot be undone. It replaces today's hint "Time and distance, see the two fields below. Stored.".
+- The `HEVC frame 0x376` switch (off/on) sits right below the six checked lines. The hint under it (owner text, "alreay" corrected): `(after setting valid days above (days are already rounded up by 1 day) and a valid distance --> turn on frame, not before!)`. The NVROL sentence is **not** part of this hint any more, it moved under the Pack distance line (see 3b). Background (measured on Twingo packs, not on a Zoe pack): NVROL reset zeroes pack mileage `$91CF` and also the balancing counters, cycles and times (`BEFUND_Echter_Bus_LBC_EVC_09-10.md:265`). It cannot be undone. It replaces today's hint "Time and distance, see the two fields below. Stored.".
 - The old input fields "Vehicle time (0x376)" and "Vehicle distance (0x376)" are replaced by the two new boxes.
 
 ### 4. Time lines
@@ -98,9 +101,10 @@ New order, one group:
 6. Double count of +5: **fine**. The firmware adds at boot, and the frame is switched on without a boot, so the owner's manual +5 is not counted twice.
 7. After NVROL: stored days and distance **stay** in the NVM, no effect while the frame is off.
 8. Emphasis of the unit: bold (see item 3). Only numbers and units are bold.
+9. The NVROL sentence moved from the 0x376 hint to under the Pack distance line, in brackets (see 3b).
 
 ## Open (owner to decide)
-1. The bracket hint of 0x376 contains the sentence `If you see an invalid mark on one position, consider NVROL, but you will lose all usage values!`. It stays inside the brackets, or it is dropped now that the bold NVROL line stands below it? (proposal: both stay)
+None at the moment. All questions are answered (18.11.2026). Details of wording may still change.
 
 ## Not verified
 - Compiles on the ESP32 (`-Werror`) and passes the tests on `v13.6.0`.
