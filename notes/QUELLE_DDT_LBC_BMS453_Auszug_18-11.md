@@ -39,3 +39,8 @@ Adressdatei von Renault fuer das **Projekt X10** (Name im Dateikopf; dass X10 di
 Bedeutung: Die LBC-Adressen **0x79B / 0x7BB** des Zoe-Ph1-Treibers (`setup_uds(0x79B, 0x7BB)`, `RENAULT-ZOE-GEN1-BATTERY.cpp:239`) stimmen mit der Datei fuer X10 ueberein. Die LBC-Adresse 147 ist auch in der BMS453-Datei dieselbe, deren Projektliste aber **x07 / x07Ph2** nennt, nicht x10. Ob die BMS453-Datei die Ph1-LBC genau beschreibt, ist damit **nicht belegt**.
 
 **Tipp zum Suchen der passenden Datei:** In der Datenbank (PyRen, DDT4ALL) die LBC-Dateien suchen, deren Kopf unter `<Projects>` den Eintrag **`<x10/>`** hat (bei BMS453 steht dort `<x07/><x07Ph2/>`).
+
+### Zu den vier Dateien `DiagnosticAddressing*.xsl` (vom Nutzer, 18.11.2026)
+Das sind **Darstellungsvorlagen** (XSL), die eine Adressdatei wie `addressing.xml` als HTML-Tabelle anzeigen. Sie enthalten keine Befehle und keine Daten zum LBC. Nur zwei Angaben daraus:
+- **Alte Vorlage** (`..._old.xsl`): XId und RId stehen als Dezimalzahl in der Datei, ist die Zahl groesser als 2 147 483 647, ist **Bit 31 gesetzt und wird fuer die Anzeige entfernt** (Kommentar "remove bit 31 for display"). Das ist die Kennzeichnung einer erweiterten ID (29 Bit, abgeleitet, nicht ausdruecklich im Text). Bei `addressing.xml` (X10) sind XId 1947 und RId 1979 **kleiner**, also normale **11-Bit-IDs 0x79B / 0x7BB**.
+- **Neuere Vorlagen** (`..._old2`, `..._old3`, aktuelle): eigene Spalten fuer **DiagOnCAN11b** und **DiagOnCAN29b** (`Extended='0'` oder `'1'`), **DoIP** und ein Kennzeichen "Security Gateway" (`Type='CGW'`). Fuer die Ph2 (29 Bit, `0x18DADBF1`) gehoert also ein neueres Dateiformat. Das ist eine Schlussfolgerung aus den Vorlagen, keine Angabe einer Datei.
