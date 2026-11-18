@@ -69,3 +69,12 @@ Quelle: `QUELLE_Zoe_Ph1_geschuetzte_DTCs_18-11.md` (Herkunft unbekannt; Nutzer: 
 **Naechster Schritt (offen, beim Nutzer):** die Steuergeraetedatei des Zoe-Ph1-LBC aus der Datenbank von PyRen oder DDT4ALL oeffnen und nachlesen, was unter "Clear DTC" steht. Die Datenbank muss auf dem PC des Nutzers vorhanden sein.
 
 **Quellen:** https://raw.githubusercontent.com/emtee40/pyren-OBD2/master/pyren/mod_ecu.py, https://github.com/cedricp/ddt4all, https://github.com/cedricp/ddt4all/discussions/1683, https://uds.readthedocs.io/en/latest/pages/knowledge_base/service.html
+
+## Nachtrag 18.11.2026: DDT2000-Datei des LBC (BMS453) vom Nutzer, Auszug in `QUELLE_DDT_LBC_BMS453_Auszug_18-11.md`
+Gelesen in der Datei (nicht am Geraet geprueft). Die Datei gehoert zu **x07 und x07Ph2** (BMS453, nach dem Namen smart 453/Twingo), **nicht** nachweislich zur Zoe Ph1. Gleiche `21 41`, `21 42`, `21 61` wie im Ph1-Treiber, also vermutlich dieselbe LBC-Familie.
+1. **Loeschen = `14 FF FF FF`, Antwort `54`** ("ClearDiagnosticInformation.All"). Das ist genau, was der geerbte Erase-Knopf sendet (`UdsCanBattery.cpp:437`). Fuer diese Familie ist der Befehl also nicht falsch, `14 FF 00` kommt in der Datei nicht vor.
+2. **`10 C0`** ist dort der Standard-Eintrag "StartDiagnosticSession" (`10 81` = Default). Das stuetzt `10 C0` auch fuers Loeschen (Weg 1 oben), belegt aber nicht, dass `10 03` abgelehnt wird.
+3. **DTC-Antwort `59 02 <Maske> <hi> <lo> <Fehlerart> <Status>`**, die Statusmaske steht an Byte 3. Das stuetzt die Vermutung zu `4F33D2`: Liest der Treiber die DTCs ab Byte 2 (`UdsCanBattery.cpp:458-466`), steht die **Maske vor dem Code**. Dann waere `4F` die Maske, der Code `33D2` (= `P33D2`) und das angezeigte "Status"-Byte in Wahrheit die Fehlerart. Der Wert der Maske in der Antwort der Ph1 ist nicht gesehen.
+4. **`31 05 00` steht nicht in der Datei.** Fuer geschuetzte DTCs oder die Balancing-Sperre gibt es dort keinen Eintrag. Die Behauptung in `QUELLE_Zoe_Ph1_geschuetzte_DTCs_18-11.md` bleibt ungeprueft.
+5. **`21 07`** ist in dieser Datei "Actual Data" (Spannungen, Strom, Schuetz), nicht das Balancing-Bitfeld, das Treiber und Quelle `21 07` zuschreiben. Abweichung, Ursache offen.
+6. **`21 09` / `3B 09`:** "Mileage HV Battery At Installation / At Removal" lesen und schreiben. Das ist nicht `$91CF` der Zoe Ph2, aber der Begriff "Installation" passt zu unserem Feld "Time since first installation".
