@@ -24,7 +24,7 @@ New order, one group:
 
 ### 3. Look of the block
 - **All texts left aligned**, including the check mark or cross. The symbol sits in a fixed column in front of each line, so the texts start at the same place.
-- Heading above the six lines: **`Valid? ✓ valid / ✗ invalid`**. Green check = plausible, red cross = not plausible. A grey dash for "not read yet" (proposal).
+- Heading above the six lines: **`✓ valid / ✗ invalid`** (no word "Valid?" any more, owner 18.11.). Green check = plausible, red cross = not plausible. A grey dash for "not read yet" (proposal).
 - LBC2 raw shows its offset: `(raw 2183499652 = 0x80000000 + 36016004)` (owner: yes).
 
 ### 4. Time lines
