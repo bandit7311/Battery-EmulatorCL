@@ -133,3 +133,10 @@ None at the moment. All questions are answered (18.11.2026). Details of wording 
 ## Related findings (separate, not part of this list)
 - Zoe Gen2 and Bolt/Ampera lost `battery_allows_contactor_closing` with the UDS superclass commits (`240a3859e`, `25ca84749`). `v13.6.0` no longer needs it for FoxESS EP and SMA (commit `d9b42fa84`).
 - Zoe Ph1: DTC erase uses `10 03` (inherited), read uses `10 C0`. See `MERKLISTE_Zoe_Ph1_DTC_17-11.md`.
+
+## v10 (18.11., auf Wunsch gebaut): Knopf "Erase Safety Mode 1"
+- Unter der Zeile "Safety mode 1 root cause ($9216)" auf der Zoe-Ph2-Seite, nur Zoe-Dateien (Route `/zoeGen2ResetSafetyMode` in `webserver_zoe_gen2.cpp`).
+- Ablauf (`handle_safety_reset`): warten bis keine UDS-Anfrage laeuft (max. 500 ms), `02 10 03`, nach 100 ms `05 31 01 B0 04 00` (aus der DDT "ResetSM1", **ungetestet**; NVROL sendet dagegen Laenge 4 ohne Option `00`), 1 s Antwort abwarten, dann laeuft das Polling weiter und liest `$9216` neu. Waehrend des Ablaufs ruht das Polling.
+- Die Antwort des Packs steht hinter dem Knopf: `accepted (71)`, `refused (7F), code NN` (NRC) oder `no answer`, jeweils mit raw.
+- Startet nicht waehrend Sleep oder NVROL-Reset. Bestaetigungsdialog vor dem Senden.
+- Tests: 715 (714 bestanden, 1 uebersprungen), 5 neue (Frames und Reihenfolge, Polling ruht/laeuft weiter, Anzeige, Platz, Sleep). Patch: `zoe_komplett_v10.patch` (11 Dateien gegen dala v13.6.0). ESP32-Build nicht gelaufen.
