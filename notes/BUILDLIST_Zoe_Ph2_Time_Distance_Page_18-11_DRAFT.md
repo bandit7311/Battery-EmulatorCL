@@ -79,6 +79,13 @@ New order, one group:
 - Remark: with today's scaling the "mi" case appears for Pack 2 and Pack 3 every time. Emphasis is a plausibility sign, not a measurement of the car's unit.
 - Remark: every line on the real page is already bold, so a bold unit would not show. The mock-up underlines it. **Open: which emphasis.**
 
+### 10. NVROL and the frame 0x376 switch (owner, 18.11.)
+- When an NVROL reset is started, the frame **0x376 is switched off and the switch is set back to default off** (also stored in the NVM, key `ZOE376`), so that sensible days and distance can be entered again before the frame is turned on.
+- Today: `reset_NVROL()` (`RENAULT-ZOE-GEN2-BATTERY.h:26`) only sets `UserRequestNVROLReset`. `transmit_can()` sends the NVROL frames (`.cpp:985-988`) and **keeps sending 0x376** if it is on. `frame_376_enabled` is not touched, so after the reset the old clock and distance would go straight into the freshly reset pack.
+- Where: in `reset_NVROL()` set `frame_376_enabled = false` and call `save_settings()`. The radio box then shows off after the next page reload.
+- Dala's own note in the driver (`.cpp:14-16`): after resetting the NVROL you must enable "temporisation before sleep" and then stop streaming 0x373. This is not part of this item.
+- Open: do the stored days and the stored distance in the NVM stay after NVROL, or are they reset too? (NVROL zeroes the pack's own values, `BEFUND_Echter_Bus_LBC_EVC_09-10.md:265`.)
+
 ## Open (owner to decide)
 1. Emphasis of the unit: bold (not visible on the real page), underline (as in the mock-up), colour or size.
 2. N for LBC1/LBC2 time in the ✓ rule (Pack 3 showed 4 min after a 240 s sleep).
@@ -87,6 +94,7 @@ New order, one group:
 5. Label "Time since first installation": the 0x376 time counts minutes from 02.09.2021 11:32:44 UTC, not from the installation. Keep the name or add the reference date.
 6. Sketch: example `1 day ... 6334 minutes` not readable (minutes box is 0 to 1439). Maybe 634.
 7. Double count: the owner adds 5 by hand when setting, and the firmware adds 5 again at the next boot. Confirm that this is intended.
+8. After NVROL: keep or reset the stored days and distance (see 10).
 
 ## Not verified
 - Compiles on the ESP32 (`-Werror`) and passes the tests on `v13.6.0`.
