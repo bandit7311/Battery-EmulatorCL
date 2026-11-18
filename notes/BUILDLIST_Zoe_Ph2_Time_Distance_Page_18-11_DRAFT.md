@@ -96,6 +96,10 @@ New order, one group:
 - Dala's own note in the driver (`.cpp:14-16`): after resetting the NVROL you must enable "temporisation before sleep" and then stop streaming 0x373. This is not part of this item.
 - **Stored days and stored distance stay in the NVM after NVROL** (owner, 18.11.). The frame is off then, so they have no effect until the owner turns it on again. (NVROL zeroes the pack's own values, `BEFUND_Echter_Bus_LBC_EVC_09-10.md:265`.)
 
+## Next patch (v9), owner 18.11.2026, not built
+- The **minutes field** in the box "Time since first installation" gets a **light grey background** (`background:#c8c8c8`) so that it is clear that it cannot be changed. It is already `readonly` (`RENAULT-ZOE-GEN2-BATTERY.cpp`, field `zoeMinutes`). One style attribute plus a small test. The mock-up shows it.
+- Facts about the minutes (checked in the code): they start at 0 at every start of the emulator (`count_boot()`), at every Set of the days and after every 1440 minutes. As long as no days were set they show 0 and nothing counts. The page does not refresh itself, the field shows the value of the moment the page was loaded.
+
 ## Decided 18.11.2026 (answers to the former open questions)
 1. N for LBC1/LBC2 time in the check rule: **60 minutes**.
 2. Time hint: **without "add 1"**.
