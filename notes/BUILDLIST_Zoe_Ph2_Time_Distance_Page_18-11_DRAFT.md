@@ -140,3 +140,9 @@ None at the moment. All questions are answered (18.11.2026). Details of wording 
 - Die Antwort des Packs steht hinter dem Knopf: `accepted (71)`, `refused (7F), code NN` (NRC) oder `no answer`, jeweils mit raw.
 - Startet nicht waehrend Sleep oder NVROL-Reset. Bestaetigungsdialog vor dem Senden.
 - Tests: 715 (714 bestanden, 1 uebersprungen), 5 neue (Frames und Reihenfolge, Polling ruht/laeuft weiter, Anzeige, Platz, Sleep). Patch: `zoe_komplett_v10.patch` (11 Dateien gegen dala v13.6.0). ESP32-Build nicht gelaufen.
+
+## v11 (18.11., auf Wunsch gebaut): zweiter Versuch fuer Erase Safety Mode 1 und Warnung korrigiert
+- **Pack 4 mit v10 (Messung, Raul 21:41):** `31 01 B0 04 00` wurde mit `03 7F 31 31` abgelehnt (NRC 0x31 = requestOutOfRange nach UDS-Norm). Sitzung und Adresse funktionieren, das Pack antwortet.
+- **Zweiter Versuch:** bei genau diesem Code sendet der Treiber sofort `04 31 01 B0 04` (Laenge 4, ohne das letzte `00`, wie der NVROL-Befehl). Beide Antworten stehen hinter dem Knopf (`... -> second try (31 01 B0 04): answer: ...`). Bei einem anderen Code oder ohne Antwort kein zweiter Versuch.
+- **Warnung "days are lower":** statt mit den aufgerundeten Tagen der LBC1-Zeit wird jetzt mit der Zeit verglichen, die wir gerade senden (`clock_days*1440 + Minute des Tages`). Vorher kam die Warnung im Normalbetrieb, sobald die Minuten ueber 0 liefen (Pack 4, 1550 Tage + 29 min). Text: "Warning: days are lower than the LBC1 time, the time may run backwards." Hinweis: der Vorschlag "abgerundet vergleichen" haette den Fall 1529 Tage getippt gegen 1529 Tage + 160 min im Pack nicht erkannt, deshalb dieser Vergleich.
+- Tests: 718 (717 bestanden, 1 uebersprungen), 3 neue. Patch `zoe_komplett_v11.patch`, 11 Dateien gegen dala v13.6.0, ersetzt v10 (nicht oben drauf legen). ESP32-Build nicht gelaufen.
