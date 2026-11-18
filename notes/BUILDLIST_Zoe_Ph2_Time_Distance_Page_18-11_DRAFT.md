@@ -101,6 +101,9 @@ New order, one group:
 - Facts about the minutes (checked in the code): they start at 0 at every start of the emulator (`count_boot()`), at every Set of the days and after every 1440 minutes. As long as no days were set they show 0 and nothing counts. The page does not refresh itself, the field shows the value of the moment the page was loaded.
 - The **bold NVROL sentence** under the 0x376 hint changes (owner, 18.11.) from `After NVROL Reset, this frame will be initially turned off again and has to be restarted!` to **`After NVROL Reset, this frame will be initially turned off again and has to be checked and restarted again!`** (read as: the ending is replaced; tell if it should be a separate line). In the code it is in `get_uds_info_html()` after the 0x376 hint, and in the test `The_hints_stand_where_the_owner_wanted_them`. Not built.
 
+- **Safety mode line (Zoe Ph2 only, owner 18.11.):** a new line directly **under "Pack distance ($91CF)"** in the checked block: `Safety mode 1 root cause ($9216): <b>10</b> (raw 0A)`, normal weight, only the number bold. Read `22 92 16` (DID `$9216`, "Carrier to save SafetyMode1 root cause", `Ztx_sfty_apv`, readable and writable per the DDT file). **No check mark** (empty mark column), because what a value means is not known: both dumps (`DID_Liste_Original-Pack_Dump_24-07-2025.md:314`, `DID_Liste_MCPU_Dump_11-10.md:669`) show `0A` = 10. Before the first answer: `Not read yet`. Needs one new entry in the PID scan list (about 100 ms more per round) and a `case` in `handle_pid()`. Mock-up shows it. Reset routine for later, not part of this item: `31 01 B0 04 00` ("ResetSM1", after `10 03`).
+- Open for the owner: what value counts as "safety mode active" can only be found by reading `$9216` on a pack that is surely in a safety mode and comparing.
+
 ## Decided 18.11.2026 (answers to the former open questions)
 1. N for LBC1/LBC2 time in the check rule: **60 minutes**.
 2. Time hint: **without "add 1"**.
