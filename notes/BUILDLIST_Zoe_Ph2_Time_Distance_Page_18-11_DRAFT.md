@@ -27,6 +27,11 @@ New order, one group:
 - Heading above the six lines: **`✓ valid / ✗ invalid`** (no word "Valid?" any more, owner 18.11.). Green check = plausible, red cross = not plausible. A grey dash for "not read yet" (proposal).
 - LBC2 raw shows its offset: `(raw 2183499652 = 0x80000000 + 36016004)` (owner: yes).
 
+### 3a. Frame switches
+- The other frames (`0x4CE`, `0x4FB`, `0x133`, `0x440`), Sleep mode, Auto wake, Go sleep, Wake up and the TX/RX counters **stay where they are now, further down**.
+- The `HEVC frame 0x376` switch (off/on) sits right below the six checked lines. The hint under it (owner text, "alreay" corrected): `(after setting a valid days above (days are already rounded up by 1 day) and a valid distance --> turn on frame, not before!)`. It replaces today's hint "Time and distance, see the two fields below. Stored.".
+- The old input fields "Vehicle time (0x376)" and "Vehicle distance (0x376)" are replaced by the two new boxes.
+
 ### 4. Time lines
 - Each time line: minutes with raw in brackets, then `full days total: N`, then `XX days XX month XX years` (days first, years last). 1 year = 365 days, 1 month = 30 days (approximation, leap years ignored, agreed).
 - `full days total` (only for LBC1 time and LBC2 time) = `ceil(minutes / 1440)`. Pack time has no full days total.
