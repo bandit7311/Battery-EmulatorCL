@@ -25,6 +25,7 @@ New order, one group:
 ### 3. Look of the block
 - **All texts left aligned**, including the check mark or cross. The symbol sits in a fixed column in front of each line, so the texts start at the same place.
 - Heading above the six lines: **`✓ valid / ✗ invalid`** (no word "Valid?" any more, owner 18.11.). Green check = plausible, red cross = not plausible. A grey dash for "not read yet" (proposal).
+- **Weight (owner, 18.11.): everything on these lines is normal weight, only the numbers and the units are bold.** In the six checked lines the main value and its unit are bold (`2201920 min`, `1530`, `9 days 2 month 4 years`, `225100.02 mi`, `360160.04 km`); labels, `full days total:`, the arrows and the `(raw ...)` part stay normal. The unit of the LBC1 distance is bold only when the rule of item 9 decides it. Headings, hints and box titles are normal weight, except the bold NVROL sentence under the 0x376 hint.
 - LBC2 raw shows its offset: `(raw 2183499652 = 0x80000000 + 36016004)` (owner: yes).
 
 ### 3a. Frame switches
@@ -78,7 +79,7 @@ New order, one group:
 - The distance box takes the unit of LBC1.
 - Basis: both DIDs hold the same counter (Pack 3: raw 36016004, LBC2 with offset `0x80000000`), LBC1 shown in 1/160 (miles), LBC2 in 1/100 (km). No odometer value needed (owner, taken as given).
 - Remark: with today's scaling the "mi" case appears for Pack 2 and Pack 3 every time. Emphasis is a plausibility sign, not a measurement of the car's unit.
-- Remark: every line on the real page is already bold, so a bold unit would not show. The mock-up underlines it. **Open: which emphasis.**
+- Emphasis of the unit = **bold** (owner, 18.11.). It is visible because the rest of the line is normal weight (see item 3).
 
 ### 10. NVROL and the frame 0x376 switch (owner, 18.11.)
 - When an NVROL reset is started, the frame **0x376 is switched off and the switch is set back to default off** (also stored in the NVM, key `ZOE376`), so that sensible days and distance can be entered again before the frame is turned on.
@@ -88,14 +89,13 @@ New order, one group:
 - Open: do the stored days and the stored distance in the NVM stay after NVROL, or are they reset too? (NVROL zeroes the pack's own values, `BEFUND_Echter_Bus_LBC_EVC_09-10.md:265`.)
 
 ## Open (owner to decide)
-1. Emphasis of the unit: bold (not visible on the real page), underline (as in the mock-up), colour or size.
-2. N for LBC1/LBC2 time in the ✓ rule (Pack 3 showed 4 min after a 240 s sleep).
-3. Time hint: with "add 1" or without.
-4. SET of days below `ceil(LBC1 minutes / 1440)`: reject, warn or allow.
-5. Label "Time since first installation": the 0x376 time counts minutes from 02.09.2021 11:32:44 UTC, not from the installation. Keep the name or add the reference date.
-6. Sketch: example `1 day ... 6334 minutes` not readable (minutes box is 0 to 1439). Maybe 634.
-7. Double count: the owner adds 5 by hand when setting, and the firmware adds 5 again at the next boot. Confirm that this is intended.
-8. After NVROL: keep or reset the stored days and distance (see 10).
+1. N for LBC1/LBC2 time in the ✓ rule (Pack 3 showed 4 min after a 240 s sleep).
+2. Time hint: with "add 1" or without.
+3. SET of days below `ceil(LBC1 minutes / 1440)`: reject, warn or allow.
+4. Label "Time since first installation": the 0x376 time counts minutes from 02.09.2021 11:32:44 UTC, not from the installation. Keep the name or add the reference date.
+5. Sketch: example `1 day ... 6334 minutes` not readable (minutes box is 0 to 1439). Maybe 634.
+6. Double count: the owner adds 5 by hand when setting, and the firmware adds 5 again at the next boot. Confirm that this is intended.
+7. After NVROL: keep or reset the stored days and distance (see 10).
 
 ## Not verified
 - Compiles on the ESP32 (`-Werror`) and passes the tests on `v13.6.0`.
