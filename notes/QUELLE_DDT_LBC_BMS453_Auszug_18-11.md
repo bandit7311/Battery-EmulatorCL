@@ -24,3 +24,18 @@ Datei: `BMS453_00.02.02_00472_00.02.02.ddt_20200218T120557.xml` (DDT2000-Export,
 - `21 08` Actual kernel data, `21 41` und `21 42` Single Cell Voltages Teil 1 und 2, `21 61` **Battery data** (Present Full Capacity, SOH, **Battery Milage** ab Byte 12, **Sum of Energy from the beginning of battery life** ab Byte 16), `21 62` Kennung (Lieferant, Werk, Seriennummer), `21 66` Charge Counter.
 - **`21 09` lesen / `3B 09` schreiben: "Mileage HV Battery At Installation" (Bytes 3 bis 5) und "At Removal" (Bytes 6 bis 8).** Schreiben ohne Sicherheitsfreigabe in der Datei nicht vermerkt (nicht geprueft).
 - Aus den Ueberschriften der Datei (Beschreibung 03.02.2020): "Sum of Energy" in J statt kWh (Wert mal 3 600 000), Kapazitaeten in Ah statt As.
+
+## Dazu: `addressing.xml` "Project X10 - functions list" (vom Nutzer, 18.11.2026)
+Adressdatei von Renault fuer das **Projekt X10** (Name im Dateikopf; dass X10 die Zoe ist, ist Hintergrundwissen und steht nicht in der Datei). Alle Steuergeraete nur mit Protokoll **DiagOnCAN** (Code 6). Darin:
+
+| Steuergeraet | Adresse | Sende-ID (dez.) | Antwort-ID (dez.) | hex |
+|---|---|---|---|---|
+| **LBC** (Lithium Battery Controller) | 147 (0x93) | **1947** | **1979** | **0x79B / 0x7BB** |
+| EVC | 149 | 2020 | 2028 | 0x7E4 / 0x7EC |
+| BCB (Charger) | 103 | 1938 | 1939 | 0x792 / 0x793 |
+| PEB | 104 | 1882 | 1918 | 0x75A / 0x77E |
+| UCH (BCM) | 38 | 1861 | 1893 | 0x745 / 0x765 |
+
+Bedeutung: Die LBC-Adressen **0x79B / 0x7BB** des Zoe-Ph1-Treibers (`setup_uds(0x79B, 0x7BB)`, `RENAULT-ZOE-GEN1-BATTERY.cpp:239`) stimmen mit der Datei fuer X10 ueberein. Die LBC-Adresse 147 ist auch in der BMS453-Datei dieselbe, deren Projektliste aber **x07 / x07Ph2** nennt, nicht x10. Ob die BMS453-Datei die Ph1-LBC genau beschreibt, ist damit **nicht belegt**.
+
+**Tipp zum Suchen der passenden Datei:** In der Datenbank (PyRen, DDT4ALL) die LBC-Dateien suchen, deren Kopf unter `<Projects>` den Eintrag **`<x10/>`** hat (bei BMS453 steht dort `<x07/><x07Ph2/>`).
