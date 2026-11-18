@@ -41,10 +41,11 @@ New order, one group:
 - The owner example (3 years 1 month 1 day 1000 min = 397) does not match: 1 year 1 month 1 day 1000 min = 397; 3 years 1 month 1 day 1000 min = 1127.
 
 ### 5. Box "Time since first installation" (days + minutes)
-- Fields: **days** (input with Set in front) and **minutes** (0 to 1439), then the hint `(see LBC1 time $9261 full days total, press Set)` (wording by Claude, open: "add 1"?).
+- Fields: **days** (input with Set in front) and **minutes** (0 to 1439), then the hint `(see LBC1 time $9261 full days total, press Set)` (wording by Claude; **without "add 1"**, owner 18.11.).
 - **At every boot** (stays, owner: "very important"): minutes = 0, days + 1, days stored in NVM **before** 0x376 is sent.
 - While running: the minutes counter counts with the vehicle clock; at 1440 days + 1, days stored in NVM, minutes restart at 0.
 - **Every Set click writes the typed value to the NVM at once.**
+- **Warning only (owner, 18.11.):** if the typed days are lower than `ceil(LBC1 minutes / 1440)`, the page shows a warning next to the field (proposal for the text: `Warning: days are lower than the pack time, the time may run backwards.`). The value is stored anyway, nothing is rejected.
 - Never backwards: at boot at most 1439 minutes are lost and a full day is added, so the sent time always grows.
 - Start value of 0x376 = `days * 1440 + minutes`. Limit: 24 bit, maximum 16 777 214 min (about 11 650 days), `0xFFFFFF` invalid.
 - Replaces today's start (`seed_376_time()`, pack `$9261` + 2 min, `.cpp:131-141`) and the RAM clock (`.cpp:1265`).
@@ -67,7 +68,7 @@ New order, one group:
 | Field | ✓ when | Pack 3 | Pack 2 |
 |---|---|---|---|
 | LBC1 time | not 0, not 0xFFFFFF (`is_time_plausible`, `.cpp:94`) | ✓ | ✓ |
-| LBC2 time | as above and at most N min from LBC1 (N open, 10 min proposed) | ✓ | not read |
+| LBC2 time | as above and at most **60 min** from LBC1 (owner, 18.11.) | ✓ | not read |
 | Pack time | not 0, not 0xFFFFFF, **not larger than LBC1 time** | ✓ | ✗ (2628957 > 2200548) |
 | LBC1 distance | not 0 and below 1 000 000 | ✓ | ✓ |
 | LBC2 distance | as above and 1.6 x LBC1 or the same number (1 % tolerance) | ✓ | not read |
@@ -86,16 +87,20 @@ New order, one group:
 - Today: `reset_NVROL()` (`RENAULT-ZOE-GEN2-BATTERY.h:26`) only sets `UserRequestNVROLReset`. `transmit_can()` sends the NVROL frames (`.cpp:985-988`) and **keeps sending 0x376** if it is on. `frame_376_enabled` is not touched, so after the reset the old clock and distance would go straight into the freshly reset pack.
 - Where: in `reset_NVROL()` set `frame_376_enabled = false` and call `save_settings()`. The radio box then shows off after the next page reload.
 - Dala's own note in the driver (`.cpp:14-16`): after resetting the NVROL you must enable "temporisation before sleep" and then stop streaming 0x373. This is not part of this item.
-- Open: do the stored days and the stored distance in the NVM stay after NVROL, or are they reset too? (NVROL zeroes the pack's own values, `BEFUND_Echter_Bus_LBC_EVC_09-10.md:265`.)
+- **Stored days and stored distance stay in the NVM after NVROL** (owner, 18.11.). The frame is off then, so they have no effect until the owner turns it on again. (NVROL zeroes the pack's own values, `BEFUND_Echter_Bus_LBC_EVC_09-10.md:265`.)
+
+## Decided 18.11.2026 (answers to the former open questions)
+1. N for LBC1/LBC2 time in the check rule: **60 minutes**.
+2. Time hint: **without "add 1"**.
+3. Set of days below the pack value: **warn only**, do not reject.
+4. Label **"Time since first installation" stays** as it is (no reference date added).
+5. The unreadable number in the sketch (`1 day ... 6334 minutes`) is **ignored** (owner: slip of the pen).
+6. Double count of +5: **fine**. The firmware adds at boot, and the frame is switched on without a boot, so the owner's manual +5 is not counted twice.
+7. After NVROL: stored days and distance **stay** in the NVM, no effect while the frame is off.
+8. Emphasis of the unit: bold (see item 3). Only numbers and units are bold.
 
 ## Open (owner to decide)
-1. N for LBC1/LBC2 time in the ✓ rule (Pack 3 showed 4 min after a 240 s sleep).
-2. Time hint: with "add 1" or without.
-3. SET of days below `ceil(LBC1 minutes / 1440)`: reject, warn or allow.
-4. Label "Time since first installation": the 0x376 time counts minutes from 02.09.2021 11:32:44 UTC, not from the installation. Keep the name or add the reference date.
-5. Sketch: example `1 day ... 6334 minutes` not readable (minutes box is 0 to 1439). Maybe 634.
-6. Double count: the owner adds 5 by hand when setting, and the firmware adds 5 again at the next boot. Confirm that this is intended.
-7. After NVROL: keep or reset the stored days and distance (see 10).
+1. The bracket hint of 0x376 contains the sentence `If you see an invalid mark on one position, consider NVROL, but you will lose all usage values!`. It stays inside the brackets, or it is dropped now that the bold NVROL line stands below it? (proposal: both stay)
 
 ## Not verified
 - Compiles on the ESP32 (`-Werror`) and passes the tests on `v13.6.0`.
