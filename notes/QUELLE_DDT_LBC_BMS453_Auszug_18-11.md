@@ -44,3 +44,17 @@ Bedeutung: Die LBC-Adressen **0x79B / 0x7BB** des Zoe-Ph1-Treibers (`setup_uds(0
 Das sind **Darstellungsvorlagen** (XSL), die eine Adressdatei wie `addressing.xml` als HTML-Tabelle anzeigen. Sie enthalten keine Befehle und keine Daten zum LBC. Nur zwei Angaben daraus:
 - **Alte Vorlage** (`..._old.xsl`): XId und RId stehen als Dezimalzahl in der Datei, ist die Zahl groesser als 2 147 483 647, ist **Bit 31 gesetzt und wird fuer die Anzeige entfernt** (Kommentar "remove bit 31 for display"). Das ist die Kennzeichnung einer erweiterten ID (29 Bit, abgeleitet, nicht ausdruecklich im Text). Bei `addressing.xml` (X10) sind XId 1947 und RId 1979 **kleiner**, also normale **11-Bit-IDs 0x79B / 0x7BB**.
 - **Neuere Vorlagen** (`..._old2`, `..._old3`, aktuelle): eigene Spalten fuer **DiagOnCAN11b** und **DiagOnCAN29b** (`Extended='0'` oder `'1'`), **DoIP** und ein Kennzeichen "Security Gateway" (`Type='CGW'`). Fuer die Ph2 (29 Bit, `0x18DADBF1`) gehoert also ein neueres Dateiformat. Das ist eine Schlussfolgerung aus den Vorlagen, keine Angabe einer Datei.
+
+### Zweite `addressing.xml`: "x07 _ Twingo III" (vom Nutzer, 18.11.2026)
+Adressdatei im neuen Format (mit `Address`-Elementen, 11 Bit und 29 Bit getrennt, `Present="1"` = verwendet). **Projekt x07 = Twingo III** (Name im Kopf der Datei).
+
+| Steuergeraet | Adresse | 11 Bit (Sende / Antwort) | 29 Bit | Present |
+|---|---|---|---|---|
+| **LBC (EV)** | 147 (0x93), LogicalAddress 0093 | **0x79B / 0x7BB** | keine | 11 Bit |
+| (H) EVC | 149 | 0x7E4 / 0x7EC | 18DADAF1 / 18DAF1DA | 11 Bit (29 Bit nur in der Zeile "VCM_29b" Present=1) |
+| BCB | 103 | 0x792 / 0x793 | 18DADEF1 / 18DAF1DE (Present=0) | 11 Bit |
+| PEB | 104 | 0x75A / 0x77E | keine | 11 Bit |
+| UCH | 38 | 0x745 / 0x765 | keine | 11 Bit |
+
+Schluss: Der LBC der **Twingo III** hat dieselben Adressen **0x79B / 0x7BB** wie der der **Zoe (X10)**. Damit gehoert die Datei `BMS453_...xml` (Projekte x07 und x07Ph2) zum **Twingo-III-LBC** (und, nach dem Namen, zum smart 453), **nicht** zur Zoe Ph1. Dass beide dieselben Befehle verwenden (`14 FF FF FF`, `10 C0`, `19 02 FF`), ist **nicht belegt**. Fuer die Ph1 fehlt weiter die LBC-Datei mit `<x10/>` in der Projektliste.
+Hinweis: Der LBC dieser Twingo-III-Datei hat **keine 29-Bit-Adresse**. Unser Zoe-Ph2-Pack antwortet auf `0x18DADBF1` (29 Bit) und ist damit ein anderes Steuergeraet als dieser LBC.
