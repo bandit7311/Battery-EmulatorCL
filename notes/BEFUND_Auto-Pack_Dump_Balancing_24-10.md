@@ -446,3 +446,12 @@ Quelle: zwei Airtable-Zeilen (`auto`), Auto-Pack. Vorgeschichte: Fahrt der Frau,
 
 ## Nachtrag 19.11.: $9216 = 10 blockiert bei diesem Pack nicht den Betrieb
 Vom Nutzer aufgezeigt: derselbe Pack (im Auto verbaut, `$9216` = 10 ueber ein Jahr) faehrt und laedt normal. Beleg aus den eigenen Dumps (Abschnitt 28/29): Hauptschuetze geschlossen (Wechselrichter misst 402-404 V am HV-Eingang, hinter den Schuetzen, gleich der Akku-Summenspannung), `91D0`/`91DF`/`91F3` (Rueckmeldungen) durchgehend "geschlossen", echte Fahr- und Lademissionen in `$9270`/`9259`. **Korrektur:** die fruehere Vermutung (aus einer externen Quelle, nicht aus unseren Dateien), ein Wert 10 blockiere das Schliessen der Schuetze, ist durch diese Messung widerlegt, zumindest fuer diesen Pack.
+
+## Nachtrag 19.11.: Zusammenstellung aller $9216-Werte, Annahme moeglicherweise umgekehrt
+| Pack | `$9216` |
+|---|---|
+| Original-Twingo-Pack (Dump 24.07.2025) | 10 |
+| Auto-/Recycler-Pack im Twingo (34 Dumps, ueber 1 Jahr, faehrt/laedt normal) | 10 |
+| Zoe Pack 4 (Portugal) | 00 |
+| Zoe Pack 5 (Portugal) | 10 |
+**Beobachtung (Nutzer, 19.11.):** 3 von 4 Packs zeigen 10, nur Pack 4 zeigt 00. Der Pack mit 10, von dem am meisten bekannt ist (im fahrenden Twingo), laeuft nachweislich einwandfrei (Schuetze geschlossen, Fahr-/Lademissionen). **Moeglich (nicht bewiesen, kleine Stichprobe, nur zwei Pack-Familien):** 10 ist der verbreitete/normale Wert, 00 der seltenere. Keine Quelle (DDT, Netzsuche) ordnet den Werten bisher eine Bedeutung zu.
