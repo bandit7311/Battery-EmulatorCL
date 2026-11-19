@@ -88,3 +88,10 @@ Abgelesen von Claude. BMS state laut Nutzer: 5 (Pack 4 steht mit unseren Frames 
 - Beide Erase-Versuche (v11) weiter `refused (7F), code 31`.
 - SoC min/max 6000/6263, Temporisation 0 Activated. Die DTC-Listen waren im Foto nicht zu sehen.
 - **Nachtrag Nutzer (22:20):** nach dem Sleep **keine DTC** mehr (P1B2081 weg), BMS state weiter **5**, alle Balancing-Zeiten leer (0). Dazu nur die ungeprueften Hypothesen aus `BEFUND_Fremdanalyse_Zoe_Balancing_22-10.md` (Totband 2 % SOC, Neuberechnung nur beim Aufwachen und Fahrtbeginn nach vollem Laden); Pack 4 steht bei SoC 60,00 bis 62,63 %.
+
+## Nachtrag 19.11. (Bench-Pack des Nutzers, freie Anfrage `22 9216`)
+Abgelesen von Claude, **Korrektur einer eigenen falschen Aussage** (ein erstes Bild zeigte im Auswahlfeld DC, die Antwort stammte aber noch von der MCPU-Abfrage):
+- **DB (MCPU):** `22 9216` -> `62 92 16 00` (1 Byte, Wert 00).
+- **DC (SCPU):** `22 9216` -> `7F 22 31` (NRC 0x31, requestOutOfRange). `$9216` gibt es im SCPU **nicht**. Die Zoe-Seite liest sie richtig nur auf LBC1.
+- Dieses Pack nutzt NRC 0x31 fuer einen Identifier, den das Steuergeraet nicht kennt. Das stuetzt (nicht beweisend) die Annahme, dass die Routine B004 bei Pack 4 fehlt (Code 31 bei v1 und v2).
+- MCPU `$9262`/`$9263`: `0.000 Ah / 0.000 h` (raw 80000000), also ein echter Wert 0, kein Lesefehler.
