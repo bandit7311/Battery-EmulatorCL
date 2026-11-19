@@ -52,3 +52,11 @@ Gelesen in der Datei, nichts am Geraet geprueft.
 - **Korrektur einer frueheren Aussage:** Die Liste enthaelt auch `45065` = 0xB009 "Reinitialisation of NVROL memory" (nur als Kennung, **keine** Anfrage `3101B009..` definiert), ausserdem `45066` = 0xB00A "SW recopy into external Flash memory", `45063/45064` = Relais 3/4, `672` = "Request to change FOTA status", `674` = "Request S/W bank switch". Vorher stand hier, B009 komme in der Datei nicht vor: das galt nur fuer die Anfragen.
 - **Sitzungen:** `10 01` Default, `10 02` Programming, `10 03` ExtendedDiagnostic, **`10 60` Supplier** (Zeile 17596). Der einzige Bildschirm mit "SM1" im Namen ("SM1-CANdev", Kategorie DEV, Text "CAN dev ON") hat nur eine Taste, die **`StartDiagnosticSession.Supplier` (`10 60`)** sendet. Hinweis, **kein Beweis**: die SM1-Funktion koennte die Supplier-Sitzung brauchen. Die Datei sagt zu keiner Anfrage, welche Sitzung sie braucht.
 - Adressierung der Datei: SendId 416996337 (extended), ReceiveId 417001947, wie unser `0x18DADBF1`/`0x18DAF1DB`.
+
+## Nachtrag 19.11.: DataWrite fuer $9216 (nur notiert, nicht gebaut)
+In der XML gibt es neben der Routine B004 auch einen rohen Schreibzugriff auf das Register selbst:
+- `Request Name="DataWrite.Carrier to save SafetyMode1 root cause(Ztx_sfty_apv)"`, markiert `<ManuelSend/>` (wie B004 und NVROL).
+- Gesendet: `2E 92 16 00` (SID 2E, DID 9216, 1 Datenbyte 00).
+- Erwartete Antwort: `6E 92 16`.
+- Zum Lesen (zur Einordnung): `DataRead...` sendet `22 92 16`, Antwort `62 92 16 00`.
+**Bewusst nicht gebaut:** das waere ein rohes Ueberschreiben des gespeicherten Safety-Mode-1-Grundes, ohne zu wissen, was ihn gesetzt hat. Dafuer gibt es keine Pruefung wie moeglicherweise in der Routine B004. Nur als Fundstelle in der Datei festgehalten.
