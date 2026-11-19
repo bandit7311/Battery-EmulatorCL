@@ -31,3 +31,8 @@ Balance capacity total/sleep **500,04 Ah** (raw 2147995696), time total/sleep **
 
 ## Nachtrag 19.11.: Software-Zeilen (v13, `$F1xx`)
 Vom Nutzer eingeschickt, **als Pack 5 bestaetigt** (Nutzer 19.11.; Pack 4 hat `293A02395R`): Software `$F194` = " 543" (raw 20 35 34 33), `$F195` = **ZL00** (raw 5A 4C 30 30), Calibration `$F182` = **01 80**, Spare part `$F187` = **293A09902R** (raw 32 39 33 41 30 39 39 30 32 52), Hardware `$F191` = **293A01958R**. In den frueheren Dumps (Twingo-Bench, Recycler-Pack): `$F194` = RL00, `$F195` = 0610/0620, Calibration 09 80/09 81. Die MCPU-DDT heisst `RBMS_MCPU_SW5XX_ZL_V1.5` (Namenstreffer "SW5XX" und "ZL"; ob 543 in der Datei vorkommt, nicht geprueft).
+
+## Erase Safety Mode v1 und v2 an Pack 5 (v12/v13, `$9216` = 10, BMS state 4, Aussage des Nutzers)
+- **v1** (`10 03`, `31 01 B0 04 00`): `refused (7F), code 31` (raw 03 7F 31 31).
+- **v2** (`10 03`, `31 01 B0 04`): `refused (7F), code 31` (raw 03 7F 31 31 AA AA AA AA).
+- Damit lehnt auch ein Pack mit `$9216` = 10 beide Formen mit 0x31 ab (Pack 4: ebenfalls, `$9216` = 00, BMS state 5). Offen: ob `$9216` = 10 ueberhaupt einen aktiven Safety Mode meint, und ob die SM1-Routine die Sitzung `10 60` (Supplier) braucht (Hinweis aus der DDT, Bildschirm "SM1-CANdev", nicht belegt).
