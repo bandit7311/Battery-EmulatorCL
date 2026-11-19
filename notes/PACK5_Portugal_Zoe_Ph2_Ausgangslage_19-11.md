@@ -36,3 +36,19 @@ Vom Nutzer eingeschickt, **als Pack 5 bestaetigt** (Nutzer 19.11.; Pack 4 hat `2
 - **v1** (`10 03`, `31 01 B0 04 00`): `refused (7F), code 31` (raw 03 7F 31 31).
 - **v2** (`10 03`, `31 01 B0 04`): `refused (7F), code 31` (raw 03 7F 31 31 AA AA AA AA).
 - Damit lehnt auch ein Pack mit `$9216` = 10 beide Formen mit 0x31 ab (Pack 4: ebenfalls, `$9216` = 00, BMS state 5). Offen: ob `$9216` = 10 ueberhaupt einen aktiven Safety Mode meint, und ob die SM1-Routine die Sitzung `10 60` (Supplier) braucht (Hinweis aus der DDT, Bildschirm "SM1-CANdev", nicht belegt).
+
+## Nach Sleep 480 s mit v14 (Raul-Uhr 18:09, Pack 5)
+Abgelesen von Claude. v14 laeuft (Knopf v3 da, "not sent yet"). Raul: "batt2 upgraded to safetyreset v3". Aussagen Raul im Chat: Delta ca. 6 mV, "so shouldn't balance".
+| | 16:39 (vor den Sleeps) | 18:09 (nach Sleep 480 s) |
+|---|---|---|
+| Tage / Minuten (Felder) | 1655 / 2 | **1658 / 17** (3 Neustarts: +3 Tage) |
+| Strecke Feld | 5 mi | **20 mi** (3 Neustarts: +15) |
+| LBC1 = LBC2 time | 2383201 | **2387536** (= 1658 Tage + 16 min), gleich ✓ |
+| LBC1 distance | 5,02 mi | **20,02 mi** (raw 3204) ✓ |
+| LBC2 distance | 8,04 km | **32,04 km** (raw 2147486852) ✓ |
+| **Pack time `$91C1`** | 2377458 ✓ | **3005027** (raw 2D DA 63) ✗, groesser als LBC1 (Differenz +617491 min), gegenueber vorher **+627569 min** |
+| **Pack distance `$91CF`** | 12374920 km ✗ | **12374920 km** ✗ (raw 2543481088), unveraendert |
+| `$9216` | 10 | 10 |
+- Pack time 3005027 = 2086 Tage + 1187 min (aufgerundet 2087), Seite: "21 days 8 month 5 years". Warum die Packzeit so gesprungen ist, ist offen; wann genau (nach welchem der Sleeps), ist nicht bekannt.
+- Pack distance wuchs trotz einer Aenderung der gesendeten Strecke um 15 mi nicht (bei Pack 4 wuchs sie um Differenz x 1,6). Moegliche Ursache (Annahme): der ungueltige Zaehler (12,4 Mio. km) wird nicht weitergezaehlt.
+- Erase v1 und v2 weiter 0x31; v3 noch nicht gedrueckt.
