@@ -95,3 +95,6 @@ Abgelesen von Claude, **Korrektur einer eigenen falschen Aussage** (ein erstes B
 - **DC (SCPU):** `22 9216` -> `7F 22 31` (NRC 0x31, requestOutOfRange). `$9216` gibt es im SCPU **nicht**. Die Zoe-Seite liest sie richtig nur auf LBC1.
 - Dieses Pack nutzt NRC 0x31 fuer einen Identifier, den das Steuergeraet nicht kennt. Das stuetzt (nicht beweisend) die Annahme, dass die Routine B004 bei Pack 4 fehlt (Code 31 bei v1 und v2).
 - MCPU `$9262`/`$9263`: `0.000 Ah / 0.000 h` (raw 80000000), also ein echter Wert 0, kein Lesefehler.
+
+## Nachtrag 19.11.: Software-Zeilen (v13, `$F1xx`) von Pack 4
+Vom Nutzer genannt: Calibration `$F182` = **01 80**, Spare part `$F187` = **293A02395R** (raw 32 39 33 41 30 32 33 39 35 52), Hardware `$F191` = **293A01958R**. Die Zeile Software (`$F194`/`$F195`) fehlt noch.
