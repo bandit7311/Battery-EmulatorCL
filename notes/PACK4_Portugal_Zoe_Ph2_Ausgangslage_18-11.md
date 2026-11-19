@@ -98,3 +98,7 @@ Abgelesen von Claude, **Korrektur einer eigenen falschen Aussage** (ein erstes B
 
 ## Nachtrag 19.11.: Software-Zeilen (v13, `$F1xx`) von Pack 4
 Vom Nutzer genannt: Calibration `$F182` = **01 80**, Spare part `$F187` = **293A02395R** (raw 32 39 33 41 30 32 33 39 35 52), Hardware `$F191` = **293A01958R**. Software (`$F194`/`$F195`, vom Nutzer als Pack 4 geschickt, 19.11.): **" 543"** (raw 20 35 34 33) / **ZL00** (raw 5A 4C 30 30), **gleich wie Pack 5**. Damit liegen beide Portugal-Packs in der Familie der DDT `RBMS_MCPU_SW5XX_ZL_V1.5`; die Vermutung "B004 gibt es in der Software von Pack 4 nicht" ist damit schwaecher (Pack 5 hat dieselbe Software).
+
+## Nachtrag 19.11., 22:02: $9216 jetzt 10 (war 00)
+Screenshot Raul: eigener Code ausserhalb unserer Patches (Knopf "Write $9216=10", `2E 92 16 0A`), **nicht von uns gebaut**. Antwort `03 6E 92 16 AA AA AA AA` = positive Bestaetigung des Schreibdienstes (0x6E ist die positive Antwort auf 0x2E, Anzeige "other" nur weil die dortige Auswertung 0x6E nicht kennt). Die Seite zeigt danach **"Safety mode 1 root cause ($9216): 10 (raw 0A)"**, vorher 0 (raw 00). Pack 4 steht damit jetzt beim selben Wert wie Original-Twingo-Pack, Auto-Twingo-Pack und Pack 5 (alle 10).
+- Weitere Werte im selben Bild: Tage 1555/Minute 1, Strecke 30 mi, LBC1/LBC2 time 2239201 (gleich, gruen), Pack time 2234943 (gruen), LBC1 distance 30,02 mi, Pack distance **16 km** (raw 2147484160, gruen) -- aus dem fruehen Sleep-Test, seither unveraendert. Hardware ($F191) "Not read yet".
