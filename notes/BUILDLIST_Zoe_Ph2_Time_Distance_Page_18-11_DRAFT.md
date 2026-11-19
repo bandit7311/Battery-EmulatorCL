@@ -151,3 +151,10 @@ None at the moment. All questions are answered (18.11.2026). Details of wording 
 - **Pack 4 mit v11 (Messung, Raul 21:58):** beide Formen werden mit `03 7F 31 31` (NRC 0x31) abgelehnt, der automatische zweite Versuch brachte nichts.
 - **v12:** der automatische zweite Versuch ist entfernt. Zwei Knoepfe nebeneinander unter der Zeile `$9216`, jeder sendet nur seine Form nach `10 03`: **v1** = `31 01 B0 04 00` (5 Bytes, wie die DDT), **v2** = `31 01 B0 04` (4 Bytes, wie NVROL). Route `/zoeGen2ResetSafetyMode?value=1|2`. Darunter eine graue Zeile mit beiden Befehlen und `last: vN answer: ...` (accepted 71 / refused 7F mit Code / no answer, mit raw).
 - Tests: 719 (718 bestanden, 1 uebersprungen). Patch `zoe_komplett_v12.patch`, 11 Dateien gegen dala v13.6.0, ersetzt v11. ESP32-Build nicht gelaufen.
+
+## v13 (19.11., auf Wunsch gebaut, "bauen"): Software-Zeilen auf der Zoe-Seite
+- **Neue Zeilen** auf `/advanced`, direkt **unter "Temporisation"**, ueber "Time since first installation":
+  `Software ($F194 / $F195): RL00 / 0620`, `Calibration ($F182): 09 81 · Spare part ($F187): 293A09578R`, `Hardware ($F191): 293A01958R`. Text fett, wenn alle Bytes Buchstaben/Ziffern sind, dahinter `(raw ..)`; sonst nur Hex; "Not read yet" bis das Pack antwortet. Serial (`$F18C`) bewusst nicht (Pack-Kennung).
+- **Lesen:** nur vom ersten Steuergeraet (LBC1), je **ein Register pro Runde** der Abfrageliste (Umweg nach `$9216` wie beim Strom), jedes hoechstens **3 Mal** (`IDENT_MAX_ATTEMPTS`), dann Schluss bis zum naechsten Start. Alle fuenf gelesen: danach nur noch der normale Strom-Umweg. Nicht beantwortete Register kosten damit nur wenige Anfragen.
+- Nicht belegt: ob die Packs 4 und 5 diese DIDs beantworten (in den Dumps ja, `DID_Liste_MCPU_Dump_11-10.md:1850-1865`). Zweck: pruefen, ob die DDT "SW5XX V1.5" zur Software der Packs passt (Routine B004 mit Code 31 abgelehnt).
+- Tests: 725 (724 bestanden, 1 uebersprungen), 6 neue. Patch `zoe_komplett_v13.patch`, 11 Dateien gegen dala v13.6.0, ersetzt v12. ESP32-Build nicht gelaufen.
