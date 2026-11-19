@@ -97,4 +97,4 @@ Abgelesen von Claude, **Korrektur einer eigenen falschen Aussage** (ein erstes B
 - MCPU `$9262`/`$9263`: `0.000 Ah / 0.000 h` (raw 80000000), also ein echter Wert 0, kein Lesefehler.
 
 ## Nachtrag 19.11.: Software-Zeilen (v13, `$F1xx`) von Pack 4
-Vom Nutzer genannt: Calibration `$F182` = **01 80**, Spare part `$F187` = **293A02395R** (raw 32 39 33 41 30 32 33 39 35 52), Hardware `$F191` = **293A01958R**. Die Zeile Software (`$F194`/`$F195`) fehlt noch.
+Vom Nutzer genannt: Calibration `$F182` = **01 80**, Spare part `$F187` = **293A02395R** (raw 32 39 33 41 30 32 33 39 35 52), Hardware `$F191` = **293A01958R**. Software (`$F194`/`$F195`, vom Nutzer als Pack 4 geschickt, 19.11.): **" 543"** (raw 20 35 34 33) / **ZL00** (raw 5A 4C 30 30), **gleich wie Pack 5**. Damit liegen beide Portugal-Packs in der Familie der DDT `RBMS_MCPU_SW5XX_ZL_V1.5`; die Vermutung "B004 gibt es in der Software von Pack 4 nicht" ist damit schwaecher (Pack 5 hat dieselbe Software).
