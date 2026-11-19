@@ -837,3 +837,11 @@ Anlass: Beim Zoe Ph2 gab es dasselbe Problem (Zeit nach dem Neustart wieder nied
 3. Soll die Zeit in der Stille mitlaufen (wie beim Zoe) oder stehen bleiben (wie heute)?
 4. Soll der Schalter "Time in 0x436" bei einem NVROL ausgeschaltet werden (wie beim Zoe der Frame `0x376`)?
 5. Km in `0x426`: auch +5 pro Start?
+
+## Merkposten (19.11.2026, nichts gebaut): Dibblah1-Branch "feature/zoe-gen1-balancing" als Referenz fuer spaeter
+Quelle: `github.com/Dibblah1/Battery-Emulator`, Branch `feature/zoe-gen1-balancing` (zwei Commits `5f7fe2398`, `ee6d67913`, ueber dem aktuellen `main` des Haupt-Repos, im Code gelesen, nicht am Geraet geprueft). **Gilt dem Zoe Ph1 (RENAULT-ZOE-GEN1-BATTERY.cpp/.h), nicht dem Twingo** -- anderer Treiber, anderes Frame-Set. Nur als Idee/Muster vorgemerkt, falls fuer den Twingo mal ein aehnlicher Balancing-Sleep-Knopf gewuenscht wird:
+- Nutzt die **schon vorhandenen generischen Balancing-Haken** der Basisklasse (`supports_balancing()`, `initiate_balancing()`, `end_balancing()`, `is_balancing_active()`), keinen neuen eigenen Knopf-Mechanismus.
+- Neuer Zustand `quiet_balancing_mode` (bool): beim Start `max_discharge_power_W`/`max_charge_power_W` auf 0, Systemzustand auf STANDBY (ausser FAULT).
+- Waehrend aktiv: das Wake-up-Frame `0x423` wird **nicht gesendet** (nur `CAN_battery_still_alive` manuell gesetzt, damit die eigene Sicherheitsschicht nicht anschlaegt), die UDS-Abfrage **pausiert** komplett.
+- **Kein gestufter Vorlauf** (anders als unser Zoe-Ph2-Sleep mit 7,2 s Stufen): einfacher An/Aus-Schalter beim naechsten 100-ms-Takt.
+- `0x19F`, `0x426`, `0x436`, `0x69F` laufen in diesem Branch **unveraendert weiter**, werden nicht stillgelegt (Diskord-Tabelle vom Nutzer zeigte urspruenglich alle sechs Frames als "Silent", das deckt sich nicht mit diesem Branch -- vermutlich ein umfangreicherer, nicht gefundener Stand, z. B. von "byggsmurfen").
