@@ -171,3 +171,9 @@ None at the moment. All questions are answered (18.11.2026). Details of wording 
 - **Wirkung von Mode 2:** beim Druck auf "Go sleep" wird der 7,2-s-Vorlauf (gestufte Frame-Aenderungen wie bei Mode 0/1) uebersprungen; die Uebertragung stoppt **sofort beim naechsten Tick**, kein 0x9281-Schreiben. Technisch minimal: `handle_sleep` springt im Idle-Zustand direkt nach `WaitIdle` statt nach `LeadIn`; da jeder Zustand ueber `LeadIn` ohnehin zu vollstaendiger Stille fuehrt, reicht das aus.
 - **Default bleibt "Sleep"** (Mode 0), nichts am bisherigen Verhalten geaendert.
 - Tests: 731 (730 bestanden, 1 uebersprungen), 3 neue (kein Vorlauf/sofortige Stille, keine gestuften Frame-Aenderungen, Anzeige/Auswahl auf der Seite). Patch `zoe_komplett_v15.patch`, 11 Dateien gegen dala v13.6.0, ersetzt v14 (**nicht** den vom Nutzer selbst ergaenzten "Write $9216"-Knopf, der wird separat gepflegt). ESP32-Build nicht gelaufen.
+
+## v16 (19.11., auf Wunsch gebaut): Antwort auf das 0x9281-Schreiben anzeigen
+- **Anlass:** Beim "Sleep 0x9281=1"-Test stand `$9281` nach dem Aufwachen wieder auf 0. Offen war, ob das Pack den Schreibvorgang ueberhaupt angenommen hatte (kein Rueckmeldewert wurde bisher je abgefangen) oder ob das Schreiben nie wirkte.
+- **Jetzt:** Nach dem Senden von `2E 92 81 01` wartet der Treiber bis zu 400 ms (`SLEEP_WRITE_ANSWER_MS`, vorher 100 ms fest) und faengt die Antwort des Packs ab (wie beim Safety-Mode-Knopf). Zeile auf der Seite: `Sleep 0x9281=1 first sends 10 03 and 2E 92 81 01, answer: <b>accepted (6E)</b>/<b>refused (7F), code NN</b>/<b>no answer</b> (raw ..)`, davor "not sent yet" bis zum ersten Lauf.
+- Gilt nur fuer Sleep-Modus 1; bei Modus 0/2 bleibt die Zeile "not sent yet", da kein Schreiben erfolgt.
+- Tests: 734 (733 bestanden, 1 uebersprungen), 3 neue. Patch `zoe_komplett_v16.patch`, 11 Dateien gegen dala v13.6.0, ersetzt v15 (**nicht** den vom Nutzer selbst gepflegten "Write $9216"-Knopf). ESP32-Build nicht gelaufen.
