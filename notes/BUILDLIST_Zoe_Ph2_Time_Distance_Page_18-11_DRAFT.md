@@ -187,3 +187,19 @@ None at the moment. All questions are answered (18.11.2026). Details of wording 
 ## Zum Bauen vorgemerkt (19.11., Beobachtung von v17, nichts gebaut, wartet auf "bauen")
 - **Beobachtung:** Mit v17 kommt die Schreib-Antwort auf `2E 92 81 01` schnell (`accepted (6E)`), aber die Zeile "Temporisation" oben auf der Seite zeigt weiterhin den alten Wert (`0 Activated!`). Grund (Schluss, nicht geprueft): Diese Zeile haengt an der normalen Hintergrund-Abfrage, die durch ueber 90 Register zyklisch durchlaeuft; ein Durchlauf dauert vermutlich laenger als die 7,2 s des anschliessenden Vorlaufs, sodass `$9281` darin oft nicht erneut an die Reihe kommt, bevor die naechste Stille die Abfrage wieder pausiert.
 - **Idee:** direkt nach dem Schreiben gezielt `22 92 81` zuruecklesen (eigene kleine Anfrage, unabhaengig von der langsamen Abfrageliste) und das Ergebnis in derselben Zeile wie die Schreib-Antwort anzeigen -- dann sieht man den tatsaechlichen Pack-Wert sofort, nicht erst (zufaellig) beim naechsten Durchlauf der langen Liste.
+
+## Zum Bauen vorgemerkt (20.11., Fund aus echten ljames28-Logs zum Schlaf-/Wach-Verhalten, nichts gebaut, wartet auf "bauen")
+- **Quelle:** `ljames28`-Repo-Checkout im Scratchpad (`Canbus Logs/charge_to_100.log`, identisch `open_flap_charge.log`), echter candump-Log mit einer 723,6-s-Stille auf dem Batteriebus (1704750229.967 bis 1704750953.561 s Unix-Zeit) -- ein echter Schlaf-Wach-Zyklus, keine Vermutung.
+- **Fund 1, wichtig -- `0x4FB` bleibt bis zum letzten Frame auf `04` (Relais geschlossen):** In den letzten 10 s vor der Stille (gemessen, jede einzelne Aenderung geprueft) bleibt Byte 2 von `0x4FB` durchgaengig `04`. Es gibt **keinen** Wechsel auf `02` ("Relais offen") vor der Stille. Das widerspricht der aktuellen Code-Annahme (`RENAULT-ZOE-GEN2-BATTERY.cpp`, Kommentar "0x4FB reports the relay as open" waehrend `LeadIn`, B2 wird dort auf `02` erzwungen, wenn der Schalter `frame_4fb_enabled` an ist). **Zu aendern:** B2 wird waehrend des gesamten Vorlaufs weiter per `is_main_relay_closed()` gesetzt (wie im Normalbetrieb), nicht fest auf `02`.
+- **Fund 2 -- `0x440` an den realen Ablauf anpassen:** Gemessen (jede Aenderung, letzte 10 s vor der Stille):
+  - B1 wechselt `31` -> `33` ca. **6,2 s** vor der Stille (bei `31` laeuft B4 auf `1F`).
+  - B4 wechselt `1F` -> `9F` rund **100 ms** nach dem B1-Wechsel auf `33` (passt zur Groessenordnung von `SLEEP_440_OPEN_MS`).
+  - B1 erreicht `32` erst in den letzten rund **3 s** vor der Stille (nicht exakt bei den bisherigen 3100 ms, aber in der Naehe -- Wert aus dem Log neu pruefen statt des bisherigen Annahme-Werts).
+  - B7 im "offenen" Zustand zeigt im Log `78`, nicht `74` wie im bisherigen Code-Kommentar vermutet -- Byte-Werte am Log nachpruefen, nicht raten.
+- **Fund 3 -- Aufwach-Reihenfolge ist gestuft, nicht gleichzeitig:** Gemessen (erster Frame je ID nach Ende der Stille, relativ zum Ende der Stille):
+  1. `0x373` -- +64 ms
+  2. `0x0F5`, `0x0EE`, `0x133` -- +77 bis +84 ms
+  3. `0x4FB` -- +100 ms
+  4. `0x375`, `0x376`, `0x440`, `0x4CE` -- +107 bis +108 ms
+  Gesamtspanne ca. 44 ms. Der aktuelle Code (`transmit_can()`, `wake_up_requested` setzt `sleep_state` sofort auf `Idle`) laesst stattdessen alle Frames im selben Tick gleichzeitig wieder anlaufen (0 ms Versatz). **Zu bauen:** eine kurze gestufte Wake-Sequenz (neuer `SleepState`-Zustand oder Verzoegerungen pro Frame-Gruppe), die diese vier Stufen und ihre ungefaehren Abstaende (64 / 80 / 100 / 108 ms ab Wake-Beginn) nachbildet, analog zum bereits vorhandenen gestuften Sleep-Vorlauf.
+- **Wichtig fuer die Umsetzung:** vor dem Bauen den Log selbst noch einmal pruefen (Datei liegt im Scratchpad, nicht dauerhaft -- bei Bedarf erneut aus dem ljames28-Repo holen), exakte Byte-Werte Stelle fuer Stelle gegen den Code abgleichen, nicht aus dem Gedaechtnis uebernehmen.
