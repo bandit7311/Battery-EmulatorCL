@@ -259,6 +259,11 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 - **Ursache nicht geklaert.** Nicht reproduzierbar erzwungen (2 von 3 Laeufen fehlerfrei). Moegliche Kandidaten, keiner bewiesen: ein blockierender Vorgang im Hauptloop (z. B. WiFi/Webserver) genau an der 30-s-Grenze, der auch unsere eigene Zustandsmaschine fuer die stille Zeit mit anhaelt, oder eine Race zwischen der neuen `Fixed9281ResetSession`/`Fixed9281ResetWrite`-Logik und einer zu diesem Zeitpunkt noch laufenden Hintergrund-UDS-Anfrage (`uds_is_busy()` bleibt laenger als erwartet `true`).
 - **Fuer den naechsten Fall:** am hilfreichsten waere ein serieller USB-Log genau um den 30-s-Uebergang, falls das Problem erneut auftritt.
 
+## Zum Bauen vorgemerkt (21.11., Nutzer-Vorgabe): 0x0F5 B0 von 7C auf 7D aendern
+- **Anlass:** `0x0F5` (Strom) ist hardcoded (`{0x7C, 0x00, 0x00, 0xFF, 0xD7, 0xF8, 0x7D, 0x10}`), 1:1 aus `ljames28`s Beispielskript (`example-code.py:455-457`) uebernommen. In echten Fahrzeuglogs steht B0 aber **meistens auf `7D`** (vermuteter Ruhewert `0x7D0`), `7C` kommt dort nur selten vor (`BEFUND_Zoe_Ph2_HEV-CAN_und_Strom_08-11.md:26`).
+- **Vorgabe:** B0 von `0x7C` auf `0x7D` aendern, damit der gesendete Wert dem haeufigsten/Ruhewert aus den echten Logs entspricht statt dem selteneren Beispielskript-Wert.
+- Wartet auf "bauen".
+
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
 Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
 1. **"Relay 4"-DTC (`P1B2081`, "Relay 4 control output - Invalid serial data received") kommt, sobald bei Pack 4 das Hauptrelais absichtlich offen ist** -- das ist aber eigentlich kein echter Fehler, sondern Absicht (`0x4FB` meldet dann korrekt "offen", `is_main_relay_closed()` ist `false`). Die DTC zeigt also technisch richtig an, dass das Relais offen ist, wird aber als Stoerung dargestellt, obwohl das gewollt ist.
