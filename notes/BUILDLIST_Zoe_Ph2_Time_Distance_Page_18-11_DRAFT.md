@@ -286,7 +286,8 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 - **Konkreter Beleg fuer die Reihenfolge (21.11., eigene Log-Auswertung `open_flap_charge.log`):** Im selben ~0,2-s-Fenster wie der `0x375`-B3-Wechsel (`BF`->`7F`, siehe oben) kippt `0x4CE` B0 von `5F` (Laden) auf `1F` (Ruhe) -- beide Frames melden also zeitgleich "Laden endet", lange (ca. 515 s) bevor die eigentliche Stille beginnt.
 - **Vorgabe:** `0x4CE` zustandsabhaengig senden wie im Fahrzeug (Ruhe/Laden/Fahrt), nicht mehr starr "Fahrt".
 - **Wichtig (Nutzer, 21.11.): die Relation zu den anderen Frames muss stimmen.** Nicht isoliert nur `0x4CE` aendern, sondern zusammen mit den anderen noch offenen Punkten konsistent bauen: `0x0F5` (B4/B5 Ruhe-/Schlafmuster, siehe oben), `0x375` (B1/B3/B4-Muster, noch nicht verstanden, siehe oben), `0x440`/`0x4FB` (Relais, bereits zustandsabhaengig). Ein gemeinsames "Fahrzeugzustand"-Modell noetig, das alle betroffenen Frames gleichzeitig und widerspruchsfrei bedient, statt jeden Frame einzeln zu flicken.
-- **Vor dem Bauen zu klaeren:** vollstaendiges Muster von B1/B3/B4 in `0x375` (noch offen), damit alle Frames zum selben Fahrzeugzustand passen.
+- **Entschieden (Nutzer, 21.11.) fuer `0x375` B3:** nicht an den Ladezustand koppeln (zu unsicher, siehe Log-Befund oben), sondern **dynamisch an das Relais koppeln** -- genau zum Zeitpunkt, an dem das Relais abschaltet (`is_main_relay_closed() == false`), wechselt B3 von `0xBF` auf `0x7F`. Schliesst das Relais wieder, zurueck auf `0xBF`. Damit haengt B3 am selben Signal wie `0x4FB`/`0x440` (`is_main_relay_closed()`), keine eigene Zustandslogik noetig.
+- **B1/B4 von `0x375` bleiben weiter offen** (Muster nicht verstanden, siehe Fund oben) -- nicht Teil dieser Entscheidung, vorerst unangetastet lassen (B1 bleibt `29`/`FF`-Logik wie heute, B4 bleibt fix).
 - Wartet auf "bauen".
 
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
