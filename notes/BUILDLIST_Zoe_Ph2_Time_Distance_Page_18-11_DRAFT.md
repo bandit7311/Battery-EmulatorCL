@@ -259,9 +259,12 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 - **Ursache nicht geklaert.** Nicht reproduzierbar erzwungen (2 von 3 Laeufen fehlerfrei). Moegliche Kandidaten, keiner bewiesen: ein blockierender Vorgang im Hauptloop (z. B. WiFi/Webserver) genau an der 30-s-Grenze, der auch unsere eigene Zustandsmaschine fuer die stille Zeit mit anhaelt, oder eine Race zwischen der neuen `Fixed9281ResetSession`/`Fixed9281ResetWrite`-Logik und einer zu diesem Zeitpunkt noch laufenden Hintergrund-UDS-Anfrage (`uds_is_busy()` bleibt laenger als erwartet `true`).
 - **Fuer den naechsten Fall:** am hilfreichsten waere ein serieller USB-Log genau um den 30-s-Uebergang, falls das Problem erneut auftritt.
 
-## Zum Bauen vorgemerkt (21.11., Nutzer-Vorgabe): 0x0F5 B0 von 7C auf 7D aendern
-- **Anlass:** `0x0F5` (Strom) ist hardcoded (`{0x7C, 0x00, 0x00, 0xFF, 0xD7, 0xF8, 0x7D, 0x10}`), 1:1 aus `ljames28`s Beispielskript (`example-code.py:455-457`) uebernommen. In echten Fahrzeuglogs steht B0 aber **meistens auf `7D`** (vermuteter Ruhewert `0x7D0`), `7C` kommt dort nur selten vor (`BEFUND_Zoe_Ph2_HEV-CAN_und_Strom_08-11.md:26`).
-- **Vorgabe:** B0 von `0x7C` auf `0x7D` aendern, damit der gesendete Wert dem haeufigsten/Ruhewert aus den echten Logs entspricht statt dem selteneren Beispielskript-Wert.
+## Zum Bauen vorgemerkt (21.11., Nutzer-Vorgabe, erweitert): 0x0F5 zustandsabhaengig statt starr
+- **Anlass:** `0x0F5` (Strom) ist komplett hardcoded (`{0x7C, 0x00, 0x00, 0xFF, 0xD7, 0xF8, 0x7D, 0x10}`), 1:1 aus `ljames28`s Beispielskript (`example-code.py:455-457`) uebernommen. Nur Zaehler (B1) und CRC (B2) laufen mit, B0 und B3-B7 aendern sich nie, egal was BE gerade macht (Laden/Fahren/Schlafen/9281-30s-Lauf sehen alle gleich aus).
+- **Befund aus echten Logs** (`BEFUND_Zoe_Ph2_HEV-CAN_und_Strom_08-11.md:26`): B0 steht meistens auf `7D` (vermuteter Ruhewert `0x7D0`), `7C`/`7B` nur selten; B4/B5 wechseln zwischen `D7`/`F8` (Ruhe/Laden) und `DE`/`B0` (Zuendung an/Fahrt); B6 `7D`, B7 08..F8 in Achterschritten (Median Ruhe 30, Laden 58).
+- **Erster Schritt (einfach):** B0 von `0x7C` auf `0x7D` aendern (haeufigster Log-Wert statt Beispielskript-Wert).
+- **Zweiter Schritt (groesser, noch zu klaeren):** B4/B5/B6/B7 an den tatsaechlichen BE-Zustand koppeln (z. B. laedt/entlaedt/ruht), nicht mehr starr. Genaue Zuordnung Wert <-> BE-Zustand noch offen, da die Skalierung/Bedeutung von `0x0F5` nicht sicher belegt ist (auch der Autor selbst: "IDK where it goes").
+- **Offene Frage (wichtig, Nutzer 21.11.): was senden wir waehrend des "9281=1 30s fix"-Laufs auf `0x0F5`?** Aktuell: unveraendert `D7`/`F8` (zufaellig "Ruhe/Laden"-Muster), weil der Frame in diesem Modus normal weiterlaeuft (siehe oben, `lead_in` ist in diesem Modus immer `false`). Zu klaeren vor dem Bauen: soll dieser Lauf explizit den Ruhe-/Schlaf-Zustand auf `0x0F5` abbilden (so wie jetzt zufaellig), oder den zuletzt echten Fahrzeugzustand beibehalten?
 - Wartet auf "bauen".
 
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
