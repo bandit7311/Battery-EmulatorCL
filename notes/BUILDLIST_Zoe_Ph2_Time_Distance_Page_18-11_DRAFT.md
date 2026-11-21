@@ -273,6 +273,13 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 - **Geklaert (Nutzer, 21.11.): neues Label "9281 no 0x373 frame"** statt "9281=1 30s fix" (die 30 s sind nicht mehr fix, also passt der alte Name nicht mehr). Beschreibungszeile, Hinweistexte und Status-Zeilen-Text (Restzeit) entsprechend anpassen.
 - Wartet auf "bauen".
 
+## Zum Bauen vorgemerkt (21.11., Nutzer-Vorgabe): 0x375 B6 von 00 auf FF reparieren
+- **Anlass:** `0x375` (HEVC status message) ist hardcoded (`{0x02, 0x29, 0x00, 0xBF, 0xFE, 0x64, 0x00, 0xFF}`), B6 steht bei uns fest auf `00`.
+- **Befund (geprueft in allen 10 `ljames28`-Logs mit `0x375`-Vorkommen):** B6 steht dort **ausnahmslos** auf `FF`, nie auf `00`. Unser `00` ist also ein durchgaengiger Fehler, kein Einzelfall.
+- **Vorgabe:** B6 von `0x00` auf `0xFF` aendern.
+- **Noch offen, nicht Teil dieses Punkts:** B1 (toggelt je nach Log zwischen Werten wie `27`/`28`/`29`/`2A`/`2D`, wird `FF` bei manchen Schlafvorgaengen, aber nicht zeitlich wie bisher angenommen "700 ms vor der Stille"), B3 (`7F`/`BF`) und B4 (`FE`/`F2`, in einem Log auch `F4`/`F8`) folgen einem noch nicht verstandenen Muster -- vermutlich fahrzeug-/tuerzustandsabhaengig. Nicht angefasst, bis das Muster geklaert ist.
+- Wartet auf "bauen".
+
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
 Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
 1. **"Relay 4"-DTC (`P1B2081`, "Relay 4 control output - Invalid serial data received") kommt, sobald bei Pack 4 das Hauptrelais absichtlich offen ist** -- das ist aber eigentlich kein echter Fehler, sondern Absicht (`0x4FB` meldet dann korrekt "offen", `is_main_relay_closed()` ist `false`). Die DTC zeigt also technisch richtig an, dass das Relais offen ist, wird aber als Stoerung dargestellt, obwohl das gewollt ist.
