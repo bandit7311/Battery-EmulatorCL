@@ -270,7 +270,7 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 ## Zum Bauen vorgemerkt (21.11., Nutzer-Vorgabe): "9281=1 30s fix" hoert auf das Eingabefeld statt auf feste 30 s
 - **Anlass:** "9281=1 30s fix" (`sleep_mode` = 2) nutzt aktuell eine eigene feste Konstante `FIXED_9281_DURATION_MS` (30000 ms), unabhaengig vom Eingabefeld "Auto wake after: ... s" (`sleep_seconds`, 1 bis `SLEEP_SECONDS_MAX` = 900 s), das die Modi 0 ("Sleep") und 1 ("Sleep 0x9281=1") fuer ihre Stille-Dauer verwenden.
 - **Vorgabe:** Modus 2 soll **dasselbe Eingabefeld** (`sleep_seconds`) fuer seine Dauer nutzen statt der festen 30 s. Der feste Wert `FIXED_9281_DURATION_MS` entfaellt, stattdessen `(unsigned long)sleep_seconds * 1000UL` wie bei `Silent` (Modus 0/1).
-- **Zu pruefen beim Bauen:** Name/Beschreibung "9281=1 30s fix" passt dann nicht mehr (die 30 s sind nicht mehr fix) -- Label und Hinweistexte anpassen. Ebenso der Status-Zeilen-Text mit der Restzeit.
+- **Geklaert (Nutzer, 21.11.): neues Label "9281 no 0x373 frame"** statt "9281=1 30s fix" (die 30 s sind nicht mehr fix, also passt der alte Name nicht mehr). Beschreibungszeile, Hinweistexte und Status-Zeilen-Text (Restzeit) entsprechend anpassen.
 - Wartet auf "bauen".
 
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
