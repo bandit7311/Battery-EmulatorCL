@@ -264,7 +264,7 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 - **Befund aus echten Logs** (`BEFUND_Zoe_Ph2_HEV-CAN_und_Strom_08-11.md:26`): B0 steht meistens auf `7D` (vermuteter Ruhewert `0x7D0`), `7C`/`7B` nur selten; B4/B5 wechseln zwischen `D7`/`F8` (Ruhe/Laden) und `DE`/`B0` (Zuendung an/Fahrt); B6 `7D`, B7 08..F8 in Achterschritten (Median Ruhe 30, Laden 58).
 - **Erster Schritt (einfach):** B0 von `0x7C` auf `0x7D` aendern (haeufigster Log-Wert statt Beispielskript-Wert).
 - **Zweiter Schritt (groesser, noch zu klaeren):** B4/B5/B6/B7 an den tatsaechlichen BE-Zustand koppeln (z. B. laedt/entlaedt/ruht), nicht mehr starr. Genaue Zuordnung Wert <-> BE-Zustand noch offen, da die Skalierung/Bedeutung von `0x0F5` nicht sicher belegt ist (auch der Autor selbst: "IDK where it goes").
-- **Offene Frage (wichtig, Nutzer 21.11.): was senden wir waehrend des "9281=1 30s fix"-Laufs auf `0x0F5`?** Aktuell: unveraendert `D7`/`F8` (zufaellig "Ruhe/Laden"-Muster), weil der Frame in diesem Modus normal weiterlaeuft (siehe oben, `lead_in` ist in diesem Modus immer `false`). Zu klaeren vor dem Bauen: soll dieser Lauf explizit den Ruhe-/Schlaf-Zustand auf `0x0F5` abbilden (so wie jetzt zufaellig), oder den zuletzt echten Fahrzeugzustand beibehalten?
+- **Geklaert (Nutzer, 21.11.): waehrend "9281=1 30s fix" soll `0x0F5` das Ruhe-/Schlafmuster zeigen** (B4/B5 `D7`/`F8`, wie aktuell, aber jetzt bewusst statt zufaellig). Damit ist auch fuer den Sleep-Vorlauf (`LeadIn`, bis zum Stopp 1 s vor der Stille) das Ruhe-/Schlafmuster die richtige Wahl, nicht das Fahr-Muster (`DE`/`B0`).
 - Wartet auf "bauen".
 
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
