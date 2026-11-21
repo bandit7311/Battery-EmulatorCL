@@ -280,6 +280,15 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 - **Noch offen, nicht Teil dieses Punkts:** B1 (toggelt je nach Log zwischen Werten wie `27`/`28`/`29`/`2A`/`2D`, wird `FF` bei manchen Schlafvorgaengen, aber nicht zeitlich wie bisher angenommen "700 ms vor der Stille"), B3 (`7F`/`BF`) und B4 (`FE`/`F2`, in einem Log auch `F4`/`F8`) folgen einem noch nicht verstandenen Muster -- vermutlich fahrzeug-/tuerzustandsabhaengig. Nicht angefasst, bis das Muster geklaert ist.
 - Wartet auf "bauen".
 
+## Zum Bauen vorgemerkt (21.11., Nutzer-Vorgabe): 0x4CE zustandsabhaengig wie im Fahrzeug, Relation zu den anderen Frames muss stimmen
+- **Anlass:** `0x4CE` (HEVC Charging type) ist bei uns komplett starr auf "Fahrt" (`B0 = 0x7F`) in jedem Zustand -- Code-Kommentar sagt das explizit ("fixed to driving"). Nur Zaehler (B6) und CRC (B7) laufen mit.
+- **Befund aus echten Logs** (`BEFUND_Zoe_Ph2_HEV-CAN_und_Strom_08-11.md:41`): B0 ist im echten Fahrzeug zustandsabhaengig: `1F` = Ruhe, `5F` = Laden, `7F` = Fahrt.
+- **Konkreter Beleg fuer die Reihenfolge (21.11., eigene Log-Auswertung `open_flap_charge.log`):** Im selben ~0,2-s-Fenster wie der `0x375`-B3-Wechsel (`BF`->`7F`, siehe oben) kippt `0x4CE` B0 von `5F` (Laden) auf `1F` (Ruhe) -- beide Frames melden also zeitgleich "Laden endet", lange (ca. 515 s) bevor die eigentliche Stille beginnt.
+- **Vorgabe:** `0x4CE` zustandsabhaengig senden wie im Fahrzeug (Ruhe/Laden/Fahrt), nicht mehr starr "Fahrt".
+- **Wichtig (Nutzer, 21.11.): die Relation zu den anderen Frames muss stimmen.** Nicht isoliert nur `0x4CE` aendern, sondern zusammen mit den anderen noch offenen Punkten konsistent bauen: `0x0F5` (B4/B5 Ruhe-/Schlafmuster, siehe oben), `0x375` (B1/B3/B4-Muster, noch nicht verstanden, siehe oben), `0x440`/`0x4FB` (Relais, bereits zustandsabhaengig). Ein gemeinsames "Fahrzeugzustand"-Modell noetig, das alle betroffenen Frames gleichzeitig und widerspruchsfrei bedient, statt jeden Frame einzeln zu flicken.
+- **Vor dem Bauen zu klaeren:** vollstaendiges Muster von B1/B3/B4 in `0x375` (noch offen), damit alle Frames zum selben Fahrzeugzustand passen.
+- Wartet auf "bauen".
+
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
 Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
 1. **"Relay 4"-DTC (`P1B2081`, "Relay 4 control output - Invalid serial data received") kommt, sobald bei Pack 4 das Hauptrelais absichtlich offen ist** -- das ist aber eigentlich kein echter Fehler, sondern Absicht (`0x4FB` meldet dann korrekt "offen", `is_main_relay_closed()` ist `false`). Die DTC zeigt also technisch richtig an, dass das Relais offen ist, wird aber als Stoerung dargestellt, obwohl das gewollt ist.
