@@ -339,7 +339,8 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 - **Beobachtung (Nutzer, 22.11.):** Laeuft der normale "Sleep"-Modus (0) durch, kommt **keine** Stoerungsmeldung. Laeuft "Sleep 0x9281=1" (Modus 1) durch, kommt eine **"BMS slave"**-Meldung.
 - **Einziger funktionaler Unterschied zwischen den beiden Modi** (siehe Tabelle oben): Modus 1 sendet vor dem eigentlichen Vorlauf zusaetzlich die UDS-Sitzung `10 03` und das Schreiben `2E 92 81 01` (Temporisation=1). Modus 0 sendet davon nichts, geht direkt in den Vorlauf.
 - **Schluss (naheliegend, nicht bewiesen):** Die "BMS slave"-Meldung haengt vermutlich mit dieser UDS-Sitzung/Schreibaktion zusammen, nicht mit dem Vorlauf oder der Stille selbst (die bei beiden Modi identisch ablaufen). Moeglicher Bezug zu `P1BB108` ("Safety CPU/Slave Communication"), das wir bei Pack 4 schon mehrfach gesehen haben -- noch nicht ausdruecklich bestaetigt, dass es exakt dieser Code ist.
-- **Noch zu klaeren:** exakter DTC-Code/-Text der "BMS slave"-Meldung (Screenshot oder DTC-Liste pruefen), ob sie schon waehrend der Sitzung/des Schreibens kommt oder erst spaeter, und ob sie bei "9281 no 0x373 frame" (Modus 2, der dieselbe Sitzung/Schreibaktion am Anfang hat) ebenfalls auftritt.
+- **Bestaetigt (Nutzer, 22.11.): die "BMS slave"-Meldung ist `P1BB108` ("Safety CPU/Slave Communication")** -- derselbe Code, den wir bei Pack 4 auf LBC2 schon mehrfach gesehen haben (zuletzt in einem Screenshot mit sonst sauberer LBC-DTC-Liste).
+- **Noch zu klaeren:** ob sie schon waehrend der Sitzung/des Schreibens kommt oder erst spaeter, und ob sie bei "9281 no 0x373 frame" (Modus 2, der dieselbe Sitzung/Schreibaktion am Anfang hat) ebenfalls auftritt.
 
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
 Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
