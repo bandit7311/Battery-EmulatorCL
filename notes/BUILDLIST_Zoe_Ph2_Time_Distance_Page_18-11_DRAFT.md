@@ -299,6 +299,16 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 - **Noch zu klaeren:** ob `0x440`s relaisabhaengige Bytes (B1 `31`/`32`, B4 `1F`/`9F`, B7 `94`/`74`) von derselben Korrektur betroffen sind -- nicht Teil dieser Entscheidung, separat zu klaeren.
 - Wartet auf "bauen".
 
+## Zum Bauen vorgemerkt (21.11., Nutzer-Vorgabe): 0x440 beim Aufwachen gestuft 32->33->31 (und B4 9F->1F), nicht direkter Sprung
+- **Anlass:** Gemessen (ljames28-Logs, echtes Aufwachen aus der echten 723,6-s-Stille sowie aus den vier "asleep_..."-Logs ohne echte Stille): `0x440` springt beim Aufwachen NICHT direkt auf den Endwert, sondern durchlaeuft dieselbe Sequenz wie der Sleep-Vorlauf, nur umgekehrt: `32/9F` (haelt eine Weile) -> `33/9F` -> `33/1F` -> `31/1F`. Bei uns (gebaut bis v21, auch im dala-Original gegengeprueft) springt `0x440` beim Aufwachen in einem Schritt direkt auf den Endwert (`31/1F` bzw. `32/9F` je nach `is_main_relay_closed()`), ohne Zwischenschritt.
+- **Gemessene Zeiten (aus der echten Stille, Referenz = Aufwach-Start wie bei den bestehenden `WAKE_*`-Konstanten):** `32/9F` ab dem ersten wieder gesendeten `0x440` (~108 ms, deckt sich mit `WAKE_REST_MS`), B1 `32->33` bei ~1507 ms, B4 `9F->1F` bei ~1808 ms, B1 `33->31` (fertig) bei ~2208 ms. Nur relevant, wenn der Endzustand `31/1F` ist (Relais zu) -- ist das Relais offen, ist `32/9F` schon der Endwert, keine weitere Stufe noetig.
+- **Technischer Plan (ausgearbeitet, noch nicht eingebaut):**
+  - Neues Feld `bool wake_440_staging`, neue Konstanten `WAKE_440_B1_33_MS` (1500), `WAKE_440_B4_1F_MS` (1800), `WAKE_440_DONE_MS` (2200), gerundete Werte der obigen Messung, gleiche Referenzzeit wie die bestehenden `WAKE_*`-Konstanten (`wake_step_millis`).
+  - Im bestehenden `wake_rest_sent`-Block (ersetzt den bisherigen direkten Sprung): `wake_440_staging = is_main_relay_closed()`, `0x440` wird auf `32/9F` gesetzt (statt direkt auf den Endwert).
+  - Im normalen 100-ms-Block (`if (frame_440_enabled) { if (lead_in ...) {...} else {...} }`): neuer `else if (wake_440_staging)`-Zweig zwischen den beiden bestehenden, der je nach verstrichener Zeit seit `wake_step_millis` `32/9F` -> `33/9F` -> `33/1F` -> `31/1F` (und dabei `wake_440_staging = false`) durchlaeuft -- B3-Nibble und B7 folgen wie gehabt dem offen/geschlossen-Muster.
+- **Noch zu klaeren vor dem Bauen:** ob `wake_440_staging` beim erneuten "Go sleep" waehrend des Laufs (`handle_sleep()`, Idle-Case) explizit zurueckgesetzt werden muss, oder ob die bestehende `lead_in`-Pruefung (die im else-if-Zweig vorrangig ist) das schon abdeckt -- beim Bauen pruefen, nicht nur annehmen.
+- Wartet auf "bauen".
+
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
 Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
 1. **"Relay 4"-DTC (`P1B2081`, "Relay 4 control output - Invalid serial data received") kommt, sobald bei Pack 4 das Hauptrelais absichtlich offen ist** -- das ist aber eigentlich kein echter Fehler, sondern Absicht (`0x4FB` meldet dann korrekt "offen", `is_main_relay_closed()` ist `false`). Die DTC zeigt also technisch richtig an, dass das Relais offen ist, wird aber als Stoerung dargestellt, obwohl das gewollt ist.
