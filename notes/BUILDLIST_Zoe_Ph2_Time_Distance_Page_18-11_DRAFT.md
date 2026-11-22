@@ -290,6 +290,13 @@ Drei echte Feldlaeufe mit geflashtem v21 ausgewertet (CAN-Logs `9281_30s_log.txt
 - **B1/B4 von `0x375` bleiben weiter offen** (Muster nicht verstanden, siehe Fund oben) -- nicht Teil dieser Entscheidung, vorerst unangetastet lassen (B1 bleibt `29`/`FF`-Logik wie heute, B4 bleibt fix).
 - Wartet auf "bauen".
 
+## Befund und Entscheidung (21.11.): 0x4FB bleibt unveraendert bei 04, kein erzwungenes "offen" waehrend unseres Schlafens
+- **Anlass:** Ueberlegung, waehrend unseres erzwungenen Schlafens (LeadIn/Silent/"9281 no 0x373 frame") dem Pack per CAN "Relais offen" zu melden, unabhaengig vom echten BE-Zustand -- verworfen.
+- **Geprueft:** Alle 11 `ljames28`-Logs (ueber 37.000 `0x4FB`-Frames: Laden, echtes Fahren vor/zurueck, Ver-/Entriegeln, mehrfaches Schlafen/Wecken) zeigen `0x4FB` B2 durchgehend `04` (geschlossen), nie `02` -- auch rund um die einzige echte 723,6-s-Stille im Log.
+- **Zusaetzlich geprueft (Twingo, echte MCPU-Dumps vor/nach langem Schlaf):** Alle woertlich "Relay"/"Hauptrelais" benannten Register (`91CA` Hauptrelais-Anforderung, `91CB` Vorladerelais, `9217`/`91F3` Relay 3, `9218`/`9219` Relay 4) sind **unveraendert** vor und nach dem Schlaf. Nur `925C` (= `0x440`, NICHT `0x4FB`) aendert sich (`02`<->`01`), dokumentiert als "unlatched for sleep transient and balance" -- nicht ausdruecklich als Hauptschuetz-Zustand.
+- **Vier der "asleep_..."-Logs enthalten gar keine echte Stille** (groesste Luecke 0,05 s) -- die dort vorkommenden `0x440`-Werte `32`/`33` sind also keine Schlaf-Belege, sondern kurze Blips im normalen Betrieb (vermutlich Ver-/Entriegeln).
+- **Entscheidung (Nutzer, 21.11.): `0x4FB` bleibt wie heute** -- folgt unveraendert dem echten `is_main_relay_closed()`, keine Sonderbehandlung waehrend unseres Schlafens. Wir haben keinen Beleg, dass `04` ueberhaupt "das Hauptschuetz" ist (die Namensgleichheit "Relay 4" war eine Annahme, nicht bewiesen); ohne Beleg wird nichts erzwungen.
+
 ## Merkposten (21.11., Beobachtung des Nutzers am laufenden Pack 4, nichts gebaut, nur notiert)
 Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
 1. **"Relay 4"-DTC (`P1B2081`, "Relay 4 control output - Invalid serial data received") kommt, sobald bei Pack 4 das Hauptrelais absichtlich offen ist** -- das ist aber eigentlich kein echter Fehler, sondern Absicht (`0x4FB` meldet dann korrekt "offen", `is_main_relay_closed()` ist `false`). Die DTC zeigt also technisch richtig an, dass das Relais offen ist, wird aber als Stoerung dargestellt, obwohl das gewollt ist.
