@@ -420,3 +420,20 @@ Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
 - **Technischer Plan:** Konstante `SLEEP_SECONDS_MAX` im Header von `900` auf `3600` aendern. Keine Datentyp-Probleme: `sleep_seconds` ist `uint16_t` (passt bis 65535), die Millisekunden-Rechnung `(unsigned long)sleep_seconds * 1000UL` bleibt bei 3.600.000 weit unter einem `unsigned long`-Ueberlauf. Hinweistext auf der Seite ("1 to 900 s") automatisch korrekt, da er die Konstante referenziert, nicht fest verdrahtet ist.
 - **Betrifft nur `sleep_seconds`/die Modi 0/1/2/3/4 ueber die Stille-Dauer**, nicht `BMS_OFF_SECONDS_MAX` (bleibt bei 900 s, sofern nicht separat gewuenscht).
 - Wartet auf "bauen".
+
+## Zum Bauen vorgemerkt (23.11., Nutzer-Vorgabe): dritte Sleep-Zeile "... + Inverter Pause" (ohne BMS off), zwischen den bestehenden zwei Zeilen
+- **Anlass:** Eine dritte Variante von "Sleep"/"Sleep 0x9281=1" -- diesmal ohne den BMS-Power-Zyklus (Modi 3/4), aber mit derselben Massnahme gegenueber dem Inverter wie dort: Stroeme/Leistungen auf 0, keine Leistungsaufnahme erlaubt. Visuell als neue Zeile ZWISCHEN der bestehenden "Sleep mode:"-Zeile (0/1/2) und der "... + BMS off"-Zeile (3/4), alle weiterhin dieselbe Radio-Gruppe `zoesleep`.
+- **Zwei neue Werte `sleep_mode == 5`/`== 6`:**
+  - `5`: "Sleep + Inverter Pause" (Arbeitstitel, Label beim Bauen ggf. anpassen) -- Vorlauf identisch zu `sleep_mode == 0` (direkt `LeadIn`, kein `10 03`/`2E 92 81 01`).
+  - `6`: "Sleep 0x9281=1 + Inverter Pause" -- Vorlauf identisch zu `sleep_mode == 1` (`WaitIdle` zuerst, sendet die UDS-Sitzung/Schreiben).
+  - **Kein BMS-off fuer 5/6** -- nach der Stille (`Silent`) geht es direkt in den normalen Wake-Uebergang (`begin_waking_up()`), genau wie bei 0/1/2, nicht ueber `SleepState::BmsOff`.
+- **Timing der Pause (Nutzer-Vorgabe): sofort bei Sleep-Start setzen, nicht erst nach der Stille** -- `setBatteryPause(true, false, UNCHANGED, false)` im `Idle`-Case, sobald `sleep_requested` fuer Modus 5/6 akzeptiert wird (gleiche Stelle wie bei Modus 3/4 in v24, nur fuer zwei weitere Modus-Werte ergaenzt). Aufgehoben wird die Pause erst beim tatsaechlichen Wake-Start, ueber die bestehende `begin_waking_up()`-Helper-Methode (aus v24), deren `sleep_mode == 3 || sleep_mode == 4`-Bedingung um `|| sleep_mode == 5 || sleep_mode == 6` erweitert wird.
+- **Technischer Plan (Erweiterung der bestehenden v24-Logik, kein neuer Mechanismus):**
+  - Setter-Grenze `sleep_mode <= 4` auf `<= 6` erweitern.
+  - Idle-Case: `sleep_state = (sleep_mode == 0 || sleep_mode == 3 || sleep_mode == 5) ? LeadIn : WaitIdle;` und die `setBatteryPause(true,...)`-Bedingung um `|| sleep_mode == 5 || sleep_mode == 6` erweitern.
+  - `WaitIdle`-Case (UDS-Sitzung/Schreiben): Bedingung `sleep_mode == 1 || sleep_mode == 2 || sleep_mode == 4` um `|| sleep_mode == 6` erweitern.
+  - `Silent`-Case: **unveraendert** -- die bestehende `if (sleep_mode == 3 || sleep_mode == 4) { ...BmsOff... } else { begin_waking_up(); }`-Weiche deckt 5/6 automatisch im `else`-Zweig ab (kein BMS-off), da sie dort nicht aufgefuehrt sind.
+  - `begin_waking_up()`: `setBatteryPause(false,...)`-Bedingung um `|| sleep_mode == 5 || sleep_mode == 6` erweitern.
+  - Neue Radio-Buttons-Zeile in `get_uds_info_html()`, zwischen den beiden bestehenden Sleep-Mode-Zeilen eingefuegt.
+- **Nutzer-Hypothese, nicht geprueft:** Koennte mit dem `$9259`-Zustand 5 ("Fahren/wach", siehe echte Zoe-Dumps) zusammenhaengen -- falls der Pack unsere Leistungsanforderung ans Inverter-Verhalten koppelt, koennte das Wegnehmen der Stromanforderung Einfluss darauf haben, ob/wie der Pack seinen eigenen `$9259`-Zustand haelt. Nicht belegt, nur als moegliche Nebenwirkung/Testidee vermerkt, nicht Teil der eigentlichen Umsetzung.
+- Wartet auf "bauen".
