@@ -414,3 +414,9 @@ Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
 - **Technischer Plan:** Neue Konstante `POLL_RELAY_STATUS = 0x925C` (Header, bei den anderen `POLL_*`-Konstanten), neue Variable `uint16_t battery_relay_status = 0;` (analog zu `battery_bms_state`), `case POLL_RELAY_STATUS: battery_relay_status = (uint16_t)(value); break;` in `handle_pid()`, Eintrag in `pid_scan_list`, neue Zeile `"<h4>Relay status (pack): " << battery_relay_status << "</h4>"` direkt unter der bestehenden "Relay state:"-Zeile in `get_uds_info_html()`.
 - **Noch zu klaeren vor dem Bauen:** exakte Byte-Laenge/Position der Antwort auf `$925C` bei Zoe (bei Twingo ist das BMS-State-Format mit 32 Byte komplett anders als bei Zoe -- nicht einfach uebertragen, am eigenen Pack/den ljames28-Logs gegenpruefen, ob `925C` dort ueberhaupt vorkommt und welches Format die Antwort hat).
 - Wartet auf "bauen".
+
+## Zum Bauen vorgemerkt (23.11., Nutzer-Vorgabe): Schlafzeit-Obergrenze auf 3600 s erhoehen
+- **Anlass:** `SLEEP_SECONDS_MAX` (aktuell 900 s / 15 min, `RENAULT-ZOE-GEN2-BATTERY.h:48`) soll auf 3600 s (60 min) erhoeht werden, fuer laengere Sleep-Zyklen als bisher moeglich.
+- **Technischer Plan:** Konstante `SLEEP_SECONDS_MAX` im Header von `900` auf `3600` aendern. Keine Datentyp-Probleme: `sleep_seconds` ist `uint16_t` (passt bis 65535), die Millisekunden-Rechnung `(unsigned long)sleep_seconds * 1000UL` bleibt bei 3.600.000 weit unter einem `unsigned long`-Ueberlauf. Hinweistext auf der Seite ("1 to 900 s") automatisch korrekt, da er die Konstante referenziert, nicht fest verdrahtet ist.
+- **Betrifft nur `sleep_seconds`/die Modi 0/1/2/3/4 ueber die Stille-Dauer**, nicht `BMS_OFF_SECONDS_MAX` (bleibt bei 900 s, sofern nicht separat gewuenscht).
+- Wartet auf "bauen".
