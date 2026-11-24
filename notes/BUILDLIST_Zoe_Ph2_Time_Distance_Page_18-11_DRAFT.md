@@ -469,3 +469,11 @@ Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
   - `begin_waking_up()` unterscheidet jetzt: Modus 3/4 hebt die Pause weiterhin sofort auf, Modus 5/6 setzt nur noch `inverter_pause_lift_pending=true` (die eigentliche Aufhebung passiert spaeter in `handle_inverter_pause_lift_delay()`).
 - **Tests:** 3 bestehende v25-Tests an die neue Verzoegerung angepasst (`inverter_delay_seconds=2` gesetzt, Timing-Margen neu berechnet), dabei einen eigenen Testfehler gefunden und behoben (Pruefung auf `sent_with_id(...).empty()` war falsch, weil der Hintergrund-PID-Scan waehrend der Verzoegerung dieselbe CAN-ID weiterbenutzt -- stattdessen gezielte Byte-Muster-Suche). 2 neue Tests: Feld-Platzierung/HTML-Pruefung, normale Frames laufen waehrend der Vorlauf-Verzoegerung weiter. Ein Test umbenannt (`..._lifts_the_pause_at_once` -> `..._lifts_the_pause_after_the_delay`), da sich das Verhalten geaendert hat. 753 Tests (752 bestanden, 1 uebersprungen wie immer), clang-format sauber.
 - **Patch** `zoe_komplett_v26.patch` (11 Dateien, 5282 Zeilen), verifiziert mit `git apply --check -R`.
+
+## Zum Bauen vorgemerkt, Punkt 1 (24.11., Fehler, gefunden anhand Screenshot "/cellmonitor"): `balancing_status` bleibt nach dem letzten Zellen-Flag faelschlich auf ACTIVE haengen
+- **Anlass:** Nutzer-Screenshot von `/cellmonitor`: keine Zelle mehr markiert (alle `cell_balancing_status`-Bits 0), trotzdem zeigt die Seite weiterhin "Balancing is active now!".
+- **Fehler** (`RENAULT-ZOE-GEN2-BATTERY.cpp:242-250`): Die Schleife ueber die 96 Zellen setzt `datalayer_battery->status.balancing_status = BALANCING_STATUS_ACTIVE`, sobald irgendeine Zelle geflaggt ist -- aber nirgends wird er wieder auf `BALANCING_STATUS_READY` zurueckgesetzt, wenn **keine** Zelle mehr geflaggt ist. Einmal `ACTIVE` gesetzt, bleibt es fuer immer so.
+- **Vergleich:** `BMW-PHEV-BATTERY.cpp:541-543` macht es richtig -- setzt bei "inaktiv" explizit `BALANCING_STATUS_READY`.
+- **Fix (Vorschlag, noch nicht gebaut):** nach der Schleife pruefen, ob irgendeine Zelle noch geflaggt ist; wenn nicht, `balancing_status = BALANCING_STATUS_READY` setzen (statt den alten Wert stehen zu lassen).
+- **Tests bei "bauen":** Zellen flaggen -> `balancing_status == ACTIVE`; danach alle Flags wieder auf 0 -> `balancing_status == READY`, nicht mehr `ACTIVE`.
+- Wartet auf "bauen".
