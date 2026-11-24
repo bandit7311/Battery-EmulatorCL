@@ -477,3 +477,23 @@ Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
 - **Fix (Vorschlag, noch nicht gebaut):** nach der Schleife pruefen, ob irgendeine Zelle noch geflaggt ist; wenn nicht, `balancing_status = BALANCING_STATUS_READY` setzen (statt den alten Wert stehen zu lassen).
 - **Tests bei "bauen":** Zellen flaggen -> `balancing_status == ACTIVE`; danach alle Flags wieder auf 0 -> `balancing_status == READY`, nicht mehr `ACTIVE`.
 - Wartet auf "bauen".
+
+## Zum Bauen vorgemerkt, Punkt 2 (24.11., Nutzer-Vorgabe): Vorhersage "wie viele Zellen fallen jetzt ins Balancing", neue Zeile bei Go sleep/Wake up
+- **Anlass:** Nutzer-Vorgabe anhand `rbms_balancing_20261123172721.html` (vom Nutzer gegeben, Firmware-Reverse-Engineering der LBC-Balancier-Logik): neue Anzeige auf `/cellmonitor`, die berechnet, wie viele der 96 Zellen bei einer **jetzt** angeforderten Balancierung einsteigen wuerden.
+- **Datenquelle, Nutzer-Vorgabe (nicht die UDS-Zellwerte):** die 96 Zellspannungen aus den `0x5xx`-CAN-Broadcast-Frames ("Zellframes"), nicht aus `cell_voltages_mV[]` (das ist UDS-Polling, `POLL_CELL_0..95`). Diese Frames werden im Zoe-Gen2-Treiber (`RENAULT-ZOE-GEN2-BATTERY.cpp:1120-1143`) bereits erkannt, aber die Nutzlast bisher nur fuer "still alive" benutzt und sonst verworfen.
+- **Frame-Dekodierung und Zuordnung, empirisch bestaetigt (24.11., zwei echte Zoe-Ph2-Logs des Nutzers gegen den vertrauenswuerdigen `0x4DB`-Min/Max-Broadcast gegengerechnet, UND durch die Zoe-Ph2-DBC-Tabelle des Nutzers unabhaengig bestaetigt):**
+  - Je Frame (8 Byte, 5 Zellen, 12 Bit): `Z1=(B0<<4)|(B1>>4)`, `Z2=((B1&0x0F)<<8)|B2`, `Z3=(B3<<4)|(B4>>4)`, `Z4=((B4&0x0F)<<8)|B5`, `Z5=(B6<<4)|(B7>>4)`, `mV = Rohwert + 2000`.
+  - `0x5DD` ist die Ausnahme: nur **2 Byte** DLC, eine einzelne Zelle, `raw=(B0<<4)|(B1>>4)`, `mV=raw+2000`.
+  - Platzhalter (Aufwecken) ausserhalb 2500-4500 mV werden verworfen.
+  - Zuordnung (20 Frames, 19x5 + 1x1 = 96 Zellen): `0x5F7`=1-5, `0x5F4`=6-10, `0x5F2`=11-15, `0x5F1`=16-20, `0x5F0`=21-25, `0x5ED`=26-30, `0x5EA`=31-35, `0x5D9`=36-40, `0x5D7`=41-45, `0x5D6`=46-50, `0x5CC`=51-55, `0x5CB`=56-60, `0x5C9`=61-65, `0x5B7`=66-70, `0x5B5`=71-75, `0x5B4`=76-80, `0x5AC`=81-85, `0x5AD`=86-90, `0x5A1`=91-95, `0x5DD`=96.
+  - **Wichtig:** `0x5DC` (ebenfalls im bisherigen "still alive"-Case) ist **keine** Zellspannung -- dekodiert zu Werten, die nicht zum echten `0x4DB`-Pack-Zustand passen (z. B. 3333/3365 mV, waehrend der Pack real bei 4156-4167 mV lag). Bleibt wie bisher nur "still alive", wie auch `0x4AE`/`0x4AF`/`0x612`.
+- **Berechnung (aus `rbms_balancing_20261123172721.html` uebernommen):** SOC je Zelle ueber die dort angegebene 101-Punkte-OCV-Kennlinie (0-100 %, linear interpoliert). Totband 2 % normal, 5 % wenn die SOC der jeweils gepruefte Zelle selbst zwischen 30 und 40 % liegt (**Nutzer-Entscheidung:** je Zelle einzeln, nicht eine gemeinsame Pack-SOC -- so wie im Demo-Rechner der HTML-Datei). Schwaechste Zelle = Minimum-SOC aller gelesenen Zellen. Eine Zelle faellt ins Balancing, wenn ihre SOC um mehr als das Totband ueber der schwaechsten liegt.
+- **Anzeige (Nutzer-Vorgabe):** neue Box bei den Knoepfen "Go sleep"/"Wake up" auf `/cellmonitor`:
+  - Zeile 1: "Balancing now requested will end up in X cells balancing."
+  - Zeile 2 (Nutzer-Vorgabe, 24.11.: "dann zeigen wir diese eben auch an, unten im gleichen Feld, von der laengsten Zelle"): erwartete Balancierdauer der am laengsten balancierenden Zelle (SOH-skaliert, Formel `Minuten = SOH * (dSOC - Totband) * 7.62`, `SOH` aus `datalayer_battery->status.soh_pptt`/`battery_soh`). SOH beeinflusst laut Formel nur die Dauer, nicht ob eine Zelle ueberhaupt reinfaellt -- deshalb nur in Zeile 2, nicht in der Zaehl-Zeile.
+  - Uebergangsweise (bis am Pack bestaetigt): Debug-Vergleichszeile Broadcast- vs. UDS-Zellwerte nebeneinander, danach wieder entfernen.
+- **Validiert (zwei Testfaelle, mit derselben Formel durchgerechnet):**
+  - Screenshot-Datensatz (24.11., Min/Max 4102/4124 mV): **0 Zellen** wuerden einsteigen (schwaechste Zelle 94,50 % SOC, staerkste 96,42 %, Differenz 1,92 % knapp unter dem 2 %-Totband).
+  - DBC-bestaetigter Datensatz (24.11., Min/Max 4054/4078 mV): **6 Zellen** wuerden einsteigen (Zellen 89, 90, 91, 92, 93, 95, je 2,11 % ueber der schwaechsten Zelle 3).
+- **Tests bei "bauen":** Frame-Dekodierung (5-Zellen- und 1-Zellen-Fall, Platzhalter-Filter), SOC/Totband-Berechnung gegen die obigen zwei validierten Datensaetze (0 bzw. 6 Zellen erwartet), Box-Text und Positionspruefung, Dauer-Berechnung mit SOH.
+- Wartet auf "bauen".
