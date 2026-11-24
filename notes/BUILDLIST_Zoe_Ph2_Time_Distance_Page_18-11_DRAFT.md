@@ -528,3 +528,10 @@ Zwei Beobachtungen auf der Advanced-Seite, fuer spaeter vorgemerkt:
   - Kurve nur gezeigt, wenn alle 96 Zellen einmal gueltig gelesen wurden (gleiche Huerde wie die Vorhersage direkt darueber).
 - **Tests:** 1 neu -- DBC-Datensatz (schwaechste Zelle 3 bei 4054 mV -> 90,25 % SOC -> rundet auf 90 %, von Hand nachgerechnet: `x=281.8`, `y=31.6`), prueft exakte `cx`/`cy` des Punkts, Position relativ zur Checkbox, sowie die neuen Achsenbeschriftungen (10 %-/5-mV-Schritte). Insgesamt 763 Tests (762 bestanden, 1 uebersprungen wie immer), clang-format sauber.
 - **Patch** `zoe_komplett_v29.patch` (11 Dateien, 5946 Zeilen), verifiziert mit `git apply --check -R`.
+
+## v30 (24.11., Fehler gefunden vom Nutzer und sofort gebaut): LBC2 time/distance wurden mit eingeschalteter Broadcast-Checkbox nicht mehr gelesen
+- **Anlass:** Nutzer-Frage "kann es sein dass ... kein LBC2 distance und LBC2 time mehr ausliest?" -- im Code bestaetigt, kein Verdacht ins Blaue.
+- **Fehler** (`RENAULT-ZOE-GEN2-BATTERY.cpp`, `handle_pid()`): Das periodische Nachlesen von LBC2-Zeit/-Distanz wurde bisher ausschliesslich ausgeloest, wenn `pid == POLL_CELL_95` ankam -- das ist das **letzte** Element von `pid_scan_list_with_cells`. Mit eingeschalteter Checkbox laeuft aber `pid_scan_list_no_cells`, die `POLL_CELL_95` ueberhaupt nie enthaelt -- der Trigger feuerte also nie mehr, sobald die Checkbox an war.
+- **Fix:** `at_end_of_pid_scan = use_broadcast_cells ? (pid == POLL_SOC_MAX) : (pid == POLL_CELL_95)` -- richtet sich nach dem tatsaechlich letzten Element der gerade aktiven Liste, nicht fest nach `POLL_CELL_95`.
+- **Test:** `Lbc2_time_and_distance_are_still_read_with_the_broadcast_cells_switch_on` -- Checkbox an, `POLL_CELL_95` antworten lassen (darf **nicht** mehr ausloesen), dann `POLL_SOC_MAX` (muss ausloesen, geprueft ueber eine gesendete UDS-Anfrage auf `LBC2_UDS_REQUEST_ID`). 764 Tests (763 bestanden, 1 uebersprungen wie immer), clang-format sauber.
+- **Patch** `zoe_komplett_v30.patch` (11 Dateien, 5967 Zeilen), verifiziert mit `git apply --check -R`.
